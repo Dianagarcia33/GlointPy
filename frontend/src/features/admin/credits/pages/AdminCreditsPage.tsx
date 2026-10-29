@@ -35,6 +35,7 @@ import {
 import { ApproveCreditModal } from '../components/ApproveCreditModal';
 import { CreditConfigModal } from '../components/CreditConfigModal';
 
+import { SkeletonTable } from '../../../../components/common/Skeleton';
 export const AdminCreditsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'PENDING' | 'ACTIVE' | 'REVIEW_INSTALLMENTS' | 'HISTORY'>('PENDING');
   const [credits, setCredits] = useState<Credit[]>([]);
@@ -348,8 +349,8 @@ export const AdminCreditsPage: React.FC = () => {
 
       {/* Contenido según Pestaña */}
       {loading ? (
-        <div className="py-20 text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-amber-500 mx-auto" />
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
+          <SkeletonTable rows={5} label="Cargando créditos…" />
         </div>
       ) : activeTab === 'REVIEW_INSTALLMENTS' ? (
         /* Pestaña: Cuotas por Validar */

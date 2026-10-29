@@ -24,6 +24,7 @@ import {
 import { RequestCreditModal } from '../components/RequestCreditModal';
 import { PayInstallmentModal } from '../components/PayInstallmentModal';
 
+import { SkeletonPage } from '../../../components/common/Skeleton';
 export const CreditsPage: React.FC = () => {
   const [credits, setCredits] = useState<Credit[]>([]);
   const [config, setConfig] = useState<CreditConfig | null>(null);
@@ -170,9 +171,7 @@ export const CreditsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-        </div>
+        <SkeletonPage label="Cargando tu línea de crédito…" />
       </div>
     );
   }

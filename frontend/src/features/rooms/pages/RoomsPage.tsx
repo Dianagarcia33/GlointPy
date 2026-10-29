@@ -26,6 +26,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { Can } from '../../../components/security/Can';
 import { formatColombiaDate, getColombiaToday } from '../../../utils/format';
 
+import { Skeleton, SkeletonRegion } from '../../../components/common/Skeleton';
 export const RoomsPage: React.FC = () => {
   const { user } = useAuthStore();
   const isAdmin = Boolean(user?.roles?.some(r => ['admin', 'superadmin'].includes(r.name.toLowerCase())) || user?.is_superuser);
@@ -405,10 +406,23 @@ export const RoomsPage: React.FC = () => {
 
           {/* Estado de carga */}
           {isLoading ? (
-            <div className="p-16 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-200">
-              <Loader2 className="w-8 h-8 animate-spin text-brand-600 mb-2" />
-              <p className="text-xs font-semibold text-slate-500">Cargando disponibilidad de salas...</p>
-            </div>
+            <SkeletonRegion label="Cargando disponibilidad de salas…" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1 space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-3 w-56 max-w-full bg-slate-100" />
+                    <Skeleton className="h-8 w-28 rounded-full bg-slate-100" />
+                  </div>
+                ))}
+              </div>
+              <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 space-y-3">
+                <Skeleton className="h-6 w-56" />
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-14 w-full rounded-xl bg-slate-100" />
+                ))}
+              </div>
+            </SkeletonRegion>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Columna Izquierda: Salas y su estado actual */}

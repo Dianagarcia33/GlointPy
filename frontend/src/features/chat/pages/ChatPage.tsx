@@ -180,6 +180,7 @@ export const ChatPage: React.FC = () => {
           onStartNewChat={() => { setActionError(null); setIsModalOpen(true); }}
           canStartNewChat={canSendChat}
           currentUserId={user?.id}
+          loading={loading}
         />
       </div>
 

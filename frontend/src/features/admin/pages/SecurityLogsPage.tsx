@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { auditService, SecurityAuditLog } from '../../../services/audit';
 
+import { SkeletonTableRows } from '../../../components/common/Skeleton';
 export const SecurityLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<SecurityAuditLog[]>([]);
   const [total, setTotal] = useState(0);
@@ -369,12 +370,7 @@ export const SecurityLogsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="py-16 text-center text-slate-400">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-brand-500" />
-                    <span>Consultando registros de auditoría...</span>
-                  </td>
-                </tr>
+                <SkeletonTableRows rows={8} cols={6} label="Consultando registros de auditoría…" />
               ) : logs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-slate-400">

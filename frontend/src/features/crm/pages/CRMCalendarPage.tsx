@@ -36,6 +36,7 @@ import {
 import { crmEmailService } from '../../../services/crmEmailService';
 import { crmService, CRMLead } from '../../../services/crmService';
 
+import { SkeletonList } from '../../../components/common/Skeleton';
 const MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
@@ -417,10 +418,7 @@ export const CRMCalendarPage: React.FC = () => {
         {/* Lista de Citas en el Panel Lateral */}
         <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
           {loadingEvents ? (
-            <div className="h-40 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
-              <RefreshCw className="w-5 h-5 text-brand-500 animate-spin" />
-              <span>Cargando eventos...</span>
-            </div>
+            <SkeletonList rows={5} label="Cargando eventos…" />
           ) : filteredEvents.length === 0 ? (
             searchFilter.trim() ? (
               <div className="h-48 flex flex-col items-center justify-center p-4 text-center text-slate-400 space-y-2.5 animate-in fade-in duration-200">

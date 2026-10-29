@@ -27,6 +27,7 @@ import { ConfirmationModal } from '../../../../components/common/ConfirmationMod
 import { Can } from '../../../../components/security/Can';
 import { formatCurrency } from '../../../../utils/format';
 
+import { SkeletonTableRows } from '../../../../components/common/Skeleton';
 export const AdminExternalAppsPage: React.FC = () => {
   const [apps, setApps] = useState<ExternalApp[]>([]);
   const [orders, setOrders] = useState<ExternalPaymentOrder[]>([]);
@@ -397,12 +398,7 @@ export const AdminExternalAppsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {loading ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-brand-600" />
-                      Cargando aplicaciones externas...
-                    </td>
-                  </tr>
+                  <SkeletonTableRows rows={5} cols={7} label="Cargando aplicaciones externas…" />
                 ) : apps.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
@@ -568,12 +564,7 @@ export const AdminExternalAppsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {ordersLoading ? (
-                  <tr>
-                    <td colSpan={8} className="py-10 text-center text-slate-400">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-brand-600" />
-                      Cargando órdenes...
-                    </td>
-                  </tr>
+                  <SkeletonTableRows rows={6} cols={8} label="Cargando órdenes…" />
                 ) : filteredOrders.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-10 text-center text-slate-400">

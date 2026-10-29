@@ -22,6 +22,7 @@ import {
 import { SupplierModal } from '../components/SupplierModal';
 import { Can } from '../../../components/security/Can';
 
+import { SkeletonTable } from '../../../components/common/Skeleton';
 export const SuppliersPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [total, setTotal] = useState(0);
@@ -243,10 +244,7 @@ export const SuppliersPage: React.FC = () => {
       {/* Tabla de Proveedores */}
       <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 bg-white p-8">
-            <div className="w-8 h-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin mb-2" />
-            <span className="text-xs font-semibold text-slate-400">Cargando directorio de proveedores...</span>
-          </div>
+          <SkeletonTable rows={6} label="Cargando directorio de proveedores…" />
         ) : suppliers.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 bg-white p-8 text-center">
             <Building className="w-12 h-12 text-slate-300 stroke-1 mb-2" />

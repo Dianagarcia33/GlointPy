@@ -29,6 +29,7 @@ import {
   TargetOptionsResponse 
 } from '../../../../services/notificationAdmin';
 
+import { Skeleton, SkeletonRegion } from '../../../../components/common/Skeleton';
 export const AdminNotificationsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'send' | 'history'>('send');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -489,10 +490,9 @@ export const AdminNotificationsPage: React.FC = () => {
                       Selecciona el Rol Destinatario *
                     </label>
                     {isLoadingOptions && availableRoles.length === 0 ? (
-                      <div className="flex items-center gap-2 p-3 text-xs text-slate-500 bg-white border border-slate-200 rounded-xl">
-                        <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
-                        <span>Cargando roles...</span>
-                      </div>
+                      <SkeletonRegion label="Cargando roles…">
+                        <Skeleton className="h-11 w-full rounded-xl" />
+                      </SkeletonRegion>
                     ) : isErrorOptions && availableRoles.length === 0 ? (
                       <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">

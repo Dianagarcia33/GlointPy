@@ -10,6 +10,7 @@ import { DocumentPagesPreview, printPaginatedDocument } from '../../../component
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 
+import { SkeletonPage } from '../../../components/common/Skeleton';
 export const InvestmentDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -51,7 +52,7 @@ export const InvestmentDetailPage = () => {
     }, [id, navigate]);
 
     if (loading) {
-        return <div className="p-8 text-center text-slate-500">Cargando detalles...</div>;
+        return <SkeletonPage label="Cargando detalles de la inversión…" />;
     }
 
     if (!inv) return null;

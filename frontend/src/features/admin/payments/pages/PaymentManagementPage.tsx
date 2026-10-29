@@ -12,6 +12,7 @@ import { Can } from '../../../../components/security/Can';
 import { AdminRechargesManager } from '../components/AdminRechargesManager';
 import { getAllRechargesAdmin } from '../../../../services/wallets';
 
+import { SkeletonTableRows } from '../../../../components/common/Skeleton';
 export const PaymentManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'withdrawals' | 'recharges'>('withdrawals');
   const [pendingRechargesCount, setPendingRechargesCount] = useState<number>(0);
@@ -838,12 +839,7 @@ export const PaymentManagementPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading && !data ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-brand-600 mx-auto" />
-                    <p className="mt-2 text-slate-500 font-medium text-sm">Cargando solicitudes de retiro...</p>
-                  </td>
-                </tr>
+                <SkeletonTableRows rows={7} cols={7} label="Cargando solicitudes de retiro…" />
               ) : filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">

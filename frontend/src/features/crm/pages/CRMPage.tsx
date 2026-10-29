@@ -27,6 +27,7 @@ import { CRMFormKeysModal } from '../components/CRMFormKeysModal';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 import { Can } from '../../../components/security/Can';
 
+import { Skeleton, SkeletonCards } from '../../../components/common/Skeleton';
 export const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'grid' | 'kanban'>('grid');
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
@@ -42,13 +43,13 @@ export const CRMPage: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<CRMLead | null>(null);
 
   // Query: KPIs
-  const { data: kpis, refetch: refetchKPIs } = useQuery<CRMKPIs>({
+  const { data: kpis, isLoading: loadingKpis, refetch: refetchKPIs } = useQuery<CRMKPIs>({
     queryKey: ['crm_kpis'],
     queryFn: () => crmService.getKPIs()
   });
 
   // Query: Proyectos
-  const { data: projects = [], refetch: refetchProjects } = useQuery<CRMProject[]>({
+  const { data: projects = [], isLoading: loadingProjects, refetch: refetchProjects } = useQuery<CRMProject[]>({
     queryKey: ['crm_projects'],
     queryFn: () => crmService.getProjects()
   });
@@ -177,7 +178,7 @@ export const CRMPage: React.FC = () => {
             </div>
           </div>
           <span className="text-2xl font-black text-slate-900 block tracking-tight font-mono">
-            {kpis?.total_projects || 0}
+            {loadingKpis ? <Skeleton className="h-8 w-24 bg-slate-300" /> : (kpis?.total_projects || 0)}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block">
             Desarrollos e inversiones activas
@@ -194,7 +195,7 @@ export const CRMPage: React.FC = () => {
             </div>
           </div>
           <span className="text-2xl font-black text-slate-900 block tracking-tight font-mono">
-            {kpis?.total_leads || 0}
+            {loadingKpis ? <Skeleton className="h-8 w-24 bg-slate-300" /> : (kpis?.total_leads || 0)}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block">
             Oportunidades en seguimiento
@@ -211,7 +212,7 @@ export const CRMPage: React.FC = () => {
             </div>
           </div>
           <span className="text-2xl font-black text-emerald-600 block tracking-tight font-mono">
-            ${(kpis?.won_amount || 0).toLocaleString('es-CO')}
+            {loadingKpis ? <Skeleton className="h-8 w-24 bg-slate-300" /> : `$${(kpis?.won_amount || 0).toLocaleString('es-CO')}`}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block">
             Cierres ganados del equipo
@@ -228,7 +229,7 @@ export const CRMPage: React.FC = () => {
             </div>
           </div>
           <span className="text-2xl font-black text-amber-600 block tracking-tight font-mono">
-            {kpis?.conversion_rate || 0}%
+            {loadingKpis ? <Skeleton className="h-8 w-24 bg-slate-300" /> : `${kpis?.conversion_rate || 0}%`}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block">
             Efectividad de cierre comercial
@@ -284,7 +285,9 @@ export const CRMPage: React.FC = () => {
       </div>
 
       {/* Vista de Contenido según pestaña */}
-      {activeTab === 'grid' ? (
+      {loadingProjects ? (
+        <SkeletonCards count={3} label="Cargando proyectos…" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" />
+      ) : activeTab === 'grid' ? (
         <ProjectGrid
           projects={projects}
           onSelectProject={handleSelectProject}

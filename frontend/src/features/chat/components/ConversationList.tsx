@@ -3,6 +3,7 @@ import { MessageSquare, UserPlus, Search, Circle, Users } from 'lucide-react';
 import { ChatRoom, ChatUser } from '../../../services/chatService';
 import { getMediaUrl } from '../../../services/api';
 import { formatConversationDate } from '../../../utils/format';
+import { Skeleton, SkeletonRegion } from '../../../components/common/Skeleton';
 
 interface ConversationListProps {
   rooms: ChatRoom[];
@@ -11,6 +12,7 @@ interface ConversationListProps {
   onStartNewChat: () => void;
   canStartNewChat?: boolean;
   currentUserId?: number;
+  loading?: boolean;
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
@@ -18,7 +20,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   selectedRoomId,
   onSelectRoom,
   onStartNewChat,
-  canStartNewChat = true
+  canStartNewChat = true,
+  loading = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -67,7 +70,19 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
       {/* Lista de salas */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {filteredRooms.length === 0 ? (
+        {loading && rooms.length === 0 ? (
+          <SkeletonRegion label="Cargando conversaciones…" className="space-y-1">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="p-3 rounded-xl flex items-center gap-3">
+                <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className={`h-3.5 ${i % 2 ? 'w-2/3' : 'w-1/2'}`} />
+                  <Skeleton className="h-3 w-1/3 bg-slate-100" />
+                </div>
+              </div>
+            ))}
+          </SkeletonRegion>
+        ) : filteredRooms.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-xs leading-relaxed">
             No tienes chats activos.<br />¡Haz clic en <span className="font-semibold text-brand-600 font-outfit">"Nuevo"</span> para iniciar uno!
           </div>
