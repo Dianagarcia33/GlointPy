@@ -15,9 +15,17 @@ class FakeDB:
         return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: rows))
 
 
-def fake_firebase(monkeypatch):
-    """Sustituye firebase_admin.messaging por un doble que guarda lo que se le pasa."""
+def fake_firebase(monkeypatch, fail_with=None):
+    """Sustituye firebase_admin.messaging por un doble que guarda lo que se le pasa (y puede fallar con `fail_with`)."""
     sent = []
+
+    def respond(message):
+        sent.append(message)
+        ok = fail_with is None
+        items = [SimpleNamespace(success=ok, exception=fail_with) for _ in message.tokens]
+        return SimpleNamespace(
+            success_count=len(items) if ok else 0, failure_count=0 if ok else len(items), responses=items
+        )
 
     class Record:
         def __init__(self, **kwargs):
@@ -29,9 +37,7 @@ def fake_firebase(monkeypatch):
     messaging.APNSPayload = Record
     messaging.APNSConfig = Record
     messaging.MulticastMessage = Record
-    messaging.send_each_for_multicast = lambda message: (
-        sent.append(message) or SimpleNamespace(success_count=len(message.tokens), failure_count=0)
-    )
+    messaging.send_each_for_multicast = respond
     package = ModuleType("firebase_admin")
     package.messaging = messaging
     monkeypatch.setitem(sys.modules, "firebase_admin", package)
@@ -40,8 +46,8 @@ def fake_firebase(monkeypatch):
     return sent
 
 
-def send(monkeypatch, tokens=("tok-ios",)):
-    sent = fake_firebase(monkeypatch)
+def send(monkeypatch, tokens=("tok-ios",), fail_with=None):
+    sent = fake_firebase(monkeypatch, fail_with)
     result = asyncio.run(push.PushNotificationService.send_push_to_user(
         FakeDB(tokens), user_id=1, title="Ana", body="Hola", data={"type": "chat", "room_id": "5"}
     ))
@@ -60,3 +66,19 @@ def test_el_sonido_no_altera_el_contenido(monkeypatch):
     assert message.tokens == ["a", "b"]
     assert (message.notification.title, message.notification.body) == ("Ana", "Hola")
     assert message.data == {"type": "chat", "room_id": "5"}
+
+
+def test_registra_el_motivo_cuando_firebase_rechaza_un_aviso(monkeypatch, caplog):
+    with caplog.at_level("WARNING"):
+        result, _ = send(monkeypatch, tokens=("abcdef123456",), fail_with=Exception("APNs auth key invalid"))
+    assert result["failed_count"] == 1
+    assert "APNs auth key invalid" in caplog.text and "...123456" in caplog.text
+    assert "abcdef123456" not in caplog.text          # el token completo no se escribe en el log
+
+
+def test_registra_cuando_el_usuario_no_tiene_dispositivos(monkeypatch, caplog):
+    fake_firebase(monkeypatch)
+    with caplog.at_level("INFO"):
+        result = asyncio.run(push.PushNotificationService.send_push_to_user(FakeDB([]), 7, "t", "b"))
+    assert result["sent_count"] == 0
+    assert "usuario 7 no tiene dispositivos" in caplog.text

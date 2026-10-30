@@ -93,6 +93,7 @@ class PushNotificationService:
         active_tokens = result.scalars().all()
 
         if not active_tokens:
+            logger.info(f"Push omitido: el usuario {user_id} no tiene dispositivos con token activo.")
             return {
                 "success": False,
                 "sent_count": 0,
@@ -119,6 +120,10 @@ class PushNotificationService:
                 response = messaging.send_each_for_multicast(multicast_message)
                 sent_success = response.success_count
                 failed_count = response.failure_count
+                # Motivo de cada fallo (p. ej. clave APNs sin cargar en Firebase, token vencido); sin el token completo
+                for token, item in zip(tokens_list, response.responses):
+                    if not item.success:
+                        logger.warning(f"Push fallido para usuario {user_id} (token ...{token[-6:]}): {item.exception}")
                 logger.info(f"Push enviado a usuario {user_id}: {sent_success} exitosos, {failed_count} fallidos.")
             except Exception as err:
                 logger.error(f"Error al enviar push vía FCM: {err}")
