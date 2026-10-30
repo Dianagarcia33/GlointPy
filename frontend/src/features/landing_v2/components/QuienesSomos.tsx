@@ -27,7 +27,7 @@ export function QuienesSomos() {
   ];
 
   return (
-    <section className="py-24 bg-white overflow-hidden">
+    <section className="relative -mt-px py-24 bg-white overflow-hidden">
       <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-16 items-center">
 
         {/* CONTENIDO IZQUIERDO */}

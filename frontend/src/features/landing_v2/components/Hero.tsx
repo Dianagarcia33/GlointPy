@@ -321,13 +321,6 @@ export function Hero() {
           </motion.div>
         </motion.div>
       </div>
-
-      {/* Bottom wave */}
-      <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-        <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block">
-          <path d="M0,35 C360,65 1080,10 1440,40 L1440,60 L0,60 Z" fill="#ffffff" />
-        </svg>
-      </div>
     </section>
   );
 }
