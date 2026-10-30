@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,11 @@ from src.core.database import get_db
 
 
 from src.core.responses import ColombiaJSONResponse
+
+# Sin esta configuración Python solo muestra WARNING o más: los mensajes informativos de la app
+# (Firebase iniciado, avisos push enviados...) no llegaban nunca a los logs del contenedor.
+logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
+logging.getLogger("src").setLevel(logging.INFO)
 
 app = FastAPI(
     title="GlointPy API",
