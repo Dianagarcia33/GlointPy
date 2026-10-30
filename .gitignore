@@ -18,3 +18,6 @@ gloint.db
 
 # OS
 .DS_Store
+
+# Credenciales que solo existen en el servidor (p. ej. cuenta de servicio de Firebase)
+backend/secrets/
