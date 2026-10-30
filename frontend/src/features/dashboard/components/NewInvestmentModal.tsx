@@ -8,6 +8,7 @@ import { sarlaftService } from '../../../services/sarlaft';
 import { compressImage } from '../../../utils/imageCompression';
 import { useAuthStore } from '../../../store/authStore';
 import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
+import { ONLINE_PAYMENTS_ENABLED } from '../../../constants/features';
 import { PaymentLogosRow } from '../../../components/payments/PaymentLogos';
 
 interface NewInvestmentModalProps {
@@ -43,7 +44,7 @@ export const NewInvestmentModal = ({
     const [useWallet, setUseWallet] = useState(false);
     const [walletAmount, setWalletAmount] = useState<number>(0);
     const [walletNotice, setWalletNotice] = useState<string | null>(null);
-    const [paymentChoice, setPaymentChoice] = useState<'YOINT_ONLINE' | 'MANUAL_VOUCHER'>('YOINT_ONLINE');
+    const [paymentChoice, setPaymentChoice] = useState<'YOINT_ONLINE' | 'MANUAL_VOUCHER'>(ONLINE_PAYMENTS_ENABLED ? 'YOINT_ONLINE' : 'MANUAL_VOUCHER');
     const [autoApproved, setAutoApproved] = useState(false);
     const [createdRequestId, setCreatedRequestId] = useState<number | null>(null);
     const [files, setFiles] = useState<FileList | null>(null);
@@ -111,7 +112,7 @@ export const NewInvestmentModal = ({
         setSubmitError(null);
         setCreatedRequestId(null);
         setAutoApproved(false);
-        setPaymentChoice('YOINT_ONLINE');
+        setPaymentChoice(ONLINE_PAYMENTS_ENABLED ? 'YOINT_ONLINE' : 'MANUAL_VOUCHER');
         onClose();
     };
 
@@ -610,7 +611,7 @@ export const NewInvestmentModal = ({
                             </div>
 
                             {/* Selector de Método de Pago si hay saldo a transferir */}
-                            {amountToPay > 0 && (
+                            {ONLINE_PAYMENTS_ENABLED && amountToPay > 0 && (
                                 <div className="space-y-3 pt-1">
                                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                                         Selecciona cómo pagar los {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amountToPay)}:

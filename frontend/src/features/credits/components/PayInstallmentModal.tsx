@@ -16,6 +16,7 @@ import {
 import { CreditInstallment, payCreditInstallment } from '../../../services/credits';
 import { getMyWallet } from '../../../services/wallets';
 import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
+import { ONLINE_PAYMENTS_ENABLED } from '../../../constants/features';
 
 interface PayInstallmentModalProps {
   isOpen: boolean;
@@ -269,6 +270,7 @@ export const PayInstallmentModal: React.FC<PayInstallmentModalProps> = ({
                 <div className="space-y-4">
                   
                   {/* Selector de pestaña: Transferencia vs Yoint */}
+                  {ONLINE_PAYMENTS_ENABLED && (
                   <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl">
                     <button
                       type="button"
@@ -296,6 +298,7 @@ export const PayInstallmentModal: React.FC<PayInstallmentModalProps> = ({
                       Pago en Línea (PSE / Bancolombia)
                     </button>
                   </div>
+                  )}
 
                   {paymentTab === 'TRANSFER' ? (
                     <div className="space-y-4">

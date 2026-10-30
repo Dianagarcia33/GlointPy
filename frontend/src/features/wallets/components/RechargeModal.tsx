@@ -17,6 +17,7 @@ import { createWalletRecharge } from '../../../services/wallets';
 import { GLOINT_BANK_INFO } from '../../../constants/contactInfo';
 import { useAuthStore } from '../../../store/authStore';
 import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
+import { ONLINE_PAYMENTS_ENABLED } from '../../../constants/features';
 import { PaymentLogosRow } from '../../../components/payments/PaymentLogos';
 
 interface RechargeModalProps {
@@ -48,7 +49,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
     onSuccess
 }) => {
     const { user } = useAuthStore();
-    const [rechargeMode, setRechargeMode] = useState<'YOINT_ONLINE' | 'MANUAL_TRANSFER'>('YOINT_ONLINE');
+    const [rechargeMode, setRechargeMode] = useState<'YOINT_ONLINE' | 'MANUAL_TRANSFER'>(ONLINE_PAYMENTS_ENABLED ? 'YOINT_ONLINE' : 'MANUAL_TRANSFER');
     const [amount, setAmount] = useState<number | ''>(100000);
     const [paymentMethod, setPaymentMethod] = useState('Transferencia Bancolombia');
     const [referenceNumber, setReferenceNumber] = useState('');
@@ -153,6 +154,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                 ) : (
                     <div className="space-y-4 pt-2">
                         {/* Selector de Modo de Recarga */}
+                        {ONLINE_PAYMENTS_ENABLED && (
                         <div className="grid grid-cols-2 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80">
                             <button
                                 type="button"
@@ -182,6 +184,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                 <span>Transferencia Manual</span>
                             </button>
                         </div>
+                        )}
 
                         {error && (
                             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-xs text-rose-700 font-medium animate-in fade-in">
@@ -339,9 +342,6 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                             className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-hidden"
                                         >
                                             <option value="Transferencia Bancolombia">Transferencia Bancolombia</option>
-                                            <option value="Nequi">Nequi</option>
-                                            <option value="Daviplata">Daviplata</option>
-                                            <option value="PSE / Otra Entidad">PSE / Otra Entidad Bancaria</option>
                                             <option value="Depósito en Efectivo">Corresponsal / Depósito en Efectivo</option>
                                         </select>
                                     </div>
