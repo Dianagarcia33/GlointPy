@@ -702,12 +702,12 @@ class CRMEmailService:
             {
                 "id": "presentacion",
                 "name": " Presentación de Proyecto & Modelo Gloint",
-                "subject": "Oportunidad de Inversión y Rentabilidad - Gloint International Partners",
+                "subject": "Oportunidad de Inversión y Rentabilidad - Gloint Group",
                 "body_html": """
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
                     <h2 style="color: #0f172a; margin-top: 0; font-size: 20px;">Estimado/a cliente,</h2>
                     <p style="color: #475569; font-size: 14px; line-height: 1.6;">
-                        Es un gusto saludarte. Te compartimos la información y el dossier digital del proyecto de inversión en Gloint International Partners.
+                        Es un gusto saludarte. Te compartimos la información y el dossier digital del proyecto de inversión en Gloint Group.
                     </p>
                     <p style="color: #475569; font-size: 14px; line-height: 1.6;">
                         Nuestros proyectos ofrecen esquemas de rentabilidad fija y variable garantizada con respaldo en activos reales de alta valorización.
@@ -722,7 +722,7 @@ class CRMEmailService:
                     </p>
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
                     <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-                        GLOINT International Partners • Equipo Comercial
+                        GLOINT Group • Equipo Comercial
                     </p>
                 </div>
                 """
@@ -745,7 +745,7 @@ class CRMEmailService:
                     </p>
                     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
                     <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-                        GLOINT International Partners • Equipo Comercial
+                        GLOINT Group • Equipo Comercial
                     </p>
                 </div>
                 """

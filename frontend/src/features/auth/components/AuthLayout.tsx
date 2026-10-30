@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, Building2, FileCheck } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Nav as Navbar } from '../../landing_v2/components/Nav';
 import { Footer } from '../../landing_v2/components/Footer';
 import { CONTACT_INFO } from '../../../constants/contactInfo';
@@ -18,12 +18,13 @@ interface AuthLayoutProps {
   sidePanel?: React.ReactNode;
 }
 
+const BLACK_BG = '#0E0D0C';
 const NAVY_BG = 'linear-gradient(135deg, #0d1526 0%, #162040 60%, #0d1526 100%)';
 
-/** Líneas diagonales doradas y la G del logo, estáticas, como en el hero del inicio. */
-const BrandDecor: React.FC<{ watermarkClass: string }> = ({ watermarkClass }) => (
+/** Líneas diagonales doradas (opcionales) y la G del logo, estáticas, como en el hero del inicio. */
+const BrandDecor: React.FC<{ watermarkClass: string; lines?: boolean }> = ({ watermarkClass, lines = true }) => (
   <>
-    <svg aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.18]" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+    {lines && <svg aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.18]" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
       <defs>
         <linearGradient id="auth-lg" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#D4A537" />
@@ -33,16 +34,10 @@ const BrandDecor: React.FC<{ watermarkClass: string }> = ({ watermarkClass }) =>
       {[0, 1, 2, 3, 4, 5, 6].map((i) => (
         <line key={i} x1={i * 190} y1="0" x2={i * 190 + 300} y2="800" stroke="url(#auth-lg)" strokeWidth="1.2" />
       ))}
-    </svg>
+    </svg>}
     <img src="/logos/brand/g.png" alt="" aria-hidden="true" className={`absolute pointer-events-none select-none ${watermarkClass}`} />
   </>
 );
-
-const TRUST_POINTS = [
-  { icon: ShieldCheck, text: 'Conexión segura y cifrado de datos SSL' },
-  { icon: Building2, text: 'Empresa registrada en la Cámara de Comercio de Bogotá' },
-  { icon: FileCheck, text: 'Prevención de lavado de activos conforme al SARLAFT' },
-];
 
 export const AuthLayout: React.FC<AuthLayoutProps> = ({
   children,
@@ -58,12 +53,11 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
     return (
       <div className="gl-auth min-h-screen lg:grid lg:grid-cols-[1.05fr_1fr] font-inter bg-white">
         {/* Panel de marca */}
-        <aside className="relative overflow-hidden text-white flex flex-col justify-between px-6 py-6 sm:px-12 lg:py-14 lg:min-h-screen" style={{ background: NAVY_BG }}>
-          <BrandDecor watermarkClass="-right-24 -bottom-24 w-[520px] max-w-none opacity-[0.07] hidden lg:block" />
+        <aside className="relative overflow-hidden text-white flex flex-col justify-between px-6 py-6 sm:px-12 lg:py-14 lg:min-h-screen" style={{ background: BLACK_BG }}>
+          <BrandDecor lines={false} watermarkClass="-right-24 -bottom-24 w-[520px] max-w-none opacity-[0.07] hidden lg:block" />
 
           <Link to="/" aria-label="GLOINT Group, ir al inicio" className="relative z-10 inline-flex self-start">
-            <img src="/logos/brand/wordmark.png" alt="GLOINT Group" className="h-11 w-auto lg:hidden" />
-            <img src="/logos/brand/full.png" alt="GLOINT Group" className="hidden lg:block h-36 w-auto" />
+            <img src="/logos/brand/wordmark.png" alt="GLOINT Group" className="h-11 lg:h-12 w-auto" />
           </Link>
 
           <div className="relative z-10 hidden lg:block">
@@ -73,19 +67,12 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                   Ecosistema empresarial de <span style={{ color: '#D4A537' }}>inversión</span>,{' '}
                   <span style={{ color: '#D9DCE1' }}>comercio digital</span> y tecnología.
                 </h2>
-                <ul className="mt-10 space-y-4">
-                  {TRUST_POINTS.map(({ icon: Icon, text }) => (
-                    <li key={text} className="flex items-start gap-3 text-slate-300 text-sm">
-                      <Icon className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#D4A537' }} strokeWidth={1.75} aria-hidden="true" />
-                      {text}
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-5 text-sm text-slate-400">Empresa registrada en la Cámara de Comercio de Bogotá</p>
               </div>
             )}
           </div>
 
-          <p className="relative z-10 hidden lg:block text-xs text-slate-400">
+          <p className="relative z-10 hidden lg:block text-[11px] text-slate-500 mt-6">
             {CONTACT_INFO.companyName} · NIT {CONTACT_INFO.nit}
           </p>
         </aside>
@@ -100,9 +87,8 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           <div className={`w-full ${maxWidthClass}`}>
             {topBanner && <div className="mb-6">{topBanner}</div>}
             <div className="mb-8">
-              <div className="h-1 w-12 rounded-full mb-6" style={{ background: 'linear-gradient(90deg, #F3D27A, #B8861B)' }} aria-hidden="true" />
-              <h1 className="text-3xl font-extrabold text-slate-900 mb-2 font-montserrat tracking-tight">{title}</h1>
-              <p className="text-slate-600 text-sm leading-relaxed">{subtitle}</p>
+              <h1 className="text-4xl font-extrabold mb-3 font-montserrat tracking-tight" style={{ color: '#9A7415' }}>{title}</h1>
+              <p className="text-slate-500 text-[15px] leading-relaxed">{subtitle}</p>
             </div>
             {children}
           </div>

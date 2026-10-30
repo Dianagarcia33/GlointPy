@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { fetchApi } from '../../../services/api';
 import { useAuthStore } from '../../../store/authStore';
-import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole, AlertCircle } from 'lucide-react';
+import { Loader2, ArrowRight, Eye, EyeOff, LockKeyhole, AlertCircle } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
 
 export const LoginPage = () => {
@@ -66,17 +66,14 @@ export const LoginPage = () => {
     return (
         <AuthLayout 
             variant="split"
-            title="Iniciar sesión" 
+            title="Hola de nuevo" 
             subtitle="Accede a tu cuenta en el ecosistema GLOINT y descubre nuevas oportunidades para tu negocio."
             maxWidthClass="max-w-md"
         >
             <form onSubmit={handleSubmit} method="post" className="space-y-5">
                 <div>
-                    <label htmlFor="email" className="block text-sm font-bold text-slate-700 mb-2">Correo electrónico</label>
+                    <label htmlFor="email" className="block text-[13px] font-semibold text-slate-600 mb-2">Correo electrónico</label>
                     <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                        </div>
                         <input
                             type="email"
                             id="email"
@@ -84,7 +81,7 @@ export const LoginPage = () => {
                             autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                            className="block w-full px-4 h-12 bg-[#F3F3F5] hover:bg-[#EEEEF1] border border-transparent rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all"
                             placeholder="nombre@empresa.com"
                             required
                         />
@@ -93,15 +90,12 @@ export const LoginPage = () => {
 
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label htmlFor="password" className="block text-sm font-bold text-slate-700">Contraseña</label>
-                        <Link to="/forgot-password" className="text-xs font-semibold text-brand-500 hover:text-brand-600 transition-colors">
+                        <label htmlFor="password" className="block text-[13px] font-semibold text-slate-600">Contraseña</label>
+                        <Link to="/forgot-password" className="text-[13px] font-medium text-brand-500 hover:text-brand-600 transition-colors">
                             ¿Olvidaste tu contraseña?
                         </Link>
                     </div>
                     <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <LockKeyhole className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                        </div>
                         <input
                             type={showPassword ? "text" : "password"}
                             id="password"
@@ -112,7 +106,7 @@ export const LoginPage = () => {
                             autoCorrect="off"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                            className="block w-full pl-4 pr-12 h-12 bg-[#F3F3F5] hover:bg-[#EEEEF1] border border-transparent rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all"
                             placeholder="••••••••"
                             required
                         />
@@ -138,7 +132,7 @@ export const LoginPage = () => {
                 <button
                     type="submit"
                     disabled={loginMutation.isPending}
-                    className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
+                    className="group w-full flex items-center justify-center h-12 px-4 rounded-xl text-[15px] font-semibold bg-[#0E0D0C] hover:bg-[#1C1A17] text-[#E9C871] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-6 active:scale-[0.98]"
                 >
                     {loginMutation.isPending ? (
                         <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
@@ -155,7 +149,7 @@ export const LoginPage = () => {
             <div className="mt-10 text-center">
                 <p className="text-sm text-slate-500">
                     ¿No tienes una cuenta?{' '}
-                    <Link to="/onboarding" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
+                    <Link to="/onboarding" className="font-semibold text-brand-500 hover:text-brand-600 transition-colors">
                         Regístrate aquí
                     </Link>
                 </p>

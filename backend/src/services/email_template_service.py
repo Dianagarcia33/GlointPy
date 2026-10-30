@@ -2,7 +2,7 @@
 Servicio y Estándar de Plantillas Corporativas de Correo Electrónico para GLOINT.
 
 Este módulo define el estándar de diseño visual e identidad de marca para todas las 
-comunicaciones por correo electrónico de Gloint International Partners.
+comunicaciones por correo electrónico de Gloint Group.
 Diseño minimalista, ultra-limpio, en modo claro con contrastes ejecutivos de alta gama.
 Compatible con todos los clientes de correo (Gmail, Outlook, Apple Mail, Yahoo, iOS/Android).
 """
@@ -205,7 +205,7 @@ class EmailTemplateService:
                                 <tr>
                                     <td align="center" style="font-size: 11px; line-height: 1.6; color: #94a3b8;">
                                         <p style="margin: 0 0 4px; font-weight: 500;">
-                                            © 2026 GLOINT International Partners. Todos los derechos reservados.
+                                            © 2026 GLOINT Group. Todos los derechos reservados.
                                         </p>
                                         <p style="margin: 0 0 4px;">
                                             Bogotá, Colombia • Gestión Estratégica de Inversiones y Capital
@@ -239,7 +239,7 @@ class EmailTemplateService:
         """
         masked_doc = f"{document_id[-4:]}" if len(str(document_id)) >= 4 else str(document_id)
         subject = "¡Bienvenido a Gloint! - Registro exitoso y verificación en curso"
-        title = "¡Bienvenido a Gloint International Partners!"
+        title = "¡Bienvenido a Gloint Group!"
         preheader = f"Hola {user_name}, tu cuenta ha sido creada exitosamente. Tu validación preventiva de antecedentes está en curso."
 
         content_html = f"""
@@ -247,7 +247,7 @@ class EmailTemplateService:
             Estimado/a <strong>{user_name}</strong>,
         </p>
         <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
-            Nos complace darte la más cordial bienvenida a <strong>Gloint International Partners</strong>, tu ecosistema estratégico para la estructuración, crecimiento y protección de capital patrimonial.
+            Nos complace darte la más cordial bienvenida a <strong>Gloint Group</strong>, tu ecosistema estratégico para la estructuración, crecimiento y protección de capital patrimonial.
         </p>
         
         <!-- Info Highlight Box -->
@@ -439,7 +439,7 @@ class EmailTemplateService:
             Hola,
         </p>
         <p style="margin: 0 0 16px; line-height: 1.65; color: #334155;">
-            Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>Gloint International Partners</strong>. Si fuiste tú, haz clic en el siguiente botón para asignar una nueva contraseña segura:
+            Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>Gloint Group</strong>. Si fuiste tú, haz clic en el siguiente botón para asignar una nueva contraseña segura:
         </p>
 
         <div style="background-color: #fff7ed; border-left: 3px solid #f97316; border-radius: 10px; padding: 14px 18px; margin: 20px 0;">

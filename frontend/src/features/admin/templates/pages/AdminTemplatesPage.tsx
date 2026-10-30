@@ -262,7 +262,7 @@ export const AdminTemplatesPage = () => {
           <span className="font-bold block text-sm mb-0.5 font-montserrat">Plantillas HTML Dinámicas con Variables del Sistema</span>
           <p className="text-slate-600 leading-relaxed">
             Las plantillas generan documentos legales en tiempo real integrando variables dinámicas como <code className="bg-white px-1.5 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-700 font-semibold">&#123;nombre_completo&#125;</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-700 font-semibold">&#123;documento&#125;</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-700 font-semibold">&#123;codigo_inversion&#125;</code> y <code className="bg-white px-1.5 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-700 font-semibold">&#123;firma_digital&#125;</code>.
-            La <strong>Hoja Membretada</strong> de fondo es opcional; si no se carga una imagen personalizada, el generador aplicará automáticamente el membrete estándar corporativo de <strong>GLOINT INTERNATIONAL PARTNERS S.A.S.</strong>
+            La <strong>Hoja Membretada</strong> de fondo es opcional; si no se carga una imagen personalizada, el generador aplicará automáticamente el membrete estándar corporativo de <strong>GLOINT GROUP</strong>
           </p>
         </div>
       </div>
