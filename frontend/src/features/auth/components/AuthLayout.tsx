@@ -27,8 +27,8 @@ const BrandDecor: React.FC<{ watermarkClass: string; lines?: boolean }> = ({ wat
     {lines && <svg aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.18]" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
       <defs>
         <linearGradient id="auth-lg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#D4A537" />
-          <stop offset="100%" stopColor="#B8861B" />
+          <stop offset="0%" stopColor="#E8A83E" />
+          <stop offset="100%" stopColor="#B97A1A" />
         </linearGradient>
       </defs>
       {[0, 1, 2, 3, 4, 5, 6].map((i) => (
@@ -64,7 +64,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
             {sidePanel ?? (
               <div className="max-w-lg">
                 <h2 className="font-montserrat font-extrabold text-4xl xl:text-[2.75rem] leading-[1.15] tracking-tight">
-                  Ecosistema empresarial de <span style={{ color: '#D4A537' }}>inversión</span>,{' '}
+                  Ecosistema empresarial de <span style={{ color: '#E8A83E' }}>inversión</span>,{' '}
                   <span style={{ color: '#D9DCE1' }}>comercio digital</span> y tecnología.
                 </h2>
                 <p className="mt-5 text-sm text-slate-400">Empresa registrada en la Cámara de Comercio de Bogotá</p>
@@ -87,7 +87,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           <div className={`w-full ${maxWidthClass}`}>
             {topBanner && <div className="mb-6">{topBanner}</div>}
             <div className="mb-8">
-              <h1 className="text-4xl font-extrabold mb-3 font-montserrat tracking-tight" style={{ color: '#9A7415' }}>{title}</h1>
+              <h1 className="text-4xl font-extrabold mb-3 font-montserrat tracking-tight" style={{ color: '#A06A10' }}>{title}</h1>
               <p className="text-slate-500 text-[15px] leading-relaxed">{subtitle}</p>
             </div>
             {children}
@@ -114,7 +114,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
         )}
 
         <div className={`w-full ${maxWidthClass} bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-6 sm:p-10 relative z-20 overflow-hidden ${topBanner ? 'mt-2' : 'mt-12'} transition-all duration-300`}>
-          <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'linear-gradient(90deg, #F3D27A, #D4A537, #B8861B)' }} aria-hidden="true" />
+          <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'linear-gradient(90deg, #F6CB62, #E8A83E, #B97A1A)' }} aria-hidden="true" />
           <div className="text-center mb-8">
             {icon && (
               <div className="w-14 h-14 bg-slate-50 border border-slate-200 rounded-2xl mx-auto flex items-center justify-center mb-5 shadow-sm text-brand-500">

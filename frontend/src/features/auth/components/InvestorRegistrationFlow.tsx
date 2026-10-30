@@ -475,7 +475,7 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
                             step === s.num
                                 ? 'bg-brand-600 ring-4 ring-brand-100'
                                 : step > s.num
-                                ? 'bg-slate-900 text-[#D4A537]'
+                                ? 'bg-slate-900 text-[#E8A83E]'
                                 : 'bg-slate-200 text-slate-500'
                         }`}>
                             {step > s.num ? <Check className="w-4 h-4" aria-hidden="true" /> : s.num}

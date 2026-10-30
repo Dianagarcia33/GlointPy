@@ -174,7 +174,7 @@ export function Nav() {
           <button
             onClick={() => navigate('/onboarding')}
             className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all"
-            style={{ background: ORANGE, color: "#140e02" }}
+            style={{ background: "linear-gradient(180deg, #F6CB62 0%, #E8A83E 100%)", color: "#140e02" }}
           >
             Crear Cuenta
           </button>
@@ -221,7 +221,7 @@ export function Nav() {
           <button onClick={() => navigate('/login')} className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold w-full border" style={{ borderColor: "rgba(255,255,255,0.2)", color: "#fff" }}>
             Iniciar sesión
           </button>
-          <button onClick={() => navigate('/onboarding')} className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: ORANGE, color: "#140e02" }}>
+          <button onClick={() => navigate('/onboarding')} className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: "linear-gradient(180deg, #F6CB62 0%, #E8A83E 100%)", color: "#140e02" }}>
             Crear Cuenta
           </button>
         </div>

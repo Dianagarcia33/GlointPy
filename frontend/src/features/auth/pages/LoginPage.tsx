@@ -132,7 +132,7 @@ export const LoginPage = () => {
                 <button
                     type="submit"
                     disabled={loginMutation.isPending}
-                    className="group w-full flex items-center justify-center h-12 px-4 rounded-xl text-[15px] font-semibold bg-[#0E0D0C] hover:bg-[#1C1A17] text-[#E9C871] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-6 active:scale-[0.98]"
+                    className="group w-full flex items-center justify-center h-12 px-4 rounded-xl text-[15px] font-semibold bg-[#0E0D0C] hover:bg-[#1C1A17] text-[#F6CB62] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-6 active:scale-[0.98]"
                 >
                     {loginMutation.isPending ? (
                         <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />

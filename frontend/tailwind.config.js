@@ -11,11 +11,11 @@ export default {
       },
       colors: {
         brand: {
-          50: '#fbf6e6',  // Marfil dorado
-          400: '#d4a537', // Dorado del logo (acentos sobre fondos oscuros)
-          500: '#9a6f12', // Dorado profundo: botones y enlaces (texto blanco 4.5:1)
-          600: '#7f5a0f', // Hover
-          700: '#6b4e10', // Dorado oscuro
+          50: '#FCF5E4',  // Marfil dorado
+          400: '#E8A83E', // Dorado del logo (acentos sobre fondos oscuros)
+          500: '#a06a10', // Dorado profundo: botones y enlaces (texto blanco 4.5:1)
+          600: '#865709', // Hover
+          700: '#7E500C', // Dorado oscuro
           800: '#4f3a0c', // Bronce oscuro
         },
         surface: {

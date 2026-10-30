@@ -252,7 +252,7 @@ export function Hero() {
             whileHover={{ scale: 1.03, y: -2 }}
             whileTap={{ scale: 0.98 }}
             className="px-8 py-4 rounded-xl font-bold text-base font-montserrat tracking-tight border border-white/20 relative overflow-hidden group cursor-pointer"
-            style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`, color: "#140e02", boxShadow: "0 10px 30px rgba(212,165,55,0.25)" }}
+            style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`, color: "#140e02", boxShadow: "0 10px 30px rgba(232, 168, 62,0.25)" }}
             onClick={() => {
               const element = document.getElementById("unidades");
               if (element) element.scrollIntoView({ behavior: "smooth" });

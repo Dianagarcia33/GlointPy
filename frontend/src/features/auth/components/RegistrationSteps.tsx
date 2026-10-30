@@ -12,7 +12,7 @@ export const REGISTRATION_STEPS = [
 export const RegistrationSideSteps: React.FC<{ step: number }> = ({ step }) => (
   <div className="max-w-lg">
     <h2 className="font-montserrat font-extrabold text-4xl xl:text-[2.75rem] leading-[1.15] tracking-tight">
-      Tu registro en <span style={{ color: '#D4A537' }}>4 pasos</span>.
+      Tu registro en <span style={{ color: '#E8A83E' }}>4 pasos</span>.
     </h2>
     <ol className="mt-10 space-y-6" aria-label="Pasos del registro">
       {REGISTRATION_STEPS.map((s) => {
@@ -24,9 +24,9 @@ export const RegistrationSideSteps: React.FC<{ step: number }> = ({ step }) => (
               className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-sm font-bold transition-colors"
               style={
                 current
-                  ? { background: 'linear-gradient(135deg, #F3D27A, #D4A537 55%, #B8861B)', color: '#140e02' }
+                  ? { background: 'linear-gradient(135deg, #F6CB62, #E8A83E 55%, #B97A1A)', color: '#140e02' }
                   : done
-                  ? { background: 'rgba(212,165,55,0.18)', color: '#D4A537', border: '1px solid rgba(212,165,55,0.5)' }
+                  ? { background: 'rgba(232, 168, 62,0.18)', color: '#E8A83E', border: '1px solid rgba(232, 168, 62,0.5)' }
                   : { border: '1px solid rgba(255,255,255,0.22)', color: '#94a3b8' }
               }
             >

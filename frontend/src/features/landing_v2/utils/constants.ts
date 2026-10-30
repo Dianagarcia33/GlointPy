@@ -1,8 +1,8 @@
 export type Page = "home" | "about" | "investment" | "place" | "tech" | "contact" | "registro";
 export const DARK = "#0E0D0C";
 export const DARK2 = "#171614";
-export const GOLD = "#D4A537";
-export const ORANGE = "#B8861B";
+export const GOLD = "#E8A83E";
+export const ORANGE = "#B97A1A";
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 export const SERVICE_LINKS: { label: string; id: Page; color: string; desc: string }[] = [

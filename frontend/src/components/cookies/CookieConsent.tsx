@@ -24,7 +24,7 @@ const THIRD_PARTIES = [
   { name: 'Firebase (Google)', purpose: 'Entrega de notificaciones push. Solo se activa si aceptas el permiso de notificaciones del navegador.' },
 ];
 
-const GOLD_BUTTON = 'linear-gradient(135deg, #F3D27A, #D4A537 55%, #B8861B)';
+const GOLD_BUTTON = 'linear-gradient(135deg, #F6CB62, #E8A83E 55%, #B97A1A)';
 
 const ItemList: React.FC<{ items: Item[] }> = ({ items }) => (
   <ul className="mt-3 space-y-2.5">
@@ -123,8 +123,8 @@ const PreferencesDialog: React.FC = () => {
                 aria-checked={prefs}
                 aria-labelledby="cookie-preferences"
                 onClick={() => setPrefs((p) => !p)}
-                className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8a6516]"
-                style={{ background: prefs ? '#B8861B' : '#cbd5e1' }}
+                className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A06A10]"
+                style={{ background: prefs ? '#B97A1A' : '#cbd5e1' }}
               >
                 <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${prefs ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 <span className="sr-only">{prefs ? 'Activadas' : 'Desactivadas'}</span>
@@ -149,7 +149,7 @@ const PreferencesDialog: React.FC = () => {
 
           <p className="text-xs text-slate-500">
             Más información en nuestra{' '}
-            <Link to="/privacidad" onClick={closePreferences} className="font-semibold underline underline-offset-2" style={{ color: '#7a5a12' }}>Política de Privacidad</Link>.
+            <Link to="/privacidad" onClick={closePreferences} className="font-semibold underline underline-offset-2" style={{ color: '#7E500C' }}>Política de Privacidad</Link>.
           </p>
         </div>
 
@@ -181,15 +181,15 @@ export const CookieConsent: React.FC = () => {
           role="region"
           aria-label="Aviso de cookies"
           className="fixed bottom-3 left-3 right-3 z-[70] rounded-2xl p-4 shadow-2xl sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-md sm:p-5"
-          style={{ background: '#0E0D0C', border: '1px solid rgba(212,165,55,0.4)' }}
+          style={{ background: '#0E0D0C', border: '1px solid rgba(232, 168, 62,0.4)' }}
         >
           <div className="flex items-start gap-3">
-            <Cookie className="mt-0.5 h-5 w-5 shrink-0" style={{ color: '#D4A537' }} aria-hidden="true" />
+            <Cookie className="mt-0.5 h-5 w-5 shrink-0" style={{ color: '#E8A83E' }} aria-hidden="true" />
             <div>
               <h2 className="text-sm font-bold text-white font-montserrat">Usamos cookies y almacenamiento local</h2>
               <p className="mt-1.5 text-[13px] leading-relaxed text-slate-300">
                 Usamos lo estrictamente necesario para que tu sesión funcione y sea segura. Con tu permiso, también recordamos preferencias como tu última sala de chat. No usamos cookies de publicidad ni de analítica.{' '}
-                <Link to="/privacidad" className="font-semibold underline underline-offset-2" style={{ color: '#F3D27A' }}>Más información</Link>.
+                <Link to="/privacidad" className="font-semibold underline underline-offset-2" style={{ color: '#F6CB62' }}>Más información</Link>.
               </p>
             </div>
           </div>
@@ -200,7 +200,7 @@ export const CookieConsent: React.FC = () => {
             <button type="button" onClick={acceptNecessary} className="rounded-xl border px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10" style={{ borderColor: 'rgba(245,243,238,0.5)' }}>
               Solo necesarias
             </button>
-            <button type="button" onClick={openPreferences} className="rounded-xl px-3 py-2.5 text-sm font-semibold underline underline-offset-2" style={{ color: '#F3D27A' }}>
+            <button type="button" onClick={openPreferences} className="rounded-xl px-3 py-2.5 text-sm font-semibold underline underline-offset-2" style={{ color: '#F6CB62' }}>
               Personalizar
             </button>
           </div>
