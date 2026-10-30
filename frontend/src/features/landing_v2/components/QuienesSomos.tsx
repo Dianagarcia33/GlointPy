@@ -23,7 +23,7 @@ export function QuienesSomos() {
   const units = [
     { name: "GLOINT Investment", color: GOLD, icon: <TrendingUp size={16} /> },
     { name: "GLOINT Place", color: ORANGE, icon: <ShoppingBag size={16} /> },
-    { name: "GLOINT Tech", color: "#60a5fa", icon: <Cpu size={16} /> },
+    { name: "GLOINT Tech", color: "#C9CDD3", icon: <Cpu size={16} /> },
   ];
 
   return (

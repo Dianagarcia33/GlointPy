@@ -8,6 +8,6 @@ export const ORANGE = "#B8861B";
 export const SERVICE_LINKS: { label: string; id: Page; color: string; desc: string }[] = [
   { label: "GLOINT Investment", id: "investment", color: GOLD, desc: "Gestión estratégica de capital digital" },
   { label: "GLOINT Place", id: "place", color: ORANGE, desc: "E-commerce de productos exclusivos" },
-  { label: "GLOINT Tech", id: "tech", color: "#60a5fa", desc: "Tecnología para PyMEs" },
+  { label: "GLOINT Tech", id: "tech", color: "#C9CDD3", desc: "Tecnología para PyMEs" },
 ];
 

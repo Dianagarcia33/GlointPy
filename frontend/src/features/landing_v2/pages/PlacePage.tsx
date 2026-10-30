@@ -9,13 +9,13 @@ import { SharedFooter } from "../components/SharedFooter";
 export function PlacePage() {
   const navigate = useNavigate();
   const categories = [
-    { emoji: "💻", name: "Tecnología Premium", tag: "Exclusivo", color: "#3b82f6" },
+    { emoji: "💻", name: "Tecnología Premium", tag: "Exclusivo", color: "#6B7280" },
     { emoji: "🎧", name: "Accesorios Lifestyle", tag: "Tendencia", color: ORANGE },
     { emoji: "🌿", name: "Wellness & Salud", tag: "Popular", color: "#10b981" },
     { emoji: "🏠", name: "Hogar Inteligente", tag: "Nuevo", color: "#f59e0b" },
     { emoji: "👟", name: "Moda & Calzado", tag: "Exclusivo", color: "#8b5cf6" },
     { emoji: "🧴", name: "Belleza & Cuidado", tag: "Tendencia", color: "#ec4899" },
-    { emoji: "🎮", name: "Gaming & Tech", tag: "Popular", color: "#3b82f6" },
+    { emoji: "🎮", name: "Gaming & Tech", tag: "Popular", color: "#6B7280" },
     { emoji: "🍳", name: "Cocina & Hogar", tag: "Nuevo", color: "#f59e0b" },
   ];
 

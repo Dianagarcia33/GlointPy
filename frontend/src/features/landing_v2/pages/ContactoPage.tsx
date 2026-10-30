@@ -502,7 +502,7 @@ export function ContactoPage() {
             {[
               { icon: <Clock size={20} />, title: "Horario de atención", lines: [hoursDisplay, "Atención telefónica"], color: GOLD },
               { icon: <Phone size={20} />, title: "Llámanos", lines: ["601-5283660", "Atención inmediata"], color: ORANGE, link: "tel:6015283660" },
-              { icon: <Mail size={20} />, title: "Escríbenos", lines: [emailDisplay, "Respuesta en 24 h"], color: "#60a5fa", link: `mailto:${emailDisplay}` },
+              { icon: <Mail size={20} />, title: "Escríbenos", lines: [emailDisplay, "Respuesta en 24 h"], color: "#8E949D", link: `mailto:${emailDisplay}` },
             ].map(({ icon, title, lines, color, link }) => (
               <div
                 key={title}

@@ -39,7 +39,7 @@ export function NosotrosEcosistema() {
     },
     {
       icon: <Cpu size={26} />,
-      color: "#60a5fa",
+      color: "#C9CDD3",
       name: "GLOINT Tech",
       role: "Tecnología empresarial",
       desc: "Herramientas tecnológicas para digitalizar y optimizar operaciones logísticas en PyMEs, reduciendo costos y aumentando la productividad.",

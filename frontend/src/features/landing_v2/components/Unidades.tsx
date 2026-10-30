@@ -48,7 +48,7 @@ export function Unidades() {
       title: "GLOINT TECH",
       tag: "Tecnología",
       icon: <Cpu size={28} />,
-      color: "#60a5fa",
+      color: "#C9CDD3",
       desc: "Plataforma tecnológica diseñada para optimizar operaciones logísticas y automatizar procesos empresariales mediante herramientas accesibles para pequeñas y medianas empresas.",
       benefits: [
         "Automatización operativa",
@@ -277,7 +277,7 @@ export function Unidades() {
                       className="mt-6 w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 font-montserrat tracking-tight transition-all cursor-pointer shadow-sm"
                       style={{
                         background: c.color,
-                        color: c.color === "#60a5fa" ? DARK : "#fff",
+                        color: c.color === "#C9CDD3" ? DARK : "#fff",
                       }}
                     >
                       {c.btn}

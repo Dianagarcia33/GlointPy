@@ -524,7 +524,7 @@ export function InvestmentChatbot() {
               initial={{ opacity: 0, x: 20, scale: 0.9 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-xl border border-amber-500/30 flex items-center gap-3 cursor-pointer group"
+              className="bg-[#171614]/95 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-xl border border-amber-500/30 flex items-center gap-3 cursor-pointer group"
               onClick={() => {
                 setIsOpen(true);
                 setHasPrompted(false);
@@ -587,13 +587,13 @@ export function InvestmentChatbot() {
             className="fixed bottom-24 right-4 sm:right-6 w-[94vw] sm:w-[420px] h-[640px] max-h-[84vh] bg-slate-50 rounded-3xl shadow-2xl border border-slate-200/80 z-50 flex flex-col overflow-hidden font-sans"
           >
             {/* Header del Concierge */}
-            <div className="bg-slate-950 text-white p-4 border-b border-slate-800 flex items-center justify-between shrink-0 relative overflow-hidden">
+            <div className="bg-[#0A0908] text-white p-4 border-b border-slate-800 flex items-center justify-between shrink-0 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
               
               <div className="flex items-center gap-3 relative z-10">
                 <div className="relative">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 p-0.5 shadow-md">
-                    <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-amber-400 font-bold font-montserrat text-sm">
+                    <div className="w-full h-full bg-[#0A0908] rounded-[10px] flex items-center justify-center text-amber-400 font-bold font-montserrat text-sm">
                       G
                     </div>
                   </div>
@@ -636,7 +636,7 @@ export function InvestmentChatbot() {
                   {/* Mensaje de Usuario */}
                   {msg.sender === 'user' && (
                     <div className="flex justify-end">
-                      <div className="bg-slate-900 text-white rounded-2xl rounded-tr-xs px-3.5 py-2.5 text-xs max-w-[82%] shadow-sm leading-relaxed">
+                      <div className="bg-[#171614] text-white rounded-2xl rounded-tr-xs px-3.5 py-2.5 text-xs max-w-[82%] shadow-sm leading-relaxed">
                         {msg.text}
                       </div>
                     </div>
@@ -645,7 +645,7 @@ export function InvestmentChatbot() {
                   {/* Mensaje del Bot */}
                   {msg.sender === 'bot' && (
                     <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold shadow-xs mt-0.5">
+                      <div className="w-7 h-7 rounded-full bg-[#0A0908] text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold shadow-xs mt-0.5">
                         G
                       </div>
 
@@ -840,7 +840,7 @@ export function InvestmentChatbot() {
                               type="button"
                               disabled={!finalCity}
                               onClick={handleConfirmLocation}
-                              className="w-full py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-amber-400 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                              className="w-full py-2 bg-[#171614] hover:bg-slate-800 disabled:opacity-50 text-amber-400 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <span>Confirmar Ubicación</span>
                               <ChevronRight size={14} />
@@ -1009,7 +1009,7 @@ export function InvestmentChatbot() {
               {/* Indicador de escritura */}
               {isTyping && (
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold">
+                  <div className="w-7 h-7 rounded-full bg-[#0A0908] text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold">
                     G
                   </div>
                   <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs px-4 py-2.5 shadow-xs flex items-center gap-1.5">
@@ -1043,7 +1043,7 @@ export function InvestmentChatbot() {
                 <button
                   type="submit"
                   disabled={!inputText.trim()}
-                  className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-amber-400 flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-xs"
+                  className="w-9 h-9 rounded-xl bg-[#171614] hover:bg-slate-800 disabled:opacity-40 text-amber-400 flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-xs"
                   aria-label="Enviar mensaje"
                 >
                   <Send size={15} />

@@ -37,7 +37,7 @@ export function TechSection() {
   ];
 
   const metrics = [
-    { label: "Entregas hoy", val: "142", color: "#60a5fa" },
+    { label: "Entregas hoy", val: "142", color: "#C9CDD3" },
     { label: "Eficiencia", val: "98.2%", color: GOLD },
     { label: "Rutas activas", val: "34", color: ORANGE },
     { label: "Ahorro ops.", val: "28%", color: "#34d399" },
@@ -51,7 +51,7 @@ export function TechSection() {
       {/* Glow de fondo */}
       <motion.div
         className="absolute -left-32 top-1/3 w-96 h-96 rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(96,165,250,0.12) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(circle, rgba(201,205,211,0.12) 0%, transparent 70%)" }}
         animate={{ x: [0, 40, 0], y: [0, -30, 0], scale: [1, 1.1, 1], opacity: [0.4, 0.8, 0.4] }}
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -71,14 +71,14 @@ export function TechSection() {
             {/* Glow */}
             <motion.div
               className="absolute -inset-6 rounded-3xl pointer-events-none"
-              style={{ background: "radial-gradient(circle, rgba(96,165,250,0.14) 0%, transparent 65%)" }}
+              style={{ background: "radial-gradient(circle, rgba(201,205,211,0.14) 0%, transparent 65%)" }}
               animate={{ scale: [1, 1.05, 1], opacity: [0.4, 0.8, 0.4] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
             />
 
             <motion.div
-              className="relative rounded-3xl p-6 sm:p-7 overflow-hidden border border-white/10 shadow-2xl backdrop-blur-md bg-slate-950/80"
-              whileHover={{ borderColor: "rgba(96,165,250,0.35)", boxShadow: "0 20px 60px rgba(96,165,250,0.08)" }}
+              className="relative rounded-3xl p-6 sm:p-7 overflow-hidden border border-white/10 shadow-2xl backdrop-blur-md bg-[#0A0908]/80"
+              whileHover={{ borderColor: "rgba(201,205,211,0.35)", boxShadow: "0 20px 60px rgba(201,205,211,0.08)" }}
               transition={{ duration: 0.3 }}
             >
               {/* Top specular highlight */}
@@ -224,8 +224,8 @@ export function TechSection() {
             >
               Tecnología para empresas que quieren{" "}
               <motion.span
-                style={{ color: "#60a5fa" }}
-                animate={{ textShadow: ["0 0 0px #60a5fa", "0 0 16px #60a5fa55", "0 0 0px #60a5fa"] }}
+                style={{ color: "#C9CDD3" }}
+                animate={{ textShadow: ["0 0 0px #C9CDD3", "0 0 16px #C9CDD355", "0 0 0px #C9CDD3"] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
               >
                 crecer
@@ -255,12 +255,12 @@ export function TechSection() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: 0.4 + i * 0.07 }}
-                  whileHover={{ y: -4, backgroundColor: "rgba(96,165,250,0.08)", borderColor: "rgba(96,165,250,0.35)", boxShadow: "0 12px 30px rgba(96,165,250,0.12)" }}
+                  whileHover={{ y: -4, backgroundColor: "rgba(201,205,211,0.08)", borderColor: "rgba(201,205,211,0.35)", boxShadow: "0 12px 30px rgba(201,205,211,0.12)" }}
                 >
 
                   <motion.div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 border border-blue-400/20 shadow-xs"
-                    style={{ background: "rgba(96,165,250,0.15)", color: "#60a5fa" }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 border border-slate-300/20 shadow-xs"
+                    style={{ background: "rgba(201,205,211,0.15)", color: "#C9CDD3" }}
                     whileHover={{ scale: 1.1, rotate: 6 }}
                     transition={{ type: "spring", stiffness: 300 }}
                   >
@@ -278,7 +278,7 @@ export function TechSection() {
                   {/* Brillo lateral */}
                   <motion.div
                     className="absolute left-0 top-0 bottom-0 w-[2px]"
-                    style={{ background: "#60a5fa" }}
+                    style={{ background: "#C9CDD3" }}
                     initial={{ scaleY: 0 }}
                     whileHover={{ scaleY: 1 }}
                     transition={{ duration: 0.25 }}

@@ -323,15 +323,15 @@ export function InvestmentPage() {
                   ))}
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-800 grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-slate-900/60 rounded-lg py-1.5 px-1 border border-slate-800">
+                  <div className="bg-[#171614]/60 rounded-lg py-1.5 px-1 border border-slate-800">
                     <div className="text-[10px] text-slate-400">6 meses</div>
                     <div className="text-xs font-bold text-white">3.2% <span className="text-[9px] text-slate-400 font-normal">/mes</span></div>
                   </div>
-                  <div className="bg-slate-900/60 rounded-lg py-1.5 px-1 border border-slate-800">
+                  <div className="bg-[#171614]/60 rounded-lg py-1.5 px-1 border border-slate-800">
                     <div className="text-[10px] text-slate-400">12 meses</div>
                     <div className="text-xs font-bold text-white">3.8% <span className="text-[9px] text-slate-400 font-normal">/mes</span></div>
                   </div>
-                  <div className="bg-slate-900/60 rounded-lg py-1.5 px-1 border border-slate-800">
+                  <div className="bg-[#171614]/60 rounded-lg py-1.5 px-1 border border-slate-800">
                     <div className="text-[10px] text-slate-400">18 meses</div>
                     <div className="text-xs font-bold text-white">4.8% <span className="text-[9px] text-slate-400 font-normal">/mes</span></div>
                   </div>

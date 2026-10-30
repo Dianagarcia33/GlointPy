@@ -167,7 +167,7 @@ export function EventCountdownModal() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity"
+            className="fixed inset-0 bg-[#0A0908]/80 backdrop-blur-md transition-opacity"
           />
 
           {/* Modal Container */}
@@ -176,7 +176,7 @@ export function EventCountdownModal() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-lg bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border border-amber-500/30 rounded-3xl shadow-2xl p-6 sm:p-8 text-white overflow-hidden my-auto z-10"
+            className="relative w-full max-w-lg bg-gradient-to-b from-[#171614] via-[#0A0908] to-[#171614] border border-amber-500/30 rounded-3xl shadow-2xl p-6 sm:p-8 text-white overflow-hidden my-auto z-10"
           >
             {/* Resplandor ambiental dorado */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
