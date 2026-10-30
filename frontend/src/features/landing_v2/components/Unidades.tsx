@@ -145,7 +145,7 @@ export function Unidades() {
                 {/* HEADER */}
                 <div
                   className="p-6 sm:p-7 flex items-center gap-4 relative overflow-hidden border-b border-slate-800"
-                  style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
+                  style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}
                 >
                   {/* Top highlight */}
                   <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />

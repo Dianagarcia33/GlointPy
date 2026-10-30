@@ -26,7 +26,7 @@ export function SharedFooter() {
 
 
   return (
-    <footer style={{ background: "#080e1b" }} className="pt-16 pb-8">
+    <footer style={{ background: "#080807" }} className="pt-16 pb-8">
       <div className="max-w-6xl mx-auto px-6">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           <div>

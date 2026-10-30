@@ -1,6 +1,6 @@
 export type Page = "home" | "about" | "investment" | "place" | "tech" | "contact" | "registro";
-export const DARK = "#0d1526";
-export const DARK2 = "#111827";
+export const DARK = "#0E0D0C";
+export const DARK2 = "#171614";
 export const GOLD = "#D4A537";
 export const ORANGE = "#B8861B";
 

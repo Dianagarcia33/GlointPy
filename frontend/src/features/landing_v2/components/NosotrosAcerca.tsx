@@ -103,7 +103,7 @@ export function NosotrosAcerca() {
             {/* AÑO */}
             <motion.div
               className="rounded-3xl p-8 md:p-10 relative overflow-hidden"
-              style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
+              style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}
               whileHover={{ y: -4 }}
               transition={{ duration: 0.25 }}
             >

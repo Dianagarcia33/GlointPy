@@ -39,7 +39,7 @@ export function NosotrosMisionVision() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
             className="rounded-3xl p-8 md:p-10 relative overflow-hidden group"
-            style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
+            style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}
           >
             <div className="absolute -right-16 -bottom-16 w-48 h-48 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${GOLD}25 0%, transparent 70%)` }} />
 

@@ -22,7 +22,7 @@ export function Stats() {
   return (
     <section
       className="py-20 relative overflow-hidden"
-      style={{ background: `linear-gradient(135deg, ${DARK2}, #0d1526)` }}
+      style={{ background: `linear-gradient(135deg, ${DARK2}, #0E0D0C)` }}
     >
       <div className="absolute inset-0 pointer-events-none" style={{ background: `linear-gradient(90deg, ${GOLD}08, transparent, ${ORANGE}08)` }} />
       <div className="max-w-5xl mx-auto px-6 relative z-10">

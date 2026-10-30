@@ -18,7 +18,7 @@ export function CTAFinal() {
     <section
       className="py-24 sm:py-28 relative overflow-hidden"
       style={{
-        background: `linear-gradient(135deg, ${DARK} 0%, #162040 50%, #1a1000 100%)`,
+        background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 50%, #1a1000 100%)`,
       }}
     >
       <div

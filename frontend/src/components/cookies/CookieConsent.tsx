@@ -94,7 +94,7 @@ const PreferencesDialog: React.FC = () => {
         onKeyDown={onKeyDown}
         className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl outline-none"
       >
-        <div className="flex items-start justify-between gap-4 px-5 py-4 sm:px-7" style={{ background: '#0d1526' }}>
+        <div className="flex items-start justify-between gap-4 px-5 py-4 sm:px-7" style={{ background: '#0E0D0C' }}>
           <div>
             <h2 id="cookie-dialog-title" className="text-lg font-bold text-white font-montserrat">Preferencias de cookies</h2>
             <p className="mt-0.5 text-xs text-slate-300">Elige qué podemos guardar en tu navegador. Puedes cambiarlo cuando quieras.</p>
@@ -181,7 +181,7 @@ export const CookieConsent: React.FC = () => {
           role="region"
           aria-label="Aviso de cookies"
           className="fixed bottom-3 left-3 right-3 z-[70] rounded-2xl p-4 shadow-2xl sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-md sm:p-5"
-          style={{ background: '#0d1526', border: '1px solid rgba(212,165,55,0.4)' }}
+          style={{ background: '#0E0D0C', border: '1px solid rgba(212,165,55,0.4)' }}
         >
           <div className="flex items-start gap-3">
             <Cookie className="mt-0.5 h-5 w-5 shrink-0" style={{ color: '#D4A537' }} aria-hidden="true" />

@@ -19,7 +19,7 @@ interface AuthLayoutProps {
 }
 
 const BLACK_BG = '#0E0D0C';
-const NAVY_BG = 'linear-gradient(135deg, #0d1526 0%, #162040 60%, #0d1526 100%)';
+const NAVY_BG = 'linear-gradient(135deg, #0E0D0C 0%, #1A1814 60%, #0E0D0C 100%)';
 
 /** Líneas diagonales doradas (opcionales) y la G del logo, estáticas, como en el hero del inicio. */
 const BrandDecor: React.FC<{ watermarkClass: string; lines?: boolean }> = ({ watermarkClass, lines = true }) => (

@@ -152,7 +152,7 @@ export function QuienesSomos() {
 
           <div
             className="rounded-3xl p-7 sm:p-8 relative overflow-hidden border border-slate-800 shadow-2xl"
-            style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
+            style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}
           >
             {/* Top specular highlight */}
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />

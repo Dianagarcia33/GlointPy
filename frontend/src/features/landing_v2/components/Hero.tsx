@@ -18,7 +18,7 @@ export function Hero() {
   return (
     <section
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
-      style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 60%, #0d1a35 100%)` }}
+      style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 60%, #12110F 100%)` }}
     >
       {/* Abstract decorative lines */}
       <motion.svg

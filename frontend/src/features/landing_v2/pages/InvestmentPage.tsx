@@ -28,7 +28,7 @@ export function InvestmentPage() {
       ========================================================= */}
       <section
         className="relative pt-28 sm:pt-32 md:pt-36 pb-20 md:pb-24 overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
+        style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}
       >
         {/* Fondo decorativo */}
         <div className="absolute inset-0 pointer-events-none opacity-10">

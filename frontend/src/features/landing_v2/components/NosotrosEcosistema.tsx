@@ -122,7 +122,7 @@ export function NosotrosEcosistema() {
               <div
                 className="p-6 relative overflow-hidden"
                 style={{
-                  background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)`,
+                  background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)`,
                 }}
               >
                 {/* Decoración */}

@@ -38,7 +38,7 @@ export function PlacePage() {
   return (
     <>
       {/* HERO */}
-      <section className="relative pt-28 sm:pt-32 md:pt-36 pb-24 overflow-hidden" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}>
+      <section className="relative pt-28 sm:pt-32 md:pt-36 pb-24 overflow-hidden" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}>
         <div className="absolute top-1/2 left-1/4 w-52 h-52 md:w-80 md:h-80 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${ORANGE}18 0%, transparent 70%)` }} />
         <div className="absolute inset-0 pointer-events-none opacity-10">
           <svg className="w-full h-full" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice">
