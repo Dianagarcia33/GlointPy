@@ -110,7 +110,11 @@ class PushNotificationService:
                 multicast_message = messaging.MulticastMessage(
                     notification=messaging.Notification(title=title, body=body),
                     data=data or {},
-                    tokens=tokens_list
+                    tokens=tokens_list,
+                    # iOS: sin sonido explícito el aviso llega en silencio
+                    apns=messaging.APNSConfig(
+                        payload=messaging.APNSPayload(aps=messaging.Aps(sound="default"))
+                    ),
                 )
                 response = messaging.send_each_for_multicast(multicast_message)
                 sent_success = response.success_count

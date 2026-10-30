@@ -251,6 +251,20 @@ async def forward_message_endpoint(
             detail="No tienes permiso para reenviar este mensaje"
         )
 
+    # Destinos: solo chats en los que participa (o administra el chat) y personas que existan
+    can_manage = PBACEngine.has_permission(current_user, "admin.chat.manage")
+    for target_room_id in set(body.target_room_ids):
+        if not can_manage and not await ChatService.is_participant(db, target_room_id, current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No eres participante de uno de los chats de destino"
+            )
+    target_users = {uid for uid in body.target_user_ids if uid != current_user.id}
+    if target_users:
+        found = (await db.execute(select(User.id).where(User.id.in_(target_users)))).scalars().all()
+        if len(set(found)) != len(target_users):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Uno de los usuarios de destino no existe")
+
     try:
         results = await ChatService.forward_message(
             db=db,
