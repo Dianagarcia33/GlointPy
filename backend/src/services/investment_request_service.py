@@ -297,17 +297,14 @@ class InvestmentRequestService:
 
             # 4. Actualizar contrato existente
             from src.services.share_market_service import ShareMarketService
-            prev_pkg_shares = 0
-            if existing_investor.package_id:
-                old_pkg_res = await db.execute(select(Package).where(Package.id == existing_investor.package_id))
-                old_pkg = old_pkg_res.scalar_one_or_none()
-                if old_pkg and old_pkg.granted_shares:
-                    prev_pkg_shares = old_pkg.granted_shares
+            # H-192: lo ya otorgado es el valor congelado del contrato, no la definición viva del paquete anterior
+            prev_pkg_shares = await ShareMarketService.get_contract_frozen_shares(db, existing_investor)
 
             new_pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
             new_pkg = new_pkg_res.scalar_one_or_none()
             new_pkg_shares = new_pkg.granted_shares if new_pkg and new_pkg.granted_shares else 0
             shares_diff = new_pkg_shares - prev_pkg_shares
+            existing_investor.shares_granted_frozen = prev_pkg_shares + max(0, shares_diff)
             if shares_diff > 0:
                 pkg_val = f"${new_pkg.value:,.0f} COP" if new_pkg and new_pkg.value else ""
                 desc = f"Otorgamiento de {shares_diff} acciones adicionales por aumento de capital a Paquete ({pkg_val}) - Contrato #{existing_investor.assigned_code}"
@@ -363,6 +360,8 @@ class InvestmentRequestService:
             from src.services.share_market_service import ShareMarketService
             pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
             pkg = pkg_res.scalar_one_or_none()
+            # H-192: se congelan las acciones que otorga el paquete en el momento de la compra
+            investor.shares_granted_frozen = pkg.granted_shares if (pkg and pkg.granted_shares and pkg.granted_shares > 0) else 0
             if pkg and pkg.granted_shares and pkg.granted_shares > 0:
                 pkg_val = f"${pkg.value:,.0f} COP" if pkg.value else ""
                 desc = f"Otorgamiento de {pkg.granted_shares} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{code}"

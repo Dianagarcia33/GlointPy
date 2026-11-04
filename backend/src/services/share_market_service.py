@@ -164,6 +164,21 @@ class ShareMarketService:
         return acc
 
     @staticmethod
+    async def get_contract_frozen_shares(db: AsyncSession, investor) -> int:
+        """H-192: acciones por paquete de un contrato. Usa el valor congelado al comprar; si es NULL
+        (contrato anterior al congelado) usa la suma del libro y nunca el paquete vivo."""
+        frozen = getattr(investor, "shares_granted_frozen", None)
+        if frozen is not None:
+            return int(frozen)
+        res = await db.execute(
+            select(func.coalesce(func.sum(ShareMovement.shares_quantity), 0)).where(
+                ShareMovement.investor_id == investor.id,
+                ShareMovement.movement_type == "package_grant",
+            )
+        )
+        return int(res.scalar() or 0)
+
+    @staticmethod
     async def record_share_movement(
         db: AsyncSession,
         user_id: int,
@@ -254,8 +269,7 @@ class ShareMarketService:
 
         for inv in investors:
             valid_investor_ids.add(inv.id)
-            shares_to_grant = inv.package.granted_shares if (inv.package and inv.package.granted_shares and inv.package.granted_shares > 0) else 0
-
+            live_pkg_shares = inv.package.granted_shares if (inv.package and inv.package.granted_shares and inv.package.granted_shares > 0) else 0
             # Comprobar movimientos previos de paquete para este contrato
             chk = await db.execute(
                 select(ShareMovement)
@@ -269,6 +283,25 @@ class ShareMarketService:
             existing_movements = chk.scalars().all()
             total_current_pkg_shares = sum(m.shares_quantity for m in existing_movements)
 
+            # H-192: el objetivo es el valor CONGELADO al comprar, nunca la definición viva del paquete
+            frozen = getattr(inv, "shares_granted_frozen", None)
+            stamp_frozen = False
+            if frozen is None:
+                if existing_movements:
+                    # Valor congelado desconocido pero ya hay asientos: jamás se resta ni se borra
+                    if total_current_pkg_shares != live_pkg_shares and discrepancies is not None:
+                        discrepancies.append({
+                            "kind": "frozen_unknown",
+                            "user_id": user_id, "investor_id": inv.id, "contract": inv.assigned_code or inv.id,
+                            "granted_in_ledger": total_current_pkg_shares, "package_grants_now": live_pkg_shares,
+                        })
+                    continue
+                # Contrato legado nunca acreditado: se acredita con el paquete actual y se congela lo acreditado
+                shares_to_grant = live_pkg_shares
+                stamp_frozen = shares_to_grant > 0
+            else:
+                shares_to_grant = frozen if frozen > 0 else 0
+
             if shares_to_grant <= 0:
                 if existing_movements:
                     if allow_reductions:
@@ -279,15 +312,27 @@ class ShareMarketService:
                     elif discrepancies is not None:
                         discrepancies.append({
                             "user_id": user_id, "investor_id": inv.id, "contract": inv.assigned_code or inv.id,
-                            "granted_in_ledger": total_current_pkg_shares, "package_grants_now": 0,
+                            "granted_in_ledger": total_current_pkg_shares, "package_grants_now": 0, "kind": "ledger_vs_frozen",
                         })
             else:
                 needs_change = total_current_pkg_shares != shares_to_grant or not existing_movements
                 if existing_movements and needs_change and not allow_reductions:
                     # Ya se otorgaron acciones con los términos vigentes al comprar: se conservan
                     needs_change = False
-                    if discrepancies is not None:
+                    if total_current_pkg_shares < shares_to_grant:
+                        # Faltante respecto al valor congelado: solo se ACREDITA la diferencia
+                        missing = shares_to_grant - total_current_pkg_shares
+                        db.add(ShareMovement(
+                            user_id=user_id, movement_type="package_grant", shares_quantity=missing,
+                            balance_before=0, balance_after=0, investor_id=inv.id, package_id=inv.package_id,
+                            description=f"Acreditación de {missing} acciones faltantes del Contrato #{inv.assigned_code or inv.id} (valor congelado al comprar)",
+                            created_at=inv.start_date or inv.created_at or datetime.utcnow(),
+                        ))
+                        await db.flush()
+                        credited_shares += missing
+                    elif discrepancies is not None:
                         discrepancies.append({
+                            "kind": "ledger_vs_frozen",
                             "user_id": user_id, "investor_id": inv.id, "contract": inv.assigned_code or inv.id,
                             "granted_in_ledger": total_current_pkg_shares, "package_grants_now": shares_to_grant,
                         })
@@ -314,6 +359,13 @@ class ShareMarketService:
                     db.add(new_m)
                     await db.flush()
                     credited_shares += shares_to_grant
+                    if stamp_frozen:
+                        inv.shares_granted_frozen = shares_to_grant
+                        if discrepancies is not None:
+                            discrepancies.append({
+                                "kind": "legacy_credit", "user_id": user_id, "investor_id": inv.id,
+                                "contract": inv.assigned_code or inv.id, "granted_in_ledger": 0, "package_grants_now": shares_to_grant,
+                            })
                 else:
                     # Si ya coincide la cantidad, asegurar fecha de adquisición en el movimiento
                     acq_date = inv.start_date or inv.created_at or datetime.utcnow()
@@ -1070,10 +1122,7 @@ class ShareMarketService:
         H-192: por defecto solo acredita lo que falta y lista en `discrepancies` lo que difiere de la
         definición actual de los paquetes; con allow_reductions=True además reemplaza/elimina lo ya otorgado."""
         discrepancies: list = []
-        # 0. Asegurar en base de datos que los paquetes de 50.000 COP tengan 0 acciones otorgadas
-        await db.execute(text("UPDATE packages SET granted_shares = 0 WHERE (value = 50000 OR value = 50000.00)"))
-        await db.flush()
-
+        # H-192: la sincronización ya no reescribe la tabla de paquetes (la regla de $50.000 vive en PackageService)
         inv_res = await db.execute(select(Investor.user_id).distinct())
         user_ids = set([uid for uid in inv_res.scalars().all() if uid is not None])
 

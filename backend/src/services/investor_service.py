@@ -318,6 +318,8 @@ class InvestorService:
             # Otorgar acciones del paquete si aplica
             pkg_res = await db.execute(select(Package).where(Package.id == db_investor.package_id))
             pkg = pkg_res.scalar_one_or_none()
+            # H-192: se congelan las acciones que otorga el paquete en el momento de la compra
+            db_investor.shares_granted_frozen = pkg.granted_shares if (pkg and pkg.granted_shares and pkg.granted_shares > 0) else 0
             if pkg and pkg.granted_shares and pkg.granted_shares > 0:
                 from src.services.share_market_service import ShareMarketService
                 pkg_val = f"${pkg.value:,.0f} COP" if pkg.value else ""
@@ -396,15 +398,15 @@ class InvestorService:
         if new_package_id and new_package_id != old_package_id:
             from src.models.package import Package
             from src.services.share_market_service import ShareMarketService
-            old_pkg_res = await db.execute(select(Package).where(Package.id == old_package_id))
-            old_pkg = old_pkg_res.scalar_one_or_none()
-            prev_pkg_shares = old_pkg.granted_shares if old_pkg and old_pkg.granted_shares else 0
+            # H-192: lo ya otorgado es el valor congelado del contrato, no la definición viva del paquete anterior
+            prev_pkg_shares = await ShareMarketService.get_contract_frozen_shares(db, db_investor)
 
             new_pkg_res = await db.execute(select(Package).where(Package.id == new_package_id))
             new_pkg = new_pkg_res.scalar_one_or_none()
             new_pkg_shares = new_pkg.granted_shares if new_pkg and new_pkg.granted_shares else 0
 
             shares_diff = new_pkg_shares - prev_pkg_shares
+            db_investor.shares_granted_frozen = prev_pkg_shares + max(0, shares_diff)
             if shares_diff > 0:
                 pkg_val = f"${new_pkg.value:,.0f} COP" if new_pkg and new_pkg.value else ""
                 desc = f"Otorgamiento de {shares_diff} acciones adicionales por aumento de capital a Paquete ({pkg_val}) - Contrato #{db_investor.assigned_code}"

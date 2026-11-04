@@ -192,7 +192,7 @@ class InvestorDocumentService:
         monto_fmt = f"${monto_num:,.0f} COP".replace(",", ".")
         monto_clean = f"${monto_num:,.0f}".replace(",", ".")
         monto_sin_signo = f"{monto_num:,.0f}".replace(",", ".")
-        shares_count = str(investor.package.granted_shares if investor.package and investor.package.granted_shares is not None else 0)
+        shares_count = str(investor.shares_granted_frozen if investor.shares_granted_frozen is not None else (investor.package.granted_shares if investor.package and investor.package.granted_shares is not None else 0))  # H-192: valor congelado
         
         period_months_num = investor.period.months if investor.period and investor.period.months is not None else 0
         period_days_num = investor.period.days if investor.period and investor.period.days is not None else 0
@@ -644,7 +644,7 @@ class InvestorDocumentService:
             fecha_fin = start_d + timedelta(days=int(old_days))
             pkg_val = float(investor.package.value or 0) if investor.package else 0
             pct_val = f"{investor.period.percentage}%" if investor.period else "0%"
-            shares_cnt = investor.package.granted_shares if investor.package else 0
+            shares_cnt = investor.shares_granted_frozen if investor.shares_granted_frozen is not None else (investor.package.granted_shares if investor.package else 0)  # H-192
 
             motivo_str = f"Actualización de Contrato (v{version_count})" if version_count > 1 else f"Emisión de {template.name}"
 
