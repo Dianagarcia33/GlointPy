@@ -29,7 +29,7 @@ export const SharesMarketPage: React.FC = () => {
     const [myOrders, setMyOrders] = useState<ShareTradeOrder[]>([]);
     const [priceHistory, setPriceHistory] = useState<SharePriceHistory[]>([]);
     const [movements, setMovements] = useState<ShareMovement[]>([]);
-    const [walletBalance, setWalletBalance] = useState<number>(0);
+    const [walletBalance, setWalletBalance] = useState<number | null>(0);
     const [loading, setLoading] = useState(true);
 
     const [activeTab, setActiveTab] = useState<'market' | 'my_listings' | 'orders' | 'movements' | 'history'>('market');
@@ -44,7 +44,7 @@ export const SharesMarketPage: React.FC = () => {
                 shareMarketService.getListings(),
                 shareMarketService.getMyOrders(),
                 shareMarketService.getPriceHistory(),
-                getMyWallet().catch(() => ({ balance: 0 })),
+                getMyWallet().catch(() => ({ balance: null, balance_visible: false })),
                 shareMarketService.getMyMovements().catch(() => [])
             ]);
             setPortfolio(pData);
@@ -52,7 +52,12 @@ export const SharesMarketPage: React.FC = () => {
             setMyOrders(oData);
             setPriceHistory(hData);
             setMovements(mData || []);
-            setWalletBalance(typeof wData.balance === 'number' ? wData.balance : parseFloat(wData.balance || '0'));
+            // H-239: si el saldo está oculto por permiso (balance null / balance_visible false) o no se pudo
+            // leer, es "desconocido" (null) y NO $0.
+            const rawBalance: any = (wData as any).balance;
+            const balanceHidden = (wData as any).balance_visible === false || rawBalance === null || rawBalance === undefined;
+            const parsedBalance = typeof rawBalance === 'number' ? rawBalance : parseFloat(rawBalance);
+            setWalletBalance(balanceHidden || Number.isNaN(parsedBalance) ? null : parsedBalance);
         } catch (error) {
             console.error("Error fetching share market data:", error);
         } finally {
