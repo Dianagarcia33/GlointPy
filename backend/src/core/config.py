@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     # SameSite de la cookie de sesión: "lax" (por defecto). "none" solo como reversa de emergencia.
     COOKIE_SAMESITE: str = "lax"
 
+    # CSRF de la sesión web por cookie (H-33 Fase 2): on | report (solo registra) | off
+    CSRF_ENFORCE: str = "on"
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
         env_file_encoding="utf-8",
