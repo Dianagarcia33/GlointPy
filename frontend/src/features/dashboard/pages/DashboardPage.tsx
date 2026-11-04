@@ -132,7 +132,11 @@ export const DashboardPage = () => {
     const [isClubModalOpen, setIsClubModalOpen] = useState(false);
 
     const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director' | 'accounting'>('admin');
-    const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
+    // H-235: 'admin.audits.manage' también lo tiene contabilidad y ya no abre las analíticas de gestión (el
+    // servidor exige admin.users.manage / admin.roles.manage), así que no define al administrador del panel 360°.
+    const isSuperAdmin = user?.is_superuser === true
+        || user?.permissions?.includes('admin.users.manage') === true
+        || user?.permissions?.includes('admin.roles.manage') === true;
 
     const hasAccountingRole = user?.roles?.some((r: any) => {
         const name = typeof r === 'string' ? r : (r?.name || '');
