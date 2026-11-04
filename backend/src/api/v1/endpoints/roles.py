@@ -19,11 +19,11 @@ async def read_roles(db: AsyncSession = Depends(get_db)):
     return await SecurityService.get_all_roles(db)
 
 @router.post("/roles", response_model=RoleResponse, dependencies=[Depends(RequirePermission("admin.roles.manage"))])
-async def create_role(role_in: RoleCreate, db: AsyncSession = Depends(get_db)):
+async def create_role(role_in: RoleCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Crea un nuevo rol y le asigna los permisos indicados.
     """
-    return await SecurityService.create_role(db, role_in)
+    return await SecurityService.create_role(db, role_in, actor=current_user)
 
 @router.put("/roles/{role_id}", response_model=RoleResponse, dependencies=[Depends(RequirePermission("admin.roles.manage"))])
 async def update_role(
@@ -54,11 +54,11 @@ async def update_role(
     return updated_role
 
 @router.delete("/roles/{role_id}", dependencies=[Depends(RequirePermission("admin.roles.manage"))])
-async def delete_role(role_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_role(role_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Elimina un rol. Los roles del sistema (is_system_role='1') no se pueden borrar.
     """
-    await SecurityService.delete_role(db, role_id)
+    await SecurityService.delete_role(db, role_id, actor=current_user)
     return {"msg": "Rol eliminado exitosamente"}
 
 @router.get("/permissions", response_model=List[PermissionResponse], dependencies=[Depends(RequirePermission("admin.roles.manage"))])
@@ -72,8 +72,8 @@ async def read_permissions(db: AsyncSession = Depends(get_db)):
 # /roles/sync-permissions caía en /roles/{role_id} (que no acepta POST) con 405. Se publican ambas.
 @router.post("/roles/sync-permissions", dependencies=[Depends(RequirePermission("admin.roles.manage"))])
 @router.post("/sync-permissions", include_in_schema=False, dependencies=[Depends(RequirePermission("admin.roles.manage"))])
-async def sync_permissions_endpoint(db: AsyncSession = Depends(get_db)):
+async def sync_permissions_endpoint(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Sincroniza y actualiza todos los permisos estándar del sistema y asigna los permisos base a los roles.
     """
-    return await SecurityService.sync_all_system_permissions(db)
+    return await SecurityService.sync_all_system_permissions(db, actor=current_user)

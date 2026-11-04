@@ -222,10 +222,14 @@ async def get_audit_logs(
     status: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    user_id: Optional[int] = Query(None, ge=1, description="Filtra por el id exacto del usuario que realizó la acción"),
+    kind: Optional[str] = Query(None, pattern="^(detailed|generic|all)$",
+                                description="detailed = registros con antes/después; generic = HTTP_WRITE automáticos; all/omitido = todos"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Retorna la pista de auditoría inmutable de seguridad y acciones administrativas (Audit Trail).
+    Los registros genéricos automáticos (action=HTTP_WRITE, H-65) se distinguen con `kind`.
     """
     from src.models.audit_log import AuditLog
 
@@ -239,6 +243,14 @@ async def get_audit_logs(
         
     if status and status != "all":
         query = query.where(AuditLog.status == status)
+
+    if user_id:
+        query = query.where(AuditLog.user_id == user_id)
+
+    if kind == "generic":
+        query = query.where(AuditLog.action == "HTTP_WRITE")
+    elif kind == "detailed":
+        query = query.where(AuditLog.action != "HTTP_WRITE")
         
     if search:
         search_term = like_contains(search)

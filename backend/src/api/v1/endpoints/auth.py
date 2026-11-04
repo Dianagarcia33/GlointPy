@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import audit_in_tx
 from src.core.errors import public_error_detail
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -325,6 +326,14 @@ async def switch_to_child_account(
     if not child.is_active:
         raise HTTPException(status_code=400, detail="La cuenta del menor se encuentra inactiva.")
 
+    # H-65: la suplantación deja rastro ANTES de entregar el token (si no se puede auditar, no se emite la sesión)
+    await audit_in_tx(
+        db, "ACCOUNT_SWITCH", "security", current_user, "User", child.id,
+        f"El tutor #{current_user.id} cambió a la cuenta del menor #{child.id}",
+        {"tutor_id": current_user.id, "menor_id": child.id},
+    )
+    await db.commit()
+
     # H-182: el token del menor lleva firmado quién lo suplantó; solo con ese claim se puede volver al tutor
     access_token = create_access_token(
         subject=child.id,
@@ -375,6 +384,13 @@ async def switch_back_to_parent(
     parent = result.scalars().first()
     if not parent or not parent.is_active:
         raise HTTPException(status_code=404, detail="La cuenta del tutor no se encuentra disponible o activa.")
+
+    await audit_in_tx(
+        db, "ACCOUNT_SWITCH_BACK", "security", current_user, "User", parent.id,
+        f"Regreso a la cuenta del tutor #{parent.id} desde la cuenta del menor #{current_user.id}",
+        {"tutor_id": parent.id, "menor_id": current_user.id, "suplantado_por": str(auth_payload.get("imp_by"))},
+    )
+    await db.commit()
 
     access_token = create_access_token(subject=parent.id, token_version=parent.token_version)
     set_auth_cookie(response, access_token, request=request)

@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import audit_in_tx
 import secrets
 import hashlib
 import json
@@ -22,6 +23,22 @@ from src.schemas.external_app import (
 )
 from src.core.webhook_security import verify_webhook_destination_safety, is_transient_verification_error
 
+
+def _app_view(app) -> dict:
+    """Vista de una app externa para auditoría. NUNCA incluye la API Key ni el secreto del webhook;
+    del webhook solo el dominio (la URL completa podría llevar credenciales)."""
+    from urllib.parse import urlparse
+    host = None
+    try:
+        host = urlparse(app.webhook_url).hostname if app.webhook_url else None
+    except Exception:
+        host = None
+    return {
+        "nombre": app.name, "client_id": app.client_id, "activa": bool(app.is_active),
+        "webhook_dominio": host, "redirecciones": len(app.redirect_urls or []) if isinstance(app.redirect_urls, (list, tuple)) else (1 if app.redirect_urls else 0),
+    }
+
+
 class ExternalAppService:
     
     @staticmethod
@@ -41,7 +58,7 @@ class ExternalAppService:
         return hashlib.sha256(api_key.strip().encode()).hexdigest()
 
     @staticmethod
-    async def create_app(db: AsyncSession, app_in: ExternalAppCreate, creator_id: int) -> Tuple[ExternalApp, str]:
+    async def create_app(db: AsyncSession, app_in: ExternalAppCreate, creator_id: int, actor=None) -> Tuple[ExternalApp, str]:
         if app_in.webhook_url:
             is_safe, sec_err = await verify_webhook_destination_safety(app_in.webhook_url)
             if not is_safe and ("IP interna" in sec_err or "bloqueado" in sec_err or "Esquema" in sec_err):
@@ -61,6 +78,12 @@ class ExternalAppService:
             created_by=creator_id
         )
         db.add(new_app)
+        await db.flush()
+        await audit_in_tx(
+            db, "EXTERNAL_APP_CREATE", "external-apps", actor, "ExternalApp", new_app.id,
+            f"Creación de la app externa '{new_app.name}'",
+            {"app_id": new_app.id, "despues": _app_view(new_app)},
+        )
         await db.commit()
         await db.refresh(new_app)
         return new_app, api_key
@@ -111,8 +134,9 @@ class ExternalAppService:
         return app
 
     @staticmethod
-    async def update_app(db: AsyncSession, app_id: int, app_in: ExternalAppUpdate) -> ExternalApp:
+    async def update_app(db: AsyncSession, app_id: int, app_in: ExternalAppUpdate, actor=None) -> ExternalApp:
         app = await ExternalAppService.get_app_by_id(db, app_id)
+        before_view = _app_view(app)
         if app_in.name is not None:
             app.name = app_in.name
         if app_in.description is not None:
@@ -127,24 +151,39 @@ class ExternalAppService:
             app.redirect_urls = app_in.redirect_urls
         if app_in.is_active is not None:
             app.is_active = app_in.is_active
-            
+
+        await audit_in_tx(
+            db, "EXTERNAL_APP_UPDATE", "external-apps", actor, "ExternalApp", app.id,
+            f"Edición de la app externa '{app.name}'",
+            {"app_id": app.id, "antes": before_view, "despues": _app_view(app)},
+        )
         await db.commit()
         await db.refresh(app)
         return app
 
     @staticmethod
-    async def regenerate_api_key(db: AsyncSession, app_id: int) -> Tuple[ExternalApp, str]:
+    async def regenerate_api_key(db: AsyncSession, app_id: int, actor=None) -> Tuple[ExternalApp, str]:
         app = await ExternalAppService.get_app_by_id(db, app_id)
         _, api_key, api_key_hash, webhook_secret = ExternalAppService._generate_api_key()
         app.api_key_hash = api_key_hash
         app.webhook_secret = webhook_secret
+        await audit_in_tx(
+            db, "EXTERNAL_APP_KEY_REGENERATE", "external-apps", actor, "ExternalApp", app.id,
+            f"Regeneración de la API Key de la app externa '{app.name}'",
+            {"app_id": app.id, "client_id": app.client_id, "api_key_regenerada": True, "webhook_secret_regenerado": True},
+        )
         await db.commit()
         await db.refresh(app)
         return app, api_key
 
     @staticmethod
-    async def delete_app(db: AsyncSession, app_id: int) -> dict:
+    async def delete_app(db: AsyncSession, app_id: int, actor=None) -> dict:
         app = await ExternalAppService.get_app_by_id(db, app_id)
+        await audit_in_tx(
+            db, "EXTERNAL_APP_DELETE", "external-apps", actor, "ExternalApp", app.id,
+            f"Eliminación de la app externa '{app.name}'",
+            {"app_id": app.id, "antes": _app_view(app)},
+        )
         await db.delete(app)
         await db.commit()
         return {"message": "Aplicación externa eliminada exitosamente"}

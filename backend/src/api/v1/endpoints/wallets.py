@@ -1647,6 +1647,7 @@ async def approve_wallet_recharge_admin(
     from datetime import datetime
     from decimal import Decimal
     from src.models.wallet_recharge import WalletRecharge
+    from sqlalchemy import or_, and_  # H-65: faltaba; sin esto la aprobación fallaba con NameError
     from src.models.wallet import Wallet, WalletTransaction
     from src.services.push_notification_service import PushNotificationService
 
