@@ -37,6 +37,7 @@ import { crmEmailService } from '../../../services/crmEmailService';
 import { crmService, CRMLead } from '../../../services/crmService';
 
 import { SkeletonList } from '../../../components/common/Skeleton';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 const MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
@@ -56,6 +57,7 @@ export const CRMCalendarPage: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [deletingUid, setDeletingUid] = useState<string | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
 
   // Formulario Crear Cita
   const [newTitle, setNewTitle] = useState('');
@@ -217,10 +219,13 @@ export const CRMCalendarPage: React.FC = () => {
   };
 
   // Acción: Eliminar / Cancelar cita
-  const handleDeleteEvent = async (event: CalendarEvent) => {
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar la cita "${event.title}" de tu calendario de cPanel?`)) {
-      return;
-    }
+  // H-109: confirmación con modal propio (antes window.confirm nativo)
+  const handleDeleteEvent = (event: CalendarEvent) => setEventToDelete(event);
+
+  const confirmDeleteEvent = async () => {
+    const event = eventToDelete;
+    if (!event) return;
+    setEventToDelete(null);
 
     setDeletingUid(event.uid);
     try {
@@ -1222,6 +1227,16 @@ export const CRMCalendarPage: React.FC = () => {
         </div>
       )}
 
+      <ConfirmationModal
+        isOpen={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+        onConfirm={confirmDeleteEvent}
+        title="Eliminar cita"
+        description={`¿Seguro que deseas eliminar la cita "${eventToDelete?.title ?? ''}" de tu calendario de cPanel? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar cita"
+        cancelText="Conservar"
+        variant="danger"
+      />
     </div>
   );
 };
