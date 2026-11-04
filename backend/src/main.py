@@ -814,7 +814,7 @@ async def add_security_headers(request: Request, call_next):
     """Cabeceras de seguridad en todas las respuestas del API (H-147)."""
     response = await call_next(request)
     headers = response.headers
-    headers.setdefault("Strict-Transport-Security", "max-age=15552000; includeSubDomains")
+    headers.setdefault("Strict-Transport-Security", "max-age=15552000")
     headers.setdefault("X-Content-Type-Options", "nosniff")
     headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     # Los archivos de /uploads (PDF e imágenes de comprobantes) se muestran dentro de la SPA en
