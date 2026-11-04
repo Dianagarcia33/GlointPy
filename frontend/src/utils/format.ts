@@ -97,6 +97,42 @@ export const formatApiDate = (
 };
 
 /**
+ * Fecha y hora de una marca de tiempo de la API SIEMPRE en hora de Colombia (America/Bogota),
+ * sin depender de la zona del navegador (H-152). Sin zona ('2026-09-24T23:52:36') se asume UTC,
+ * que es como guarda el servidor; con zona ('...-05:00') se respeta. Un valor de solo día
+ * ('2026-09-28') no es un instante: se muestra el día sin hora y sin desplazarlo.
+ */
+export const formatApiDateTime = (
+    dateStr: string | null | undefined,
+    options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' },
+): string => {
+    if (!dateStr) return 'N/A';
+    const clean = dateStr.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+        const { hour, minute, second, hour12, timeStyle, ...dayOptions } = options as Intl.DateTimeFormatOptions & { timeStyle?: string };
+        void hour; void minute; void second; void hour12; void timeStyle;
+        return formatApiDate(clean, dayOptions);
+    }
+    const d = !hasTimezoneSuffix(clean) && clean.includes('T') ? new Date(clean + 'Z') : new Date(clean);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleString('es-CO', { ...options, timeZone: 'America/Bogota' });
+};
+
+/**
+ * Día calendario de un campo de negocio que puede venir con hora sin zona (p. ej. fecha de inicio
+ * de contrato '2026-10-16T20:37:40'): se toma el día tal como está escrito, sin convertir de zona,
+ * para no moverlo de día (H-152).
+ */
+export const formatApiCalendarDay = (
+    dateStr: string | null | undefined,
+    options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' },
+): string => {
+    if (!dateStr) return 'N/A';
+    const day = /^(\d{4}-\d{2}-\d{2})/.exec(dateStr.trim());
+    return day ? formatApiDate(day[1], options) : dateStr;
+};
+
+/**
  * Parsea una fecha de chat asegurando que los timestamps UTC de MySQL sin sufijo 'Z'
  * sean interpretados correctamente como UTC.
  */

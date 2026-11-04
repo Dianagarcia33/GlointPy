@@ -24,7 +24,7 @@ import {
   Layers
 } from 'lucide-react';
 import { usersService, UserAccountStatement } from '../../../../services/users';
-import { formatTransactionType } from '../../../../utils/format';
+import { formatTransactionType, formatApiDateTime, formatApiCalendarDay } from '../../../../utils/format';
 
 interface UserAccountStatementModalProps {
   isOpen: boolean;
@@ -92,29 +92,11 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
     }).format(num || 0);
   };
 
-  const formatDate = (dateStr?: string | null) => {
-    if (!dateStr) return 'N/A';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('es-CO', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric' 
-    });
-  };
+  // H-152: fechas en hora de Colombia (America/Bogota), sin depender de la zona del navegador.
+  const formatDate = (dateStr?: string | null) =>
+    formatApiDateTime(dateStr, { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const formatDateTime = (dateStr?: string | null) => {
-    if (!dateStr) return 'N/A';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('es-CO', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDateTime = (dateStr?: string | null) => formatApiDateTime(dateStr);
 
   const handleExportExcel = async () => {
     // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
@@ -195,7 +177,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
         'CAPITAL INVERTIDO': i.capital,
         'TASA MENSUAL (%)': `${i.porcentaje_mensual}%`,
         'PLAZO (MESES)': `${i.meses} meses`,
-        'FECHA INICIO': formatDate(i.fecha_inicio),
+        'FECHA INICIO': formatApiCalendarDay(i.fecha_inicio),
         'ESTADO': i.estado,
         'OBSERVACIONES': i.observaciones
       }));
@@ -690,7 +672,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                                   {inv.meses} meses
                                 </td>
                                 <td className="py-3 px-4 text-slate-600 font-mono">
-                                  {formatDate(inv.fecha_inicio)}
+                                  {formatApiCalendarDay(inv.fecha_inicio)}
                                 </td>
                                 <td className="py-3 px-4 text-center">
                                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
@@ -1176,7 +1158,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                         {inv.meses} meses
                       </td>
                       <td className="py-1 px-2 border-r border-slate-200 font-mono text-[8.5px] text-slate-600">
-                        {formatDate(inv.fecha_inicio)}
+                        {formatApiCalendarDay(inv.fecha_inicio)}
                       </td>
                       <td className="py-1 px-2 text-center font-bold uppercase text-[8.5px]">
                         <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
