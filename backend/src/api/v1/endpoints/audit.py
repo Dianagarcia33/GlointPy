@@ -577,6 +577,8 @@ async def pay_user_yields(
 async def update_acceleration_date(
     acceleration_id: int,
     req: UpdateAccelerationDateRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     from src.models.acceleration import Acceleration
@@ -592,9 +594,24 @@ async def update_acceleration_date(
     except Exception:
         raise HTTPException(status_code=400, detail="Formato de fecha inválido")
         
+    previous_date = acc.created_at.isoformat() if acc.created_at else None
     acc.created_at = new_date
     await db.commit()
     await db.refresh(acc)
+
+    # Registro en el Audit Trail (H-65): cambiar la fecha de un bono es un dato financiero
+    from src.services.audit_trail_service import log_audit_trail
+    await log_audit_trail(
+        db=db,
+        action="ACCELERATION_DATE_UPDATE",
+        module="audit",
+        user=current_user,
+        request=request,
+        entity_type="Acceleration",
+        entity_id=acceleration_id,
+        description=f"Cambio de fecha del bono de aceleración #{acceleration_id}",
+        details={"investor_id": getattr(acc, "investor_id", None), "before": previous_date, "after": acc.created_at.isoformat()},
+    )
     return {"message": "Fecha del bono de aceleración actualizada exitosamente", "id": acc.id, "created_at": acc.created_at.isoformat()}
 
 

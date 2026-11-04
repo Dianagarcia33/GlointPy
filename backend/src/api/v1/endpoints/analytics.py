@@ -26,7 +26,12 @@ from src.models.wallet_recharge import WalletRecharge
 
 router = APIRouter()
 
-@router.get("/admin-dashboard", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+# H-235: "admin.audits.manage" lo tiene también el rol contabilidad, por lo que ya no abre las analíticas de
+# gestión. Estas son las llaves de nivel administrativo (las mismas que ya aceptaba director-dashboard).
+ADMIN_ANALYTICS_PERMISSIONS = ["admin.users.manage", "admin.roles.manage"]
+
+
+@router.get("/admin-dashboard", dependencies=[Depends(RequirePermission(ADMIN_ANALYTICS_PERMISSIONS))])
 async def get_admin_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -183,7 +188,7 @@ async def get_admin_analytics_dashboard(
 
 
 
-@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage", "admin.commercial.manage", "commercial:view"]))])
+@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage", "admin.commercial.manage", "commercial:view"]))])
 async def get_director_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)

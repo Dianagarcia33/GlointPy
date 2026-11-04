@@ -49,11 +49,14 @@ export const useInactivityTimer = () => {
         const lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : Date.now();
         const remaining = Math.max(0, INACTIVITY_TIMEOUT - (Date.now() - lastActive));
 
+        // H-230: al vencer, se vuelve a leer la marca compartida entre pestañas. Si otra pestaña
+        // registró actividad, solo se reprograma con el tiempo restante; únicamente se cierra la
+        // sesión cuando la marca realmente tiene 5 min o más (checkInactivity ya hace el cierre).
         timeoutRef.current = setTimeout(() => {
             if (checkInactivity()) return;
-            performLogout();
-        }, remaining || INACTIVITY_TIMEOUT);
-    }, [isAuthenticated, checkInactivity, performLogout]);
+            scheduleTimer();
+        }, remaining > 0 ? remaining : INACTIVITY_TIMEOUT);
+    }, [isAuthenticated, checkInactivity]);
 
     const handleUserActivity = useCallback(() => {
         // 1. Validar primero si ya expiró el tiempo real durante la ausencia
@@ -109,6 +112,15 @@ export const useInactivityTimer = () => {
         document.addEventListener('visibilitychange', handleVisibilityOrFocus);
         window.addEventListener('focus', handleVisibilityOrFocus);
 
+        // H-230: la actividad de otra pestaña actualiza la marca compartida; esta pestaña
+        // reprograma su temporizador con ese valor en lugar de cerrar la sesión por su cuenta.
+        const handleStorage = (e: StorageEvent) => {
+            if (e.key === STORAGE_KEY && e.newValue) {
+                scheduleTimer();
+            }
+        };
+        window.addEventListener('storage', handleStorage);
+
         return () => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
@@ -118,6 +130,7 @@ export const useInactivityTimer = () => {
             });
             document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
             window.removeEventListener('focus', handleVisibilityOrFocus);
+            window.removeEventListener('storage', handleStorage);
         };
     }, [isAuthenticated, checkInactivity, scheduleTimer, handleUserActivity]);
 };
