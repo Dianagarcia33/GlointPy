@@ -31,6 +31,9 @@ class InvestorBase(BaseModel):
         return v_upper
 
 class InvestorCreate(InvestorBase):
+    # H-142: motivo obligatorio cuando la fecha de ingreso es retroactiva (anterior a hoy); queda en el Audit Trail
+    start_date_reason: Optional[str] = None
+
     @field_validator("referred_by")
     @classmethod
     def validate_create_referred_by(cls, v: Optional[str]) -> Optional[str]:
@@ -51,6 +54,7 @@ class InvestorUpdate(BaseModel):
     package_id: Optional[int] = None
     period_id: Optional[int] = None
     start_date: Optional[datetime] = None
+    start_date_reason: Optional[str] = None  # H-142: motivo si la nueva fecha de ingreso es retroactiva
     observations: Optional[str] = None
 
     @field_validator("referred_by", mode="before")
