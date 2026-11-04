@@ -20,3 +20,15 @@ export const sanitizeEmailHtml = (html: string | null | undefined): string =>
     USE_PROFILES: { html: true },
     FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'option'],
   });
+
+/**
+ * Limpia el HTML de las plantillas de documentos (contratos, certificados) antes de mostrarlo o
+ * imprimirlo. Las plantillas se rellenan con datos escritos por usuarios (nombres, direcciones),
+ * así que podrían colar scripts o manejadores on*. Se conserva el formato del documento
+ * (tablas, estilos en línea, imágenes de firma, saltos de página).
+ */
+export const sanitizeDocumentHtml = (html: string | null | undefined): string =>
+  DOMPurify.sanitize(html || '', {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['form', 'input', 'button', 'textarea', 'select', 'option'],
+  });
