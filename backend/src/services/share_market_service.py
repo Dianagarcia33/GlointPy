@@ -502,8 +502,12 @@ class ShareMarketService:
         }
 
     @staticmethod
-    async def create_listing(db: AsyncSession, seller_id: int, shares_quantity: int, price_per_share: float) -> ShareListing:
-        """Pone acciones a la venta de forma voluntaria dentro de la ventana de fechas permitida."""
+    async def create_listing(db: AsyncSession, seller_id: int, shares_quantity: int, price_per_share: Optional[float] = None) -> ShareListing:
+        """Pone acciones a la venta de forma voluntaria dentro de la ventana de fechas permitida.
+
+        H-238: el precio de la oferta es SIEMPRE el precio oficial vigente (definido por el administrador).
+        El parámetro price_per_share se conserva solo por compatibilidad y se IGNORA.
+        """
         # 1. Verificar si la fecha de venta del sistema está activa
         is_active_window = await SystemEventService.is_any_event_active(db, SHARES_SALE_EVENT_TYPES)
         if not is_active_window:
@@ -514,8 +518,9 @@ class ShareMarketService:
 
         if shares_quantity <= 0:
             raise HTTPException(status_code=400, detail="La cantidad de acciones debe ser mayor a 0.")
+        price_per_share = await ShareMarketService.get_current_price(db)
         if price_per_share <= 0:
-            raise HTTPException(status_code=400, detail="El precio por acción debe ser mayor a 0.")
+            raise HTTPException(status_code=400, detail="No hay un precio oficial de la acción configurado.")
 
         # 2. Verificar que el usuario tenga suficientes acciones disponibles libres en su cuenta
         portfolio = await ShareMarketService.get_user_portfolio(db, seller_id)

@@ -67,8 +67,8 @@ async def create_share_listing(
     listing = await ShareMarketService.create_listing(
         db=db,
         seller_id=current_user.id,
-        shares_quantity=payload.shares_quantity,
-        price_per_share=payload.price_per_share
+        shares_quantity=payload.shares_quantity
+        # H-238: payload.price_per_share se ignora; el servicio usa el precio oficial vigente.
     )
     return {
         "id": listing.id,
