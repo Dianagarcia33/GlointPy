@@ -47,9 +47,15 @@ class ExternalAppCreatedResponse(ExternalAppResponse):
     api_key: str
     webhook_secret: Optional[str] = None
 
+# H-233: tope técnico = lo que cabe en la columna Numeric(15, 2) de external_payment_orders.amount.
+# No es una regla de negocio: el máximo por cobro que quiera la empresa requiere decisión.
+MAX_PAYMENT_AMOUNT = 9_999_999_999_999.99
+
+
 class CreatePaymentIntentRequest(BaseModel):
     order_reference: str
-    amount: float
+    # El ≤ 0 lo rechaza el servicio con 400 (H-172); aquí se acota el tope y se excluyen NaN/Infinity
+    amount: float = Field(..., le=MAX_PAYMENT_AMOUNT, allow_inf_nan=False)
     description: Optional[str] = None
     redirect_url: Optional[str] = None
     metadata: Optional[dict] = None

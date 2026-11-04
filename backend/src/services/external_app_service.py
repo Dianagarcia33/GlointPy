@@ -437,7 +437,8 @@ class ExternalAppService:
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
                 resp = await client.post(order.app.webhook_url, content=payload_bytes, headers=headers)
                 order.webhook_attempts = (order.webhook_attempts or 0) + 1
-                if resp.status_code < 400:
+                # follow_redirects=False: un 3xx significa que el comercio no procesó el evento en esa URL
+                if resp.status_code < 300:
                     order.webhook_status = "sent"
                     order.webhook_response = f"HTTP {resp.status_code}: {resp.text[:300]}"
                     return True, False

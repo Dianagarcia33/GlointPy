@@ -33,6 +33,8 @@ export const AdminExternalAppsPage: React.FC = () => {
   const [orders, setOrders] = useState<ExternalPaymentOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  // H-118: el estado del gateway se calcula con las órdenes; hasta cargarlas no se afirma «Operacional»
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -84,6 +86,7 @@ export const AdminExternalAppsPage: React.FC = () => {
       setOrdersLoading(true);
       const data = await externalAppsService.getAllOrders(200);
       setOrders(data);
+      setOrdersLoaded(true);
     } catch (err: any) {
       console.error('Error fetching orders:', err);
     } finally {
@@ -95,10 +98,9 @@ export const AdminExternalAppsPage: React.FC = () => {
     fetchApps();
   }, []);
 
+  // H-118: las órdenes se cargan también en la pestaña de apps porque la tarjeta «Estado del Gateway» las necesita
   useEffect(() => {
-    if (activeTab === 'orders') {
-      fetchOrders();
-    }
+    fetchOrders();
   }, [activeTab]);
 
   const handleCreate = () => {
@@ -196,7 +198,7 @@ export const AdminExternalAppsPage: React.FC = () => {
   const webhookSuccessRate = completedOrders.length > 0 
     ? Math.round(((completedOrders.length - failedWebhooks.length) / completedOrders.length) * 100)
     : 100;
-  const isGatewayHealthy = failedWebhooks.length === 0;
+  const isGatewayHealthy = ordersLoaded && failedWebhooks.length === 0;
 
   const filteredOrders = orders.filter(o => {
     if (!searchOrder.trim()) return true;
@@ -341,10 +343,10 @@ export const AdminExternalAppsPage: React.FC = () => {
             </div>
           </div>
           <span className={`text-xl sm:text-2xl font-black block tracking-tight font-mono ${isGatewayHealthy ? 'text-emerald-700' : 'text-amber-700'}`}>
-            {isGatewayHealthy ? 'Operacional' : `${webhookSuccessRate}%`}
+            {!ordersLoaded ? 'Verificando…' : isGatewayHealthy ? 'Operacional' : `${webhookSuccessRate}%`}
           </span>
           <span className={`text-[11px] font-medium block truncate ${isGatewayHealthy ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {isGatewayHealthy ? 'Webhooks al 100%' : `${failedWebhooks.length} webhooks pendientes`}
+            {!ordersLoaded ? 'Calculando entregas de webhooks' : isGatewayHealthy ? 'Webhooks al 100%' : `${failedWebhooks.length} webhook(s) fallido(s)`}
           </span>
         </div>
       </div>
