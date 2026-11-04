@@ -187,7 +187,7 @@ function App() {
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
         {/* Mercado de Acciones */}
-        <Route path="shares-market" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage", "wallets:view", "dashboard:view_investments"]}><SharesMarketPage /></RequirePermission>} />
+        <Route path="shares-market" element={<RequirePermission permissions={["shares:access"]}><SharesMarketPage /></RequirePermission>} />
         <Route path="admin-shares" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage"]}><AdminSharesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<RequirePermission permission="beneficiaries:view"><BeneficiariesPage /></RequirePermission>} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
@@ -205,7 +205,7 @@ function App() {
         <Route path="suppliers" element={<RequirePermission permissions={["suppliers:view", "suppliers.view", "inventory:view"]}><SuppliersPage /></RequirePermission>} />
         <Route path="purchase-orders" element={<RequirePermission permissions={["purchase_orders:view", "purchase_orders.view", "inventory:view"]}><PurchaseOrdersPage /></RequirePermission>} />
         <Route path="assets" element={<RequirePermission permissions={["assets:view", "assets.view", "inventory:view"]}><AssetsPage /></RequirePermission>} />
-        <Route path="credits" element={<RequirePermission permissions={["credits:view", "credits:request", "dashboard:view_investments", "wallets:view"]}><CreditsPage /></RequirePermission>} />
+        <Route path="credits" element={<RequirePermission permissions={["credits:view", "credits:request"]}><CreditsPage /></RequirePermission>} />
         <Route path="admin-credits" element={<RequirePermission permissions={["admin.credits.manage", "credits:manage"]}><AdminCreditsPage /></RequirePermission>} />
         <Route path="evaluaciones-tecnicas" element={<RequirePermission permission="admin.users.manage"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
         <Route path="pruebas-tecnicas" element={<RequirePermission permission="admin.users.manage"><AdminTechnicalEvaluationsPage /></RequirePermission>} />

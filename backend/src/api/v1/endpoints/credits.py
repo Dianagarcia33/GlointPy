@@ -29,12 +29,20 @@ from src.services.audit_trail_service import log_audit_trail
 
 router = APIRouter()
 
+# H-223: permisos PBAC del módulo de crédito (antes aceptaba también wallets:view y
+# dashboard:view_investments, y /config, /simulate y /me/bank-accounts no exigían ninguno).
+# /config y /simulate también los lee la administración de créditos.
+CREDITS_VIEW = [Depends(RequirePermission(["credits:view", "credits:request"]))]
+CREDITS_READ_CONFIG = [Depends(RequirePermission(["credits:view", "credits:request", "admin.credits.manage", "credits:manage"]))]
+CREDITS_REQUEST = [Depends(RequirePermission("credits:request"))]
+CREDITS_PAY = [Depends(RequirePermission("credits:pay"))]
+
 
 # =========================================================================
 # 1. CONFIGURACIÓN Y TASA DE USURA LEGAL (SUPERFINANCIERA)
 # =========================================================================
 
-@router.get("/config", response_model=CreditConfigOut)
+@router.get("/config", response_model=CreditConfigOut, dependencies=CREDITS_READ_CONFIG)
 async def get_credit_config(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -76,7 +84,7 @@ async def update_credit_config(
 # 2. SIMULADOR DE CRÉDITO
 # =========================================================================
 
-@router.get("/simulate", response_model=CreditSimulationResponse)
+@router.get("/simulate", response_model=CreditSimulationResponse, dependencies=CREDITS_READ_CONFIG)
 async def simulate_credit(
     amount: float = Query(..., ge=10000.0, description="Monto del crédito"),
     term_months: int = Query(..., ge=1, le=48, description="Plazo en meses"),
@@ -96,7 +104,7 @@ async def simulate_credit(
 # 3. CLIENTE (INVERSIONISTA / USUARIO GLOINT)
 # =========================================================================
 
-@router.get("/me", response_model=List[CreditOut], dependencies=[Depends(RequirePermission(["credits:view", "credits:request", "dashboard:view_investments", "wallets:view"]))])
+@router.get("/me", response_model=List[CreditOut], dependencies=CREDITS_VIEW)
 async def get_my_credits(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -172,7 +180,7 @@ async def get_my_credits(
     return res
 
 
-@router.get("/me/bank-accounts")
+@router.get("/me/bank-accounts", dependencies=CREDITS_REQUEST)
 async def get_my_credit_bank_accounts(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -253,7 +261,7 @@ async def get_my_credit_bank_accounts(
     ]
 
 
-@router.post("/me/request", dependencies=[Depends(RequirePermission(["credits:request", "credits:view", "dashboard:view_investments", "wallets:view"]))])
+@router.post("/me/request", dependencies=CREDITS_REQUEST)
 async def request_credit(
     data: CreditCreate,
     request: Request,
@@ -289,7 +297,7 @@ async def request_credit(
     }
 
 
-@router.post("/installments/{installment_id}/pay", dependencies=[Depends(RequirePermission(["credits:pay", "credits:view", "dashboard:view_investments", "wallets:view"]))])
+@router.post("/installments/{installment_id}/pay", dependencies=CREDITS_PAY)
 async def pay_credit_installment(
     installment_id: int,
     use_wallet_amount: float = Form(0.0),

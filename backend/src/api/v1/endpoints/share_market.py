@@ -23,11 +23,17 @@ from src.services.share_market_service import ShareMarketService
 
 router = APIRouter()
 
+# H-223: permisos PBAC del módulo (mismo mecanismo RequirePermission que el resto de la API).
+# Lectura: shares:access (inversionistas) o admin.shares.manage (la pantalla de administración lee
+# price-history y portfolio). Operar (publicar, cancelar, comprar): solo shares:access.
+SHARES_READ = [Depends(RequirePermission(["shares:access", "admin.shares.manage"]))]
+SHARES_TRADE = [Depends(RequirePermission("shares:access"))]
+
 # ==========================================================
 # ENDPOINTS PARA INVERSIONISTAS (MERCADO & PORTAFOLIO)
 # ==========================================================
 
-@router.get("/portfolio", response_model=ShareUserPortfolioOut)
+@router.get("/portfolio", response_model=ShareUserPortfolioOut, dependencies=SHARES_READ)
 async def get_my_share_portfolio(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -35,7 +41,7 @@ async def get_my_share_portfolio(
     """Obtiene el portafolio, balance de custodia y estado de la ventana de venta del usuario."""
     return await ShareMarketService.get_user_portfolio(db, current_user.id)
 
-@router.get("/price-history", response_model=List[SharePriceHistoryOut])
+@router.get("/price-history", response_model=List[SharePriceHistoryOut], dependencies=SHARES_READ)
 async def get_share_price_history(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -43,7 +49,7 @@ async def get_share_price_history(
     """Obtiene la bitácora histórica de valorizaciones y notas de la acción."""
     return await ShareMarketService.get_price_history(db)
 
-@router.get("/listings", response_model=List[ShareListingOut])
+@router.get("/listings", response_model=List[ShareListingOut], dependencies=SHARES_READ)
 async def get_market_listings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -51,7 +57,7 @@ async def get_market_listings(
     """Obtiene todas las ofertas de venta de acciones disponibles en el mercado."""
     return await ShareMarketService.get_active_listings(db, current_user.id)
 
-@router.post("/listings", response_model=ShareListingOut)
+@router.post("/listings", response_model=ShareListingOut, dependencies=SHARES_TRADE)
 async def create_share_listing(
     payload: ShareListingCreate,
     db: AsyncSession = Depends(get_db),
@@ -79,7 +85,7 @@ async def create_share_listing(
         "is_mine": True
     }
 
-@router.delete("/listings/{listing_id}")
+@router.delete("/listings/{listing_id}", dependencies=SHARES_TRADE)
 async def cancel_share_listing(
     listing_id: int,
     db: AsyncSession = Depends(get_db),
@@ -89,7 +95,7 @@ async def cancel_share_listing(
     await ShareMarketService.cancel_listing(db, listing_id, current_user.id)
     return {"message": "Oferta cancelada exitosamente."}
 
-@router.post("/buy-instant", response_model=ShareTradeOrderOut)
+@router.post("/buy-instant", response_model=ShareTradeOrderOut, dependencies=SHARES_TRADE)
 async def buy_shares_instant(
     listing_id: int = Form(...),
     shares_quantity: int = Form(...),
@@ -104,7 +110,7 @@ async def buy_shares_instant(
         shares_quantity=shares_quantity
     )
 
-@router.post("/buy-surplus", response_model=ShareTradeOrderOut)
+@router.post("/buy-surplus", response_model=ShareTradeOrderOut, dependencies=SHARES_TRADE)
 async def buy_shares_with_surplus(
     listing_id: int = Form(...),
     shares_quantity: int = Form(...),
@@ -125,7 +131,7 @@ async def buy_shares_with_surplus(
         receipt_file=receipt
     )
 
-@router.get("/my-orders", response_model=List[ShareTradeOrderOut])
+@router.get("/my-orders", response_model=List[ShareTradeOrderOut], dependencies=SHARES_READ)
 async def get_my_trade_orders(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -133,7 +139,7 @@ async def get_my_trade_orders(
     """Obtiene el historial de compras y ventas de acciones del usuario."""
     return await ShareMarketService.get_all_trade_orders(db, user_id=current_user.id)
 
-@router.get("/movements", response_model=List[ShareMovementOut])
+@router.get("/movements", response_model=List[ShareMovementOut], dependencies=SHARES_READ)
 async def get_my_share_movements(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
