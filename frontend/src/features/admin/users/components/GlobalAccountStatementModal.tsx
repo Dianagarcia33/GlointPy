@@ -27,7 +27,7 @@ import {
   Percent
 } from 'lucide-react';
 import { usersService, GlobalAccountStatement } from '../../../../services/users';
-import { formatTransactionType } from '../../../../utils/format';
+import { formatTransactionType, formatApiDateTime, formatApiCalendarDay } from '../../../../utils/format';
 
 interface GlobalAccountStatementModalProps {
   isOpen: boolean;
@@ -123,29 +123,8 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
     }).format(amount || 0);
   };
 
-  const formatDateTime = (isoString?: string | null) => {
-    if (!isoString) return 'N/A';
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatDate = (isoString?: string | null) => {
-    if (!isoString) return 'N/A';
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit'
-    });
-  };
+  // H-152: fechas en hora de Colombia (America/Bogota), sin depender de la zona del navegador.
+  const formatDateTime = (isoString?: string | null) => formatApiDateTime(isoString);
 
   // Export to Excel Multi-Sheet
   const handleExportExcel = async () => {
@@ -217,7 +196,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
         'CAPITAL': inv.capital,
         '% MENSUAL': `${inv.porcentaje_mensual}%`,
         'PLAZO (MESES)': inv.meses,
-        'FECHA INICIO': formatDate(inv.fecha_inicio),
+        'FECHA INICIO': formatApiCalendarDay(inv.fecha_inicio),
         'ESTADO': inv.estado
       }));
       const wsInv = XLSX.utils.json_to_sheet(invRows);
@@ -679,7 +658,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
                                 {inv.meses} meses
                               </td>
                               <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">
-                                {formatDate(inv.fecha_inicio)}
+                                {formatApiCalendarDay(inv.fecha_inicio)}
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${

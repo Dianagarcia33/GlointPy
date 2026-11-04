@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { formatApiDateTime } from '../../../../utils/format';
 import {
   Search,
   Loader2,
@@ -503,13 +504,7 @@ export const AdminRechargesManager: React.FC<AdminRechargesManagerProps> = ({ on
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
                         <span>
                           {r.created_at
-                            ? new Date(r.created_at).toLocaleDateString('es-CO', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })
+                            ? formatApiDateTime(r.created_at, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                             : '-'}
                         </span>
                       </div>

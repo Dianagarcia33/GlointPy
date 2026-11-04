@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { formatApiDateTime } from '../../../../utils/format';
 import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check, Landmark, ArrowDownToLine, ArrowDownLeft, Receipt } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
 import { Withdrawal, PaginatedWithdrawals, CompanyTaxLedgerSummary } from '../types';
@@ -282,8 +283,8 @@ export const PaymentManagementPage: React.FC = () => {
         const rows = withdrawalsList.map((w, idx) => ({
           '#': idx + 1,
           'ID': w.id,
-          'FECHA SOLICITUD': w.fecha_solicitud ? new Date(w.fecha_solicitud).toLocaleString('es-CO') : 'N/A',
-          'FECHA PAGO': w.fecha_retiro ? new Date(w.fecha_retiro).toLocaleString('es-CO') : 'N/A',
+          'FECHA SOLICITUD': formatApiDateTime(w.fecha_solicitud, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          'FECHA PAGO': formatApiDateTime(w.fecha_retiro, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
           'INVERSIONISTA': w.user?.name || `Usuario inexistente (#${w.user_id})`,
           'DOCUMENTO': w.user?.document_id || 'N/A',
           'CORREO': w.user?.email || 'N/A',
@@ -333,8 +334,8 @@ export const PaymentManagementPage: React.FC = () => {
         const rows = rechargesList.map((r, idx) => ({
           '#': idx + 1,
           'ID': r.id,
-          'FECHA SOLICITUD': r.created_at ? new Date(r.created_at).toLocaleString('es-CO') : 'N/A',
-          'FECHA REVISIÓN': r.reviewed_at ? new Date(r.reviewed_at).toLocaleString('es-CO') : 'N/A',
+          'FECHA SOLICITUD': formatApiDateTime(r.created_at, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          'FECHA REVISIÓN': formatApiDateTime(r.reviewed_at, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
           'INVERSIONISTA': r.user_name || 'N/A',
           'DOCUMENTO': r.user_document || 'N/A',
           'CORREO': r.user_email || 'N/A',

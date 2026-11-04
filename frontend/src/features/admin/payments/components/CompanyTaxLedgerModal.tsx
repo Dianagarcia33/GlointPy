@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Lock
 } from 'lucide-react';
+import { formatApiDateTime } from '../../../../utils/format';
 import { paymentService } from '../services/paymentService';
 import { CompanyTaxLedgerSummary, CompanyTaxLedgerItem } from '../types';
 
@@ -64,18 +65,9 @@ export const CompanyTaxLedgerModal: React.FC<CompanyTaxLedgerModalProps> = ({
     }).format(num || 0);
   };
 
-  const formatDate = (isoString?: string) => {
-    if (!isoString) return 'N/A';
-    try {
-      const d = new Date(isoString);
-      return new Intl.DateTimeFormat('es-CO', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      }).format(d);
-    } catch {
-      return isoString;
-    }
-  };
+  // H-152: hora de Colombia (America/Bogota)
+  const formatDate = (isoString?: string) =>
+    formatApiDateTime(isoString, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   const filteredEntries = useMemo(() => {
     if (!data?.latest_transactions) return [];

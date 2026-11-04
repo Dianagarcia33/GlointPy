@@ -9,7 +9,7 @@ import { GlobalAccountStatementModal } from '../components/GlobalAccountStatemen
 import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, LogOut, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet, Clock } from 'lucide-react';
 import { ConfirmationModal } from '../../../../components/common/ConfirmationModal';
 import { Can } from '../../../../components/security/Can';
-import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency } from '../../../../utils/format';
+import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency, formatApiDateTime } from '../../../../utils/format';
 
 export const AdminUsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -148,7 +148,7 @@ export const AdminUsersPage = () => {
         'CORREO ELECTRÓNICO': u.email || '',
         'DOCUMENTO': u.document_id || 'N/A',
         'TELÉFONO': u.phone_number || 'N/A',
-        'FECHA NACIMIENTO': u.date_of_birth ? new Date(u.date_of_birth).toLocaleDateString('es-CO') : 'N/A',
+        'FECHA NACIMIENTO': formatApiDateTime(u.date_of_birth, { day: '2-digit', month: '2-digit', year: 'numeric' }),
         'ROLES': (u.roles || []).map(r => r.name).join(', ') || 'Sin Rol',
         'ESTADO': u.is_active ? 'ACTIVO' : 'INACTIVO',
         'SUPERADMIN': u.is_superuser ? 'SÍ' : 'NO',
@@ -159,7 +159,7 @@ export const AdminUsersPage = () => {
         'MENOR DE EDAD': (u.parent_user_id || u.parent) ? 'SÍ' : 'NO',
         'TUTOR / REPRESENTANTE': u.parent?.name ? `${u.parent.name} (Doc: ${u.parent.document_id || 'N/A'})` : (u.parent_user_id ? `Tutor #${u.parent_user_id}` : 'N/A'),
         'ACTUALIZACIÓN PERFIL': u.must_update_profile ? 'PENDIENTE' : 'AL DÍA',
-        'FECHA REGISTRO': u.created_at ? new Date(u.created_at).toLocaleString('es-CO') : 'N/A'
+        'FECHA REGISTRO': formatApiDateTime(u.created_at, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
