@@ -164,6 +164,14 @@ class AuthService:
             db.add(role)
             await db.flush()
 
+        # H-107: el resultado biométrico lo calcula el servidor; se ignora lo que declare el cliente
+        from src.services.biometric_verification import verify_registration_biometrics
+        biometrics = await verify_registration_biometrics(
+            getattr(data, "kyc_docs", None),
+            bool(getattr(data, "requires_manual_review", False)),
+            getattr(data, "biometric_attempts", 0),
+        )
+
         dob = None
         if data.fecha_nacimiento:
             try:
@@ -230,12 +238,7 @@ class AuthService:
                     "contract_period_id": getattr(data, "contract_period_id", None) or getattr(data, "periodo_id", None),
                     "referred_by": getattr(data, "referred_by", None),
                     "commercial_id": getattr(data, "commercial_id", None),
-                    "biometrics": {
-                        "verified": getattr(data, "biometric_verified", False),
-                        "similarity": getattr(data, "biometric_similarity", None),
-                        "attempts": getattr(data, "biometric_attempts", 0),
-                        "requires_manual_review": getattr(data, "requires_manual_review", False),
-                    }
+                    "biometrics": biometrics
                 }
             )
             db.add(req)
@@ -249,12 +252,7 @@ class AuthService:
 
             kyc_metadata = {
                 "kyc_docs": getattr(data, "kyc_docs", None),
-                "biometrics": {
-                    "verified": getattr(data, "biometric_verified", False),
-                    "similarity": getattr(data, "biometric_similarity", None),
-                    "attempts": getattr(data, "biometric_attempts", 0),
-                    "requires_manual_review": getattr(data, "requires_manual_review", False),
-                },
+                "biometrics": biometrics,
                 "fecha_nacimiento": data.fecha_nacimiento,
                 "fecha_expedicion": getattr(data, "fecha_expedicion", None),
                 "ciudad": data.ciudad,
