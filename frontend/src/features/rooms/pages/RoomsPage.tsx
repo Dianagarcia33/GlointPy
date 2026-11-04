@@ -531,7 +531,8 @@ export const RoomsPage: React.FC = () => {
                   <div className="space-y-3">
                     {reservations.map((res) => {
                       const isOwner = user?.id === res.user_id;
-                      const canCancel = isOwner || isAdmin;
+                      const finished = isReservationFinished(res); // H-226: misma regla que «Mis Reservas»
+                      const canCancel = (isOwner || isAdmin) && !finished;
 
                       return (
                         <div
@@ -556,6 +557,11 @@ export const RoomsPage: React.FC = () => {
                                 <h4 className="text-sm font-extrabold text-slate-900 font-montserrat">
                                   {res.title}
                                 </h4>
+                                {finished && (
+                                  <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-[10px] font-bold uppercase">
+                                    Finalizada
+                                  </span>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
