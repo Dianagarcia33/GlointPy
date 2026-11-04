@@ -69,7 +69,7 @@ def stub_classification(monkeypatch):
 def test_duplicate_returns_409_and_creates_nothing():
     dup = SimpleNamespace(
         id=77, commercial_id=5, commercial=SimpleNamespace(name="Betzy"),
-        sale_type=CommercialSaleType.contrato_nuevo,
+        sale_type=CommercialSaleType.contrato_nuevo, commission_amount=Decimal("35000"),
     )
     db = FakeDB(duplicate=dup)
     with pytest.raises(HTTPException) as exc:
@@ -81,9 +81,43 @@ def test_duplicate_returns_409_and_creates_nothing():
 
 def test_duplicate_check_is_locking_read_serialized_per_advisor():
     db = FakeDB(duplicate=SimpleNamespace(
-        id=1, commercial_id=5, commercial=None, sale_type=CommercialSaleType.referido))
+        id=1, commercial_id=5, commercial=None, sale_type=CommercialSaleType.contrato_nuevo,
+        commission_amount=Decimal("35000")))
     with pytest.raises(HTTPException):
         asyncio.run(css.register_commercial_sale(db, 5, payload()))
     locking = [q for q in db.queries if "FOR UPDATE" in q]
     assert any("FROM users" in q for q in locking), "debe bloquear la fila del asesor"
     assert any("FROM commercial_sales" in q for q in locking), "la búsqueda de duplicados debe ser lectura bloqueante"
+
+
+def _dup(sale_type, commission):
+    return SimpleNamespace(id=74, commercial_id=5, commercial=SimpleNamespace(name="Betzy"),
+                           sale_type=sale_type, commission_amount=Decimal(commission))
+
+
+def test_h153_contrato_nuevo_y_referido_no_coexisten():
+    """Ya hay un 'referido' ($18.000) y se intenta 'contrato_nuevo' (3 % = $30.000) sobre la misma venta."""
+    db = FakeDB(duplicate=_dup(CommercialSaleType.referido, "18000"))
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(css.register_commercial_sale(db, 5, payload()))
+    assert exc.value.status_code == 409
+    assert "no pueden coexistir" in exc.value.detail
+    assert "anule primero la venta #74" in exc.value.detail  # la nueva tendría mayor valor
+    assert db.added == []
+
+
+def test_h153_referido_nuevo_sobre_contrato_existente_prevalece_el_existente():
+    db = FakeDB(duplicate=_dup(CommercialSaleType.contrato_nuevo, "35000"))
+    data = CommercialSaleCreate(client_document="1010", sale_type=CommercialSaleType.referido,
+                                referrer_code="IG1197", amount=Decimal("1000000"), sale_date=date(2026, 8, 20))
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(css.register_commercial_sale(db, 5, data))
+    assert exc.value.status_code == 409
+    assert "prevalece la comisión de mayor valor, que es la ya registrada" in exc.value.detail
+    assert db.added == []
+
+
+def test_h153_regla_provisional_mayor_valor():
+    assert css.prevailing_commission(Decimal("18000"), Decimal("35000")) == "candidate"
+    assert css.prevailing_commission(Decimal("35000"), Decimal("18000")) == "existing"
+    assert css.prevailing_commission(Decimal("35000"), Decimal("35000")) == "existing"

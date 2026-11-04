@@ -308,6 +308,14 @@ async def calculate_marginal_commission(
         
     return comm_amount, effective_rate, tramo_a, tramo_b
 
+def prevailing_commission(existing_commission: Decimal, candidate_commission: Decimal) -> str:
+    """
+    REGLA PROVISIONAL (H-153 / pregunta #14): cuando dos comisiones de distinto tipo competirían por la
+    misma venta, prevalece la de MAYOR valor. Retorna "existing" o "candidate" (en empate gana la ya
+    registrada). El negocio aún no definió el criterio definitivo: para cambiarlo basta editar esta función.
+    """
+    return "candidate" if candidate_commission > existing_commission else "existing"
+
 async def register_commercial_sale(
     db: AsyncSession,
     commercial_id: int,
@@ -361,6 +369,29 @@ async def register_commercial_sale(
     duplicate_sale = existing_sale_res.scalars().first()
     if duplicate_sale:
         assigned_name = duplicate_sale.commercial.name if duplicate_sale.commercial else f"ID #{duplicate_sale.commercial_id}"
+        if duplicate_sale.sale_type != final_sale_type:
+            # H-153 (decisión de negocio #14): sobre una misma venta solo puede existir UNA comisión;
+            # 'Contrato Nuevo/Reinversión' y 'Referido' no coexisten. Se informa cuál prevalece.
+            candidate_amount, _, _, _ = await calculate_marginal_commission(
+                db, commercial_id, final_sale_type, amount, target_date
+            )
+            winner = prevailing_commission(Decimal(str(duplicate_sale.commission_amount)), candidate_amount)
+            if winner == "candidate":
+                hint = (
+                    f"Con la regla vigente prevalece la comisión de mayor valor, que sería la de la venta nueva "
+                    f"(${candidate_amount:,.0f} frente a ${Decimal(str(duplicate_sale.commission_amount)):,.0f}): "
+                    f"para corregirla anule primero la venta #{duplicate_sale.id} y regístrela de nuevo."
+                )
+            else:
+                hint = "Con la regla vigente prevalece la comisión de mayor valor, que es la ya registrada."
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Esta operación ya tiene una comisión registrada (Venta #{duplicate_sale.id} por ${amount:,.2f} a cargo de "
+                    f"'{assigned_name}', clasificada como {duplicate_sale.sale_type.value}). Sobre una misma venta solo puede existir "
+                    f"una comisión: 'Contrato Nuevo/Reinversión' y 'Referido' no pueden coexistir. {hint}"
+                ),
+            )
         raise HTTPException(
             status_code=409,
             detail=f"Ya existe una venta registrada para esta inversión (Venta #{duplicate_sale.id} por ${amount:,.2f} a cargo de '{assigned_name}', clasificada como {duplicate_sale.sale_type.value}). Cada inversión solo puede generar una única comisión y ningún asesor puede cobrar la inversión de otro."
