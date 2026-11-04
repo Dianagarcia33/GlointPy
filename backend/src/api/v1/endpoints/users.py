@@ -56,7 +56,7 @@ async def change_my_password(
     Permite al usuario cambiar su contraseña validando la contraseña actual.
     Cierra las demás sesiones de la cuenta; esta sigue activa con un token nuevo (cookie y campo access_token).
     """
-    result = await UserService.change_password(db, current_user.id, pwd_in.current_password, pwd_in.new_password)
+    result = await UserService.change_password(db, current_user.id, pwd_in.current_password, pwd_in.new_password, actor=current_user)
 
     # Si es una sesión de supervisión (imp_by), se conserva el vínculo con el tutor
     carried = {k: auth_payload[k] for k in ("imp_by", "imp_tv", "sid") if k in auth_payload}
@@ -76,24 +76,26 @@ async def change_my_password(
 @router.post("/admin/force-profile-update", dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def force_profile_update(
     data: ForceProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Fuerza a los usuarios a actualizar sus datos la próxima vez que ingresen/naveguen.
     Puede aplicarse a todos los usuarios o a un listado específico de IDs.
     """
-    return await UserService.force_profile_update(db, data.user_ids, data.force_all)
+    return await UserService.force_profile_update(db, data.user_ids, data.force_all, actor=current_user)
 
 @router.post("/{user_id}/toggle-force-profile", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def toggle_force_profile(
     user_id: int,
     force_value: Optional[bool] = Query(None, description="Valor explícito opcional (true/false). Si se omite, invierte el valor actual."),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Fuerza o desmarca individualmente la actualización obligatoria de perfil de un usuario.
     """
-    return await UserService.toggle_force_profile_update(db, user_id, force_value)
+    return await UserService.toggle_force_profile_update(db, user_id, force_value, actor=current_user)
 
 @router.get("/my-children", response_model=List[UserResponse])
 async def get_my_children(
@@ -132,26 +134,26 @@ async def list_users(
     return await UserService.get_all_users(db, page, limit, search, role_id, is_active, has_wallet)
 
 @router.post("/{user_id}/create-wallet", dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def create_user_wallet(user_id: int, db: AsyncSession = Depends(get_db)):
+async def create_user_wallet(user_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Crea una billetera para un usuario que no tenga una asignada.
     """
-    return await UserService.create_wallet_for_user(db, user_id)
+    return await UserService.create_wallet_for_user(db, user_id, actor=current_user)
 
 @router.post("", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def create_user(user_in: UserCreateAdmin, db: AsyncSession = Depends(get_db)):
+async def create_user(user_in: UserCreateAdmin, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Crea un usuario desde el panel admin (con contraseña temporal).
     """
-    return await UserService.create_user_admin(db, user_in.model_dump())
+    return await UserService.create_user_admin(db, user_in.model_dump(), actor=current_user)
 
 @router.put("/{user_id}", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def update_user(user_id: int, user_in: UserUpdateAdmin, db: AsyncSession = Depends(get_db)):
+async def update_user(user_id: int, user_in: UserUpdateAdmin, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Actualiza la información de un usuario desde el panel admin.
     """
     update_data = user_in.model_dump(exclude_unset=True)
-    return await UserService.update_user_admin(db, user_id, update_data)
+    return await UserService.update_user_admin(db, user_id, update_data, actor=current_user)
 
 @router.post("/{user_id}/roles", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def assign_roles(

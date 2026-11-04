@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import audit_in_tx
 from src.services.contract_terms import is_contract_active
 from src.core.timezone import get_colombia_today
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,6 +46,14 @@ def parse_statement_range(start_date_str: Optional[str], end_date_str: Optional[
     start_dt = to_utc(start_d, _time.min) if start_d else None
     end_dt = to_utc(end_d, _time.max) if end_d else None
     return start_d, end_d, start_dt, end_dt
+
+
+def _mask_email(email):
+    """Correo enmascarado para auditoría: j***@dominio.com"""
+    if not email or "@" not in str(email):
+        return None
+    local, _, domain = str(email).partition("@")
+    return f"{local[:1]}***@{domain}"
 
 
 class UserService:
@@ -128,7 +137,7 @@ class UserService:
         return user
 
     @staticmethod
-    async def create_wallet_for_user(db: AsyncSession, user_id: int) -> dict:
+    async def create_wallet_for_user(db: AsyncSession, user_id: int, actor=None) -> dict:
         from src.models.wallet import Wallet, WalletStatus
         user = await UserService.get_user_by_id(db, user_id)
         if user.wallet:
@@ -141,6 +150,12 @@ class UserService:
             status=WalletStatus.ACTIVE
         )
         db.add(new_wallet)
+        await db.flush()
+        await audit_in_tx(
+            db, "WALLET_CREATE", "wallets", actor, "Wallet", new_wallet.id,
+            f"Creación de la billetera #{new_wallet.id} del usuario #{user.id}",
+            {"wallet_id": new_wallet.id, "usuario_id": user.id},
+        )
         await db.commit()
         await db.refresh(new_wallet)
         return {
@@ -150,7 +165,7 @@ class UserService:
         }
 
     @staticmethod
-    async def create_user_admin(db: AsyncSession, user_data: dict) -> User:
+    async def create_user_admin(db: AsyncSession, user_data: dict, actor=None) -> User:
         # Check if email exists
         result = await db.execute(select(User).where(User.email == user_data["email"]))
         if result.scalars().first():
@@ -183,6 +198,13 @@ class UserService:
             user.roles = roles_result.scalars().all()
         
         db.add(user)
+        await db.flush()
+        await audit_in_tx(
+            db, "USER_CREATE", "users", actor, "User", user.id,
+            f"Creación del usuario #{user.id}",
+            {"usuario_id": user.id, "email": _mask_email(user.email), "roles": [r.id for r in (user.roles or [])],
+             "activo": bool(user.is_active), "tutor_id": parent_user_id, "contrasena_temporal": True},
+        )
         await db.commit()
         await db.refresh(user)
         # Fetch again to eagerly load roles for response
@@ -265,7 +287,7 @@ class UserService:
         return {"message": "Se cerraron todas las sesiones del usuario.", "user_id": user.id}
 
     @staticmethod
-    async def update_user_admin(db: AsyncSession, user_id: int, user_data: dict) -> User:
+    async def update_user_admin(db: AsyncSession, user_id: int, user_data: dict, actor=None) -> User:
         user = await UserService.get_user_by_id(db, user_id)
         
         # If email changed, check uniqueness
@@ -283,6 +305,10 @@ class UserService:
                 if not p_res.scalars().first():
                     raise HTTPException(status_code=400, detail="El usuario tutor especificado no existe")
 
+        audit_before = {
+            "email": _mask_email(user.email), "is_active": bool(user.is_active),
+            "parent_user_id": user.parent_user_id, "roles": sorted(r.id for r in (user.roles or [])),
+        }
         for key, value in user_data.items():
             if key != "role_ids":
                 setattr(user, key, value)
@@ -300,6 +326,13 @@ class UserService:
             else:
                 user.roles = []
 
+        await audit_in_tx(
+            db, "USER_UPDATE", "users", actor, "User", user.id,
+            f"Edición del usuario #{user.id}: {', '.join(sorted(user_data)) or 'sin cambios'}",
+            {"usuario_id": user.id, "campos": sorted(user_data), "antes": audit_before,
+             "despues": {"email": _mask_email(user.email), "is_active": bool(user.is_active),
+                         "parent_user_id": user.parent_user_id, "roles": sorted(r.id for r in (user.roles or []))}},
+        )
         await db.commit()
         await db.refresh(user)
         if deactivated:
@@ -371,7 +404,7 @@ class UserService:
         return await UserService.get_user_by_id(db, user.id)
 
     @staticmethod
-    async def change_password(db: AsyncSession, user_id: int, current_password: str, new_password: str) -> dict:
+    async def change_password(db: AsyncSession, user_id: int, current_password: str, new_password: str, actor=None) -> dict:
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalars().first()
         if not user:
@@ -389,17 +422,27 @@ class UserService:
         # Cierra las demás sesiones; el endpoint emite un token nuevo con esta versión para la sesión actual
         new_version = await revoke_user_sessions(db, user)
 
+        await audit_in_tx(
+            db, "USER_PASSWORD_CHANGE", "users", actor or user, "User", user.id,
+            "El usuario cambió su contraseña (se cerraron las demás sesiones)",
+            {"usuario_id": user.id, "sesiones_revocadas": True},
+        )
         await db.commit()
         await close_live_connections(user.id)
         return {"message": "Contraseña actualizada exitosamente", "token_version": new_version}
 
     @staticmethod
-    async def force_profile_update(db: AsyncSession, user_ids: list = None, force_all: bool = False) -> dict:
+    async def force_profile_update(db: AsyncSession, user_ids: list = None, force_all: bool = False, actor=None) -> dict:
         from sqlalchemy import update
         if force_all:
             # Force all non-superuser users
             stmt = update(User).where(User.is_superuser == False).values(must_update_profile=True)
             result = await db.execute(stmt)
+            await audit_in_tx(
+                db, "USER_FORCE_PROFILE_UPDATE", "users", actor, "User", "bulk",
+                f"Actualización de perfil obligatoria para todos los usuarios ({result.rowcount})",
+                {"alcance": "todos", "afectados": result.rowcount},
+            )
             await db.commit()
             return {
                 "message": f"Se activó la actualización obligatoria para {result.rowcount} usuarios.",
@@ -408,6 +451,11 @@ class UserService:
         elif user_ids and len(user_ids) > 0:
             stmt = update(User).where(User.id.in_(user_ids)).values(must_update_profile=True)
             result = await db.execute(stmt)
+            await audit_in_tx(
+                db, "USER_FORCE_PROFILE_UPDATE", "users", actor, "User", "bulk",
+                f"Actualización de perfil obligatoria para {result.rowcount} usuarios seleccionados",
+                {"alcance": "seleccion", "user_ids": list(user_ids)[:200], "afectados": result.rowcount},
+            )
             await db.commit()
             return {
                 "message": f"Se activó la actualización obligatoria para {result.rowcount} usuarios seleccionados.",
@@ -416,13 +464,19 @@ class UserService:
         return {"message": "No se especificaron usuarios para la actualización.", "affected_count": 0}
 
     @staticmethod
-    async def toggle_force_profile_update(db: AsyncSession, user_id: int, force_value: bool = None) -> User:
+    async def toggle_force_profile_update(db: AsyncSession, user_id: int, force_value: bool = None, actor=None) -> User:
         user = await UserService.get_user_by_id(db, user_id)
+        before_value = bool(user.must_update_profile)
         if force_value is not None:
             user.must_update_profile = force_value
         else:
             user.must_update_profile = not user.must_update_profile
 
+        await audit_in_tx(
+            db, "USER_FORCE_PROFILE_TOGGLE", "users", actor, "User", user.id,
+            f"Actualización de perfil obligatoria del usuario #{user.id}: {before_value} → {bool(user.must_update_profile)}",
+            {"usuario_id": user.id, "antes": before_value, "despues": bool(user.must_update_profile)},
+        )
         await db.commit()
         await db.refresh(user)
         return await UserService.get_user_by_id(db, user.id)
