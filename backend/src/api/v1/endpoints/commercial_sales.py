@@ -516,18 +516,12 @@ async def delete_commercial_sale(
 _PUBLIC_ADVISOR_KEYWORDS = ("directiv", "comercial", "asesor", "lider", "director", "gerente")
 
 
-def _mask_email(email: Optional[str]) -> str:
-    """'dpto.projects@gloint.com.co' -> 'dp***@gloint.com.co' (H-108): sirve para distinguir al asesor sin publicar el correo."""
-    if not email or "@" not in email:
-        return ""
-    local, domain = email.split("@", 1)
-    return f"{local[:2]}***@{domain}"
-
-
 def _public_advisor_entry(user: User) -> Optional[Dict[str, Any]]:
     """Entrada del selector público de asesores, o None si la cuenta no debe listarse (H-108).
 
-    Nunca se listan SuperAdmin ni roles de administración; solo se devuelven id, nombre y correo enmascarado.
+    Por requerimiento explícito del cliente el nombre y el correo COMPLETO de los asesores comerciales deben verse
+    en el selector, para que el inversionista confirme con exactitud a su asesor. Nunca se listan SuperAdmin ni
+    roles de administración, y no se devuelve cédula, teléfono ni ningún otro dato personal.
     """
     role_names = [(r.name or "").lower() for r in (user.roles or [])]
     if user.is_superuser or any("admin" in r for r in role_names):
@@ -537,7 +531,7 @@ def _public_advisor_entry(user: User) -> Optional[Dict[str, Any]]:
     return {
         "id": user.id,
         "name": user.name or "Asesor",
-        "email": _mask_email(user.email),
+        "email": user.email or "",
     }
 
 
@@ -547,7 +541,7 @@ async def get_public_commercial_advisors(
 ):
     """
     Endpoint público para el selector de asesor del registro de inversionistas.
-    Solo expone id, nombre y correo enmascarado de directivos/asesores; sin cédula, teléfono ni cuentas de administración (H-108).
+    Solo expone id, nombre y correo de directivos/asesores (requerimiento del cliente); sin cédula, teléfono ni cuentas de administración (H-108).
     """
     stmt = (
         select(User)
