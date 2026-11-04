@@ -7,14 +7,13 @@ Guarda solo: actor, método, plantilla de ruta, código, IP, user agent. Nunca c
 """
 import asyncio
 import logging
-import os
 import re
 import time
 from typing import Dict, List, Optional, Tuple
 
 from jose import jwt
 
-from src.core.audit_context import audit_request_ctx
+from src.core.audit_context import audit_request_ctx, resolve_client_ip
 from src.core.config import settings
 
 logger = logging.getLogger("src.audit")
@@ -69,7 +68,7 @@ _user_cache: Dict[int, Tuple[float, Optional[str], Optional[str]]] = {}
 
 
 def is_enabled() -> bool:
-    return os.getenv("AUDIT_HTTP_WRITES_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
+    return bool(settings.AUDIT_HTTP_WRITES_ENABLED)
 
 
 def _is_excluded(method: str, route: str) -> bool:
@@ -124,11 +123,16 @@ def _template(scope) -> str:
 
 
 def _client_ip(scope) -> Optional[str]:
-    fwd = _headers(scope).get(b"x-forwarded-for", b"").decode("latin-1")
-    if fwd:
-        return fwd.split(",")[0].strip()[:50] or None
+    class _H:
+        def __init__(self, raw):
+            self.raw = raw
+
+        def get(self, name):
+            v = self.raw.get(name.encode("latin-1"))
+            return v.decode("latin-1") if v else None
+
     client = scope.get("client")
-    return str(client[0])[:50] if client else None
+    return resolve_client_ip(_H(_headers(scope)), client[0] if client else None)
 
 
 def build_entry(scope, actor: Tuple[int, Optional[str]], status_code: int) -> Optional[dict]:

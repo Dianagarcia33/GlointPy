@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Request
 from src.models.audit_log import AuditLog
 from src.models.user import User
-from src.core.audit_context import mark_detailed_logged
+from src.core.audit_context import mark_detailed_logged, resolve_client_ip
 
 async def log_audit_trail(
     db: AsyncSession,
@@ -36,12 +36,8 @@ async def log_audit_trail(
         req_ip = ip_address
         req_ua = user_agent
         if request:
-            # Check forwarded header if behind proxy
-            forwarded = request.headers.get("x-forwarded-for")
-            if forwarded:
-                req_ip = forwarded.split(",")[0].strip()
-            elif request.client:
-                req_ip = request.client.host
+            # IP fiable (no el primer X-Forwarded-For, que el cliente puede inventar)
+            req_ip = resolve_client_ip(request.headers, request.client.host if request.client else None)
             req_ua = request.headers.get("user-agent")
 
         u_id = user.id if user else user_id

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     DB_NAME: str
+    # H-65: auditoría genérica de escrituras e IP fiable del cliente
+    AUDIT_HTTP_WRITES_ENABLED: bool = True   # False apaga el registro genérico (no el detallado)
+    AUDIT_PROXY_HOPS: int = 1                # proxies de confianza delante de la API (0 = ignorar X-Forwarded-For)
+    AUDIT_CLIENT_IP_HEADER: str = ""         # p. ej. "x-real-ip" si el proxy lo SOBRESCRIBE siempre
     SQL_ECHO: bool = False  # Imprime cada consulta SQL en consola (solo para depurar; es costoso)
     
     # Encryption

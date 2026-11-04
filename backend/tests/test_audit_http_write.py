@@ -56,7 +56,7 @@ def env(monkeypatch):
 def test_post_autenticado_registra_con_plantilla_ip_y_ua(env):
     client, entries = env
     r = client.post("/api/v1/withdrawals/55/approve?token=SECRETO", headers={
-        "Authorization": f"Bearer {_token()}", "X-Forwarded-For": "9.9.9.9, 10.0.0.1", "User-Agent": "UA-test"})
+        "Authorization": f"Bearer {_token()}", "X-Forwarded-For": "6.6.6.6, 9.9.9.9", "User-Agent": "UA-test"})
     assert r.status_code == 200
     e = entries[0]
     assert e["action"] == "HTTP_WRITE" and e["status"] == "SUCCESS" and e["user_id"] == 7
@@ -100,9 +100,33 @@ def test_suplantacion_y_ruta_excluida_y_detallado(env):
     assert entries[0]["details"]["impersonated_by"] == "1"
 
 
+def test_xff_inventado_por_el_cliente_no_se_guarda_como_ip(env):
+    client, entries = env
+    # El cliente envía "1.2.3.4"; el proxy añade al final la IP que realmente vio (9.9.9.9)
+    client.post("/api/v1/withdrawals/1/approve", headers={
+        "Authorization": f"Bearer {_token()}", "X-Forwarded-For": "1.2.3.4, 9.9.9.9"})
+    assert entries[0]["ip_address"] == "9.9.9.9"
+
+
+def test_ip_sin_proxy_confiable_ignora_xff(env, monkeypatch):
+    client, entries = env
+    monkeypatch.setattr(settings, "AUDIT_PROXY_HOPS", 0)
+    client.post("/api/v1/withdrawals/1/approve", headers={
+        "Authorization": f"Bearer {_token()}", "X-Forwarded-For": "1.2.3.4"})
+    assert entries[0]["ip_address"] == "testclient"
+
+
+def test_cabecera_dedicada_tiene_prioridad(env, monkeypatch):
+    client, entries = env
+    monkeypatch.setattr(settings, "AUDIT_CLIENT_IP_HEADER", "x-real-ip")
+    client.post("/api/v1/withdrawals/1/approve", headers={
+        "Authorization": f"Bearer {_token()}", "X-Real-IP": "5.5.5.5", "X-Forwarded-For": "1.1.1.1, 2.2.2.2"})
+    assert entries[0]["ip_address"] == "5.5.5.5"
+
+
 def test_interruptor_apaga_el_registro(env, monkeypatch):
     client, entries = env
-    monkeypatch.setenv("AUDIT_HTTP_WRITES_ENABLED", "false")
+    monkeypatch.setattr(settings, "AUDIT_HTTP_WRITES_ENABLED", False)
     client.post("/api/v1/withdrawals/2/approve", headers={"Authorization": f"Bearer {_token()}"})
     assert entries == []
 
