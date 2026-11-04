@@ -121,3 +121,52 @@ def test_h153_regla_provisional_mayor_valor():
     assert css.prevailing_commission(Decimal("18000"), Decimal("35000")) == "candidate"
     assert css.prevailing_commission(Decimal("35000"), Decimal("18000")) == "existing"
     assert css.prevailing_commission(Decimal("35000"), Decimal("35000")) == "existing"
+
+
+# ---- H-154: % manual limitado a las tarifas vigentes y con motivo ----
+def manual(rate=None, amount=None, reason="Acuerdo comercial aprobado por gerencia"):
+    return CommercialSaleCreate(
+        client_document="1010", sale_type=CommercialSaleType.contrato_nuevo, amount=Decimal("1000000"),
+        sale_date=date(2026, 8, 20), custom_commission_rate=rate, custom_commission_amount=amount,
+        custom_rate_reason=reason)
+
+
+def run_admin(data):
+    return asyncio.run(css.register_commercial_sale(FakeDB(), 5, data, is_admin=True))
+
+
+def test_h154_rango_toma_las_tarifas_vigentes():
+    assert css.MIN_MANUAL_RATE == Decimal("0.018") and css.MAX_MANUAL_RATE == Decimal("0.035")
+
+
+@pytest.mark.parametrize("rate", [Decimal("0.5"), Decimal("0.017"), Decimal("0.036"), Decimal("0")])
+def test_h154_rechaza_porcentaje_fuera_de_rango(rate):
+    with pytest.raises(HTTPException) as exc:
+        run_admin(manual(rate=rate))
+    assert exc.value.status_code == 422 and "entre 1.8% y 3.5%" in exc.value.detail
+
+
+def test_h154_rechaza_monto_manual_cuyo_porcentaje_sale_del_rango():
+    with pytest.raises(HTTPException) as exc:
+        run_admin(manual(amount=Decimal("500000")))  # 50 %
+    assert exc.value.status_code == 422
+
+
+@pytest.mark.parametrize("rate", [Decimal("0.018"), Decimal("0.025"), Decimal("0.035")])
+def test_h154_acepta_porcentaje_dentro_del_rango(rate):
+    sale = run_admin(manual(rate=rate))
+    assert sale.commission_rate == rate and sale.commission_amount == Decimal("1000000") * rate
+
+
+def test_h154_exige_motivo_y_no_lo_acepta_vacio():
+    with pytest.raises(ValueError):
+        manual(rate=Decimal("0.025"), reason="  corto ")
+    with pytest.raises(HTTPException) as exc:
+        css.validate_manual_commission_rate(Decimal("0.025"), None)
+    assert exc.value.status_code == 422 and "motivo" in exc.value.detail
+
+
+def test_h154_asesor_no_admin_no_puede_fijar_comision():
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(css.register_commercial_sale(FakeDB(), 5, manual(rate=Decimal("0.025"))))
+    assert exc.value.status_code == 403

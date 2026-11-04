@@ -21,6 +21,26 @@ RATE_30 = Decimal("0.030") # 3.0%
 RATE_35 = Decimal("0.035") # 3.5%
 RATE_REFERRAL = Decimal("0.018") # 1.8% Fijo
 
+# H-154 (decisión de negocio #18): el % manual del administrador se limita al rango de las tarifas vigentes
+MIN_MANUAL_RATE = min(RATE_30, RATE_35, RATE_REFERRAL)  # 1.8 %
+MAX_MANUAL_RATE = max(RATE_30, RATE_35, RATE_REFERRAL)  # 3.5 %
+
+def validate_manual_commission_rate(rate: Decimal, reason: Optional[str]) -> None:
+    """Valida el % de comisión fijado a mano: dentro de las tarifas vigentes y con motivo registrado (422)."""
+    if rate < MIN_MANUAL_RATE or rate > MAX_MANUAL_RATE:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"El porcentaje de comisión manual debe estar entre {MIN_MANUAL_RATE * 100:.1f}% y "
+                f"{MAX_MANUAL_RATE * 100:.1f}% (tarifas vigentes). Se recibió {rate * 100:.2f}%."
+            ),
+        )
+    if not reason or len(reason.strip()) < 10:
+        raise HTTPException(
+            status_code=422,
+            detail="Indica el motivo (mínimo 10 caracteres) para aplicar un porcentaje de comisión manual; queda registrado en la auditoría.",
+        )
+
 async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict[str, Any]]:
     """
     Busca clientes a medida que el comercial escribe:
@@ -430,6 +450,7 @@ async def register_commercial_sale(
         raise HTTPException(status_code=403, detail="Solo un administrador puede fijar manualmente el porcentaje o monto de la comisión.")
 
     if sale_data.custom_commission_rate is not None and sale_data.custom_commission_rate >= 0:
+        validate_manual_commission_rate(sale_data.custom_commission_rate, sale_data.custom_rate_reason)
         comm_rate = sale_data.custom_commission_rate
         comm_amount = amount * comm_rate
         tramo_a = Decimal("0.00")
@@ -437,6 +458,7 @@ async def register_commercial_sale(
     elif sale_data.custom_commission_amount is not None and sale_data.custom_commission_amount >= 0:
         comm_amount = sale_data.custom_commission_amount
         comm_rate = (comm_amount / amount) if amount > 0 else Decimal("0.00")
+        validate_manual_commission_rate(comm_rate, sale_data.custom_rate_reason)
         tramo_a = Decimal("0.00")
         tramo_b = Decimal("0.00")
     

@@ -277,6 +277,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
   const numericAmount = Number(amount) || 0;
   const THRESHOLD = 36000000;
+  // Rango permitido para el % manual del administrador = tarifas vigentes (1,8 % referido a 3,5 % marginal) (H-154)
+  const MIN_MANUAL_RATE = 0.018;
+  const MAX_MANUAL_RATE = 0.035;
 
   // 1. Cálculo sugerido por el sistema según reglas comerciales
   let systemSuggestedRate = 0.03;
@@ -324,6 +327,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     }
     if (numericAmount <= 0) {
       setError('Por favor ingresa un monto mayor a cero');
+      return;
+    }
+    if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '' &&
+        (!(effectiveRate >= MIN_MANUAL_RATE - 1e-9) || !(effectiveRate <= MAX_MANUAL_RATE + 1e-9))) {
+      setError(`El porcentaje de comisión manual debe estar entre ${(MIN_MANUAL_RATE * 100).toFixed(1)}% y ${(MAX_MANUAL_RATE * 100).toFixed(1)}% (tarifas vigentes).`);
       return;
     }
     if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '' && customRateReason.trim().length < 10) {
@@ -761,8 +769,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                         <input
                           type="number"
                           step="0.01"
-                          min="0"
-                          max="100"
+                          min={(MIN_MANUAL_RATE * 100).toFixed(1)}
+                          max={(MAX_MANUAL_RATE * 100).toFixed(1)}
                           value={customRatePct}
                           onChange={(e) => setCustomRatePct(e.target.value)}
                           placeholder={(systemSuggestedRate * 100).toFixed(2)}
@@ -794,7 +802,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               {isCustomRateActive && (
                 <p className="text-[11px] text-brand-700 bg-brand-50/80 border border-brand-200 p-2 rounded-lg font-medium flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 shrink-0 text-brand-600" />
-                  <span>Se aplicará el <strong>{(effectiveRate * 100).toFixed(2)}%</strong> configurado manualmente por el Administrador.</span>
+                  <span>Se aplicará el <strong>{(effectiveRate * 100).toFixed(2)}%</strong> configurado manualmente por el Administrador (permitido: {(MIN_MANUAL_RATE * 100).toFixed(1)}% a {(MAX_MANUAL_RATE * 100).toFixed(1)}%; el motivo queda en la auditoría).</span>
                 </p>
               )}
 
