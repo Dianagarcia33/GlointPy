@@ -10,6 +10,17 @@ from src.models.investor import Investor
 from src.models.user import User
 from src.schemas.potential_referral import PotentialReferralCreate, PotentialReferralUpdate
 
+def summarize_estado_counts(rows) -> Dict[str, int]:
+    """Totales por estado a partir de filas (estado, cantidad); estado vacío cuenta como 'pendiente' (H-227)."""
+    counts = {"total": 0, "pendiente": 0, "contactado": 0, "registrado": 0, "rechazado": 0}
+    for estado, n in rows:
+        key = (estado or "pendiente")
+        key = key.value if hasattr(key, "value") else str(key)
+        counts[key] = counts.get(key, 0) + int(n)
+        counts["total"] += int(n)
+    return counts
+
+
 class PotentialReferralService:
     @staticmethod
     async def get_by_user_id(db: AsyncSession, user_id: int) -> Sequence[PotentialReferral]:
@@ -60,11 +71,15 @@ class PotentialReferralService:
         result = await db.execute(query)
         referrals = result.scalars().all()
 
+        # H-227: conteos por estado de TODA la tabla, independientes de la página, el buscador y el filtro
+        counts_res = await db.execute(select(PotentialReferral.estado, func.count()).group_by(PotentialReferral.estado))
+
         return {
             "data": referrals,
             "total": total,
             "page": page,
-            "limit": limit
+            "limit": limit,
+            "counts": summarize_estado_counts(counts_res.all())
         }
 
     @staticmethod

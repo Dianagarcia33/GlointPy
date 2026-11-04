@@ -87,6 +87,7 @@ export const AdminReferralsPage = () => {
   const [estadoFilter, setEstadoFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [counts, setCounts] = useState<{ total: number; pendiente: number; contactado: number; registrado: number } | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingReferral, setEditingReferral] = useState<PotentialReferral | null>(null);
@@ -111,6 +112,7 @@ export const AdminReferralsPage = () => {
       const res = await potentialReferralsService.getAllAdmin({ search, estado: estadoFilter, page, limit: PAGE_SIZE });
       setReferrals(res.data || []);
       setTotalItems(res.total || 0);
+      if (res.counts) setCounts(res.counts);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Error al cargar referidos potenciales');
@@ -206,7 +208,7 @@ export const AdminReferralsPage = () => {
             <Users className="w-4 h-4 text-brand-600" />
           </div>
           <span className="text-2xl font-black text-slate-900 font-mono block">
-            {totalItems || referrals.length}
+            {counts?.total ?? (totalItems || referrals.length)}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block">
             Prospectos en plataforma
@@ -219,7 +221,7 @@ export const AdminReferralsPage = () => {
             <CheckCircle className="w-4 h-4 text-emerald-600" />
           </div>
           <span className="text-2xl font-black text-emerald-600 font-mono block">
-            {referrals.filter(r => r.estado === 'registrado').length}
+            {counts?.registrado ?? referrals.filter(r => r.estado === 'registrado').length}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block">
             Convertidos formalmente
@@ -232,7 +234,7 @@ export const AdminReferralsPage = () => {
             <Clock className="w-4 h-4 text-blue-600" />
           </div>
           <span className="text-2xl font-black text-blue-600 font-mono block">
-            {referrals.filter(r => r.estado === 'contactado').length}
+            {counts?.contactado ?? referrals.filter(r => r.estado === 'contactado').length}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block">
             Contactados en seguimiento
@@ -245,7 +247,7 @@ export const AdminReferralsPage = () => {
             <AlertCircle className="w-4 h-4 text-amber-600" />
           </div>
           <span className="text-2xl font-black text-amber-600 font-mono block">
-            {referrals.filter(r => !r.estado || r.estado === 'pendiente').length}
+            {counts?.pendiente ?? referrals.filter(r => !r.estado || r.estado === 'pendiente').length}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block">
             Por contactar inicialmente
