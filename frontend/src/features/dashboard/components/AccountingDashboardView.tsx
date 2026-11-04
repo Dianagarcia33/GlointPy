@@ -310,7 +310,7 @@ export const AccountingDashboardView: React.FC = () => {
           <div>
             {activeTab === 'investments' && (
               <button
-                onClick={() => navigate('/dashboard/investments')}
+                onClick={() => navigate('/dashboard/investors?tab=requests')}
                 className="text-xs font-bold text-brand-600 hover:text-brand-800 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <span>Módulo de Inversiones</span>
@@ -319,7 +319,7 @@ export const AccountingDashboardView: React.FC = () => {
             )}
             {activeTab === 'recharges' && (
               <button
-                onClick={() => navigate('/dashboard/wallet')}
+                onClick={() => navigate('/dashboard/payments?tab=recharges')}
                 className="text-xs font-bold text-emerald-600 hover:text-emerald-800 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <span>Módulo de Billeteras</span>
@@ -396,7 +396,7 @@ export const AccountingDashboardView: React.FC = () => {
                         </td>
                         <td className="px-4 py-3.5 text-center">
                           <button
-                            onClick={() => navigate('/dashboard/investments')}
+                            onClick={() => navigate('/dashboard/investors?tab=requests')}
                             className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
                           >
                             Gestionar
@@ -470,7 +470,7 @@ export const AccountingDashboardView: React.FC = () => {
                         </td>
                         <td className="px-4 py-3.5 text-center">
                           <button
-                            onClick={() => navigate('/dashboard/wallet')}
+                            onClick={() => navigate('/dashboard/payments?tab=recharges')}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
                           >
                             Conciliar

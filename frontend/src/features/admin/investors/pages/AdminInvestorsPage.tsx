@@ -351,7 +351,9 @@ export const AdminInvestorsPage = () => {
 
 
 
-  const [activeTab, setActiveTab] = useState<'investments' | 'requests'>('investments');
+  const [activeTab, setActiveTab] = useState<'investments' | 'requests'>(
+    () => (new URLSearchParams(window.location.search).get('tab') === 'requests' ? 'requests' : 'investments')
+  );
   // Se incrementa al registrar una solicitud para que la pestaña de solicitudes se recargue (H-146)
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
 
