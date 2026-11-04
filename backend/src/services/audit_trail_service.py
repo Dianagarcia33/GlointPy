@@ -41,8 +41,8 @@ async def log_audit_trail(
             req_ua = request.headers.get("user-agent")
 
         u_id = user.id if user else user_id
-        u_name = user.name if user else user_name
-        u_email = user.email if user else user_email
+        u_name = getattr(user, 'name', None) if user else user_name
+        u_email = getattr(user, 'email', None) if user else user_email
 
         log_entry = AuditLog(
             user_id=u_id,

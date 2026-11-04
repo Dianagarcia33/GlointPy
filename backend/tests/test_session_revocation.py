@@ -43,6 +43,14 @@ class FakeDB:
     def __init__(self, *results):
         self.results = list(results)
         self.commits = 0
+        self.added = []      # H-65: la auditoría atómica agrega su fila a la misma transacción
+        self.flushes = 0
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    async def flush(self):
+        self.flushes += 1
 
     async def execute(self, *_args, **_kwargs):
         return self.results.pop(0)
@@ -250,5 +258,8 @@ def test_el_cambio_de_contrasena_cierra_los_websockets(monkeypatch):
     monkeypatch.setattr(chat_service.manager, "close_user_connections", registrar)
     u = user(tv=0, id=42, password_hash=get_password_hash("Actual123!"), must_change_password=False,
              failed_login_attempts=0, locked_until=None)
-    run(UserService.change_password(FakeDB(FakeResult(obj=u)), 42, "Actual123!", "Nueva456!"))
+    db = FakeDB(FakeResult(obj=u))
+    run(UserService.change_password(db, 42, "Actual123!", "Nueva456!"))
     assert cerrados == [42]
+    # H-65: la auditoría del cambio de contraseña viaja en la misma transacción (un solo commit)
+    assert [a.action for a in db.added] == ["USER_PASSWORD_CHANGE"] and db.commits == 1
