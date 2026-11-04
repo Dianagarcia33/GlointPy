@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Request
 from src.models.audit_log import AuditLog
 from src.models.user import User
+from src.core.audit_context import mark_detailed_logged
 
 async def log_audit_trail(
     db: AsyncSession,
@@ -19,11 +20,17 @@ async def log_audit_trail(
     request: Optional[Request] = None,
     ip_address: Optional[str] = None,
     user_agent: Optional[str] = None,
-    status: str = "SUCCESS"
+    status: str = "SUCCESS",
+    commit: bool = True,
+    strict: bool = False,
 ) -> Optional[AuditLog]:
     """
     Registra de forma asíncrona un evento inmutable en la pista de auditoría (Audit Trail).
     Captura actor, acción, módulo, entidad afectada, detalles (diff), IP y User-Agent.
+
+    Modo atómico (H-65): con `commit=False, strict=True` solo agrega y hace flush en la
+    transacción del llamador (la guarda su propio commit) y NO traga errores: si no se puede
+    auditar, la operación completa falla.
     """
     try:
         req_ip = ip_address
@@ -56,8 +63,14 @@ async def log_audit_trail(
             status=status
         )
         db.add(log_entry)
-        await db.commit()
+        if commit:
+            await db.commit()
+        else:
+            await db.flush()
+        mark_detailed_logged()
         return log_entry
     except Exception as e:
+        if strict:
+            raise
         print(f"[AuditTrailService] Error recording audit trail event: {e}")
         return None

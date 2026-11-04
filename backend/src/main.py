@@ -789,6 +789,10 @@ from src.api.v1.api import api_router
 app.include_router(api_router, prefix="/api/v1")
 
 
+# H-65: registro genérico de escrituras. Va ANTES de CORS (queda dentro de CORS, pegado al router).
+from src.core.audit_middleware import AuditWriteMiddleware
+app.add_middleware(AuditWriteMiddleware)
+
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
 app.add_middleware(
     CORSMiddleware,
