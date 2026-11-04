@@ -125,6 +125,12 @@ async def on_startup():
             except Exception:
                 pass
 
+            # H-192: acciones congeladas por compra (NULL = desconocido)
+            try:
+                await conn.execute(text("ALTER TABLE investors ADD COLUMN shares_granted_frozen INT NULL"))
+            except Exception:
+                pass
+
             try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN parent_user_id BIGINT NULL"))
             except Exception:
@@ -309,11 +315,7 @@ async def on_startup():
             except Exception as e:
                 print(f"Error creating investor_documents table: {e}")
 
-            # Ajuste de consistencia para paquetes con 0 acciones (el paquete de 50mil no otorga acciones)
-            try:
-                await conn.execute(text("UPDATE packages SET granted_shares = 0 WHERE (value = 50000 OR value = 50000.00)"))
-            except Exception:
-                pass
+            # H-192: la regla de los paquetes de $50.000 (0 acciones) vive en PackageService, no en el arranque.
 
             # Asegurar vista o compatibilidad de tabla withdrawals con retiros
             try:
