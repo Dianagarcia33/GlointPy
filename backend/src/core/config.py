@@ -71,6 +71,14 @@ class Settings(BaseSettings):
     TUSDATOS_USERNAME: str = "pruebas"
     TUSDATOS_PASSWORD: str = "password"
 
+    # CORS con credenciales (H-33): solo estos orígenes (CSV) pueden leer respuestas con la cookie de sesión.
+    # En staging/producción web y API comparten dominio (no hace falta CORS); en el .env de cada servidor se
+    # listan los dominios propios, p. ej. https://gloint.com.co,https://www.gloint.com.co
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"
+
+    # SameSite de la cookie de sesión: "lax" (por defecto). "none" solo como reversa de emergencia.
+    COOKIE_SAMESITE: str = "lax"
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
         env_file_encoding="utf-8",
@@ -81,6 +89,19 @@ class Settings(BaseSettings):
     def DATABASE_URL(self) -> str:
         # Construye la URL de conexión asíncrona para aiomysql
         return f"mysql+aiomysql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+
+    def get_credentialed_origins(self) -> list:
+        """Lista blanca de orígenes con credenciales: CORS_ALLOWED_ORIGINS + el origen de FRONTEND_URL."""
+        from urllib.parse import urlparse
+        from src.core.cors import parse_origins
+
+        origins = parse_origins(self.CORS_ALLOWED_ORIGINS)
+        parsed = urlparse((self.FRONTEND_URL or "").strip())
+        if parsed.scheme and parsed.netloc:
+            front = f"{parsed.scheme}://{parsed.netloc}".lower()
+            if front not in origins:
+                origins.append(front)
+        return origins
 
 # Instancia global de las configuraciones
 settings = Settings()
