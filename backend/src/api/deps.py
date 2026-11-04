@@ -21,7 +21,7 @@ async def get_auth_payload(
     token: Optional[str] = Depends(oauth2_scheme)
 ) -> dict:
     """Claims firmados del token con el que se autentica la petición (misma precedencia que get_current_user)."""
-    auth_token = request.cookies.get("access_token") or token or request.query_params.get("token")
+    auth_token = token or request.cookies.get("access_token")
     try:
         return jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except Exception:
@@ -43,8 +43,9 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    # 1. Check HttpOnly cookie first, then Authorization header, then query param token
-    auth_token = request.cookies.get("access_token") or token or request.query_params.get("token")
+    # 1. Cabecera Authorization (móvil / API) primero, luego la cookie HttpOnly de la web. Ya no se acepta
+    #    ?token= en la URL (quedaba en logs e historial). CSRF decide según "hay Authorization o no".
+    auth_token = token or request.cookies.get("access_token")
     if not auth_token:
         raise credentials_exception
 

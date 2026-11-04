@@ -22,13 +22,13 @@ export interface User {
 
 interface AuthState {
   user: User | null;
-  accessToken: string | null;
   isAuthenticated: boolean;
-  parentBackup: { user: User; token: string } | null;
-  login: (user: User, token: string) => void;
+  // Solo el usuario del tutor (para el aviso de supervisión). Nunca se guarda un token en el cliente (H-33).
+  parentBackup: { user: User } | null;
+  login: (user: User) => void;
   logout: () => void;
   setUser: (user: User | null) => void;
-  setParentBackup: (backup: { user: User; token: string } | null) => void;
+  setParentBackup: (backup: { user: User } | null) => void;
 }
 
 const normalizeUser = (user: User | null): User | null => {
@@ -61,14 +61,14 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      accessToken: null,
       isAuthenticated: false,
       parentBackup: null,
-      login: (user, token) => set({ user: normalizeUser(user), accessToken: token, isAuthenticated: true }),
+      // La sesión vive en la cookie HttpOnly que fija el servidor; aquí solo queda el estado de la interfaz.
+      login: (user) => set({ user: normalizeUser(user), isAuthenticated: true }),
       logout: () => {
         const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api/v1';
-        fetch(`${baseUrl}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
-        set({ user: null, accessToken: null, isAuthenticated: false, parentBackup: null });
+        fetch(`${baseUrl}/auth/logout`, { method: 'POST', credentials: 'include', headers: { 'X-Gloint-Client': 'web' } }).catch(() => {});
+        set({ user: null, isAuthenticated: false, parentBackup: null });
       },
       setUser: (user) => {
         const normalized = normalizeUser(user);
@@ -101,11 +101,18 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      // Persistir token de acceso, estado de autenticación y datos de usuario en localStorage
-      // para mantener la sesión activa y los permisos hidratados al recargar la página.
+      version: 2,
+      // v1 guardaba accessToken y el token del tutor en localStorage (H-33): se descartan al migrar.
+      migrate: (persisted: any) => {
+        const { accessToken: _drop, ...rest } = persisted || {};
+        if (rest.parentBackup) rest.parentBackup = { user: rest.parentBackup.user };
+        return rest;
+      },
+      // Solo una pista para la interfaz (sin tokens): evita parpadeos al recargar. La sesión real es la cookie
+      // HttpOnly y App.tsx la confirma con /auth/me; el servidor decide siempre los permisos.
+
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
-        accessToken: state.accessToken,
         user: state.user
           ? {
               id: state.user.id,
@@ -122,7 +129,6 @@ export const useAuthStore = create<AuthState>()(
         parentBackup: state.parentBackup
           ? {
               user: state.parentBackup.user,
-              token: state.parentBackup.token,
             }
           : null,
       }),

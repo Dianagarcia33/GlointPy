@@ -32,7 +32,7 @@ export const ParentalBanner: React.FC = () => {
     try {
       // Backend call sets the HttpOnly cookie for the parent
       const res = await usersService.switchBackToParent();
-      login(res.user as any, res.access_token);
+      login(res.user as any);
       setParentBackup(null);
       queryClient.clear();
       navigate('/dashboard');
