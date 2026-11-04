@@ -29,8 +29,16 @@ export const SecurityLogsPage: React.FC = () => {
   const [selectedModule, setSelectedModule] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('');
+  // Por defecto: últimos 30 días y solo registros detallados (los automáticos HTTP_WRITE son muchos más)
+  const defaultStart = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  };
+  const [startDate, setStartDate] = useState<string>(defaultStart);
   const [endDate, setEndDate] = useState<string>('');
+  const [selectedKind, setSelectedKind] = useState<'detailed' | 'generic' | 'all'>('detailed');
+  const [userIdFilter, setUserIdFilter] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedLog, setSelectedLog] = useState<SecurityAuditLog | null>(null);
 
@@ -45,6 +53,8 @@ export const SecurityLogsPage: React.FC = () => {
         search: searchTerm.trim() || undefined,
         start_date: startDate || undefined,
         end_date: endDate || undefined,
+        kind: selectedKind,
+        user_id: /^\d+$/.test(userIdFilter.trim()) ? Number(userIdFilter.trim()) : undefined,
       });
 
       setLogs(response.data || []);
@@ -61,7 +71,7 @@ export const SecurityLogsPage: React.FC = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [page, selectedModule, selectedStatus]);
+  }, [page, selectedModule, selectedStatus, selectedKind]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,8 +83,10 @@ export const SecurityLogsPage: React.FC = () => {
     setSelectedModule('all');
     setSelectedStatus('all');
     setSearchTerm('');
-    setStartDate('');
+    setStartDate(defaultStart());
     setEndDate('');
+    setSelectedKind('detailed');
+    setUserIdFilter('');
     setPage(1);
   };
 
@@ -333,6 +345,28 @@ export const SecurityLogsPage: React.FC = () => {
               onChange={(e) => setEndDate(e.target.value)}
               className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-brand-500"
             />
+            <span className="flex items-center gap-1 font-semibold text-slate-700 ml-2">Tipo:</span>
+            <select
+              value={selectedKind}
+              onChange={(e) => {
+                setSelectedKind(e.target.value as 'detailed' | 'generic' | 'all');
+                setPage(1);
+              }}
+              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-brand-500 cursor-pointer"
+            >
+              <option value="detailed">Detallados (antes/después)</option>
+              <option value="generic">Automáticos (HTTP_WRITE)</option>
+              <option value="all">Todos</option>
+            </select>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={userIdFilter}
+              onChange={(e) => setUserIdFilter(e.target.value.replace(/\D/g, ''))}
+              placeholder="ID de usuario"
+              aria-label="Filtrar por ID de usuario"
+              className="w-28 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-brand-500"
+            />
             {(startDate || endDate) && (
               <button
                 type="button"
@@ -417,6 +451,11 @@ export const SecurityLogsPage: React.FC = () => {
                         <div>{getModuleBadge(log.module)}</div>
                         <div className="font-mono text-xs font-bold text-slate-700">
                           {log.action}
+                          {log.action === 'HTTP_WRITE' && (
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[9px] font-semibold uppercase tracking-wide">
+                              Automático
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>

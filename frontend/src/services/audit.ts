@@ -197,6 +197,8 @@ export const auditService = {
         status?: string;
         start_date?: string;
         end_date?: string;
+        user_id?: number;
+        kind?: 'detailed' | 'generic' | 'all';
     }): Promise<SecurityAuditLogResponse> => {
         const qs = new URLSearchParams();
         if (params?.page) qs.append('page', params.page.toString());
@@ -207,6 +209,8 @@ export const auditService = {
         if (params?.status && params.status !== 'all') qs.append('status', params.status);
         if (params?.start_date) qs.append('start_date', params.start_date);
         if (params?.end_date) qs.append('end_date', params.end_date);
+        if (params?.user_id) qs.append('user_id', params.user_id.toString());
+        if (params?.kind && params.kind !== 'all') qs.append('kind', params.kind);
         return await fetchApi(`/audit/logs?${qs.toString()}`);
     },
 
