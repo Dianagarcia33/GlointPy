@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getMediaUrl } from '../../services/api';
+import { sanitizeDocumentHtml } from '../../utils/sanitizeHtml';
 
 interface DocumentPagesPreviewProps {
     html: string;
@@ -117,7 +118,8 @@ const estimateElementHeight = (child: Element): number => {
 export const splitHtmlIntoPages = (fullHtml: string): string[] => {
     if (!fullHtml) return [''];
 
-    const normalizedHtml = normalizeDocumentHtml(fullHtml);
+    // H-33: el HTML de la plantilla incluye datos de usuarios; se limpia antes de paginar (vista previa e impresión)
+    const normalizedHtml = normalizeDocumentHtml(sanitizeDocumentHtml(fullHtml));
 
     // If template has explicit page breaks
     if (normalizedHtml.includes('class="page-break"') || normalizedHtml.includes('page-break-after')) {
@@ -227,7 +229,7 @@ export const printPaginatedDocument = (
         <html>
         <head>
             <base href="${window.location.origin}/">
-            <title>${title}</title>
+            <title>${title.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</title>
             <meta charset="utf-8">
             <style>
                 @page {
