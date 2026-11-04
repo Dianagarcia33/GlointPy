@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 class SystemEventBase(BaseModel):
     type: str = Field(..., max_length=255)
     is_recurring: bool = False
-    recurrence_start_day: Optional[int] = Field(None, ge=1, le=31)
-    recurrence_end_day: Optional[int] = Field(None, ge=1, le=31)
+    recurrence_start_day: Optional[int] = Field(None, ge=0, le=31, description="1-31, o 0 = último día del mes")
+    recurrence_end_day: Optional[int] = Field(None, ge=0, le=31, description="1-31, o 0 = último día del mes")
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     description: Optional[str] = Field(None, max_length=255)
@@ -18,8 +18,8 @@ class SystemEventCreate(SystemEventBase):
 class SystemEventUpdate(BaseModel):
     type: Optional[str] = Field(None, max_length=255)
     is_recurring: Optional[bool] = None
-    recurrence_start_day: Optional[int] = Field(None, ge=1, le=31)
-    recurrence_end_day: Optional[int] = Field(None, ge=1, le=31)
+    recurrence_start_day: Optional[int] = Field(None, ge=0, le=31, description="1-31, o 0 = último día del mes")
+    recurrence_end_day: Optional[int] = Field(None, ge=0, le=31, description="1-31, o 0 = último día del mes")
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     description: Optional[str] = Field(None, max_length=255)

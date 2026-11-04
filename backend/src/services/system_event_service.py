@@ -28,6 +28,11 @@ def normalize_event_type(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text).strip("_")
 
 
+# H-135: valor especial de recurrence_start_day / recurrence_end_day que significa «último día del mes»
+# (28, 29, 30 o 31 según el mes). Los valores 1-31 existentes conservan su comportamiento.
+LAST_DAY_OF_MONTH = 0
+
+
 def _to_local(dt: datetime) -> datetime:
     return dt.replace(tzinfo=LOCAL_TZ) if dt.tzinfo is None else dt.astimezone(LOCAL_TZ)
 
@@ -47,8 +52,8 @@ def validate_event_data(data: dict) -> dict:
     data["type"] = event_type
 
     if data.get("is_recurring"):
-        if not data.get("recurrence_start_day") or not data.get("recurrence_end_day"):
-            fail("Un evento recurrente necesita el día de inicio y el día de fin (entre 1 y 31).")
+        if data.get("recurrence_start_day") is None or data.get("recurrence_end_day") is None:
+            fail("Un evento recurrente necesita el día de inicio y el día de fin (entre 1 y 31, o «último día del mes»).")
         data["start_date"] = None
         data["end_date"] = None
     else:
@@ -120,12 +125,13 @@ class SystemEventService:
 
         # 1. Evaluate Recurrence
         if event.is_recurring:
-            if event.recurrence_start_day and event.recurrence_end_day:
+            if event.recurrence_start_day is not None and event.recurrence_end_day is not None:
                 # Un día que no existe en el mes actual (p. ej. 30 en febrero) se toma como el último
                 # día del mes; si no, la ventana del día 30 nunca abriría en febrero (H-135)
                 last_day = calendar.monthrange(now_local.year, now_local.month)[1]
-                start_day = min(event.recurrence_start_day, last_day)
-                end_day = min(event.recurrence_end_day, last_day)
+                # 0 = «último día del mes» (opción explícita, H-135)
+                start_day = last_day if event.recurrence_start_day == LAST_DAY_OF_MONTH else min(event.recurrence_start_day, last_day)
+                end_day = last_day if event.recurrence_end_day == LAST_DAY_OF_MONTH else min(event.recurrence_end_day, last_day)
                 if start_day <= end_day:
                     if start_day <= current_day <= end_day:
                         return True
