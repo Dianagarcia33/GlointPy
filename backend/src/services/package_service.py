@@ -6,6 +6,17 @@ from sqlalchemy.exc import IntegrityError, DataError
 from src.models.package import Package
 from src.schemas.package import PackageCreate, PackageUpdate
 
+# H-192: regla de negocio — el paquete de $50.000 otorga 0 acciones (antes la forzaba la sincronización)
+PACKAGE_VALUE_WITHOUT_SHARES = 50_000
+
+
+def normalize_package_shares(value, granted_shares):
+    """Devuelve las acciones válidas para un paquete: 0 si el valor es $50.000."""
+    if value is not None and int(value) == PACKAGE_VALUE_WITHOUT_SHARES:
+        return 0
+    return granted_shares
+
+
 class PackageService:
     @staticmethod
     async def get_all_packages(db: AsyncSession) -> Sequence[Package]:
@@ -25,7 +36,9 @@ class PackageService:
 
     @staticmethod
     async def create_package(db: AsyncSession, package_in: PackageCreate) -> Package:
-        package = Package(**package_in.model_dump())
+        data = package_in.model_dump()
+        data["granted_shares"] = normalize_package_shares(data.get("value"), data.get("granted_shares"))
+        package = Package(**data)
         db.add(package)
         try:
             await db.commit()
@@ -50,6 +63,7 @@ class PackageService:
         update_data = package_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(package, field, value)
+        package.granted_shares = normalize_package_shares(package.value, package.granted_shares)
         
         try:
             await db.commit()
