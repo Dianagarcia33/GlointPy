@@ -32,7 +32,19 @@ export interface BeneficiaryUpdate {
     email?: string | null;
 }
 
+export interface BeneficiaryDistributionItem extends BeneficiaryUpdate {
+    id?: number;
+}
+
 export const beneficiariesService = {
+    // H-91: guarda varios cambios a la vez; el servidor exige que el total quede en exactamente 100 %
+    saveMyDistribution: async (items: BeneficiaryDistributionItem[]): Promise<Beneficiary[]> => {
+        return await fetchApi('/beneficiaries/me/distribution', {
+            method: 'PUT',
+            body: JSON.stringify({ items })
+        });
+    },
+
     getMyBeneficiaries: async (): Promise<Beneficiary[]> => {
         return await fetchApi('/beneficiaries/me');
     },
