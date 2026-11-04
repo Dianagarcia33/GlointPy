@@ -271,7 +271,7 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
                 user.permissions = Array.from(perms);
                 user.roles_list = Array.from(rolesList);
             }
-            loginAction(user, data.access_token);
+            loginAction(user);
             navigate('/dashboard');
         },
     });

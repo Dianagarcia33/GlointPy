@@ -44,8 +44,7 @@ export const LoginPage = () => {
             }
 
             loginAction(
-                user || { id: 1, name: email.split('@')[0], email, is_active: true }, 
-                data.access_token
+                user || { id: 1, name: email.split('@')[0], email, is_active: true }
             );
             navigate('/dashboard');
         },

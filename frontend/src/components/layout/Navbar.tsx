@@ -29,7 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   const serviciosMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const { isAuthenticated, user, accessToken, logout, login, parentBackup, setParentBackup } = useAuthStore();
+  const { isAuthenticated, user, logout, login, parentBackup, setParentBackup } = useAuthStore();
 
   const { data: balanceData } = useQuery({
     queryKey: ['my_balance', user?.id],
@@ -55,10 +55,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
     setSwitchError(null);
     // H-213: la sesión del tutor se guarda como respaldo solo cuando el cambio fue exitoso;
     // antes se guardaba antes de la petición y un 400 dejaba activo el aviso de supervisión
-    const tutorSession = user && accessToken ? { user, token: accessToken } : null;
+    const tutorSession = user ? { user } : null;
     try {
       const res = await usersService.switchToChild(childId);
-      login(res.user as any, res.access_token);
+      login(res.user as any);
       if (tutorSession && !parentBackup) {
         setParentBackup(tutorSession);
       }
@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
     setSwitchError(null);
     try {
       const res = await usersService.switchBackToParent();
-      login(res.user as any, res.access_token);
+      login(res.user as any);
       setParentBackup(null);
       queryClient.clear();
       setUserMenuOpen(false);

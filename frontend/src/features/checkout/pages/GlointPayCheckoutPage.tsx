@@ -138,8 +138,7 @@ export const GlointPayCheckoutPage: React.FC = () => {
       }
 
       loginAction(
-        loggedUser || { id: 1, name: loginEmail.split('@')[0], email: loginEmail, is_active: true }, 
-        data.access_token
+        loggedUser || { id: 1, name: loginEmail.split('@')[0], email: loginEmail, is_active: true }
       );
       fetchWallet();
     } catch (err: any) {

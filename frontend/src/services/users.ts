@@ -352,10 +352,8 @@ export const usersService = {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    // Al cambiar la clave el servidor cierra las demás sesiones y emite un token nuevo para esta:
-    // se guarda para no seguir enviando el anterior (ya revocado).
-    const { user, login } = useAuthStore.getState();
-    if (res?.access_token && user) login(user, res.access_token);
+    // Al cambiar la clave el servidor cierra las demás sesiones y reemite la cookie HttpOnly de esta
+    // (el navegador la reemplaza solo); no se guarda ningún token en el cliente.
     return res;
   },
 
