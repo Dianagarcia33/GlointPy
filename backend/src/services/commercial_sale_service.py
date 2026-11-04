@@ -21,6 +21,26 @@ RATE_30 = Decimal("0.030") # 3.0%
 RATE_35 = Decimal("0.035") # 3.5%
 RATE_REFERRAL = Decimal("0.018") # 1.8% Fijo
 
+# H-154 (decisión de negocio #18): el % manual del administrador se limita al rango de las tarifas vigentes
+MIN_MANUAL_RATE = min(RATE_30, RATE_35, RATE_REFERRAL)  # 1.8 %
+MAX_MANUAL_RATE = max(RATE_30, RATE_35, RATE_REFERRAL)  # 3.5 %
+
+def validate_manual_commission_rate(rate: Decimal, reason: Optional[str]) -> None:
+    """Valida el % de comisión fijado a mano: dentro de las tarifas vigentes y con motivo registrado (422)."""
+    if rate < MIN_MANUAL_RATE or rate > MAX_MANUAL_RATE:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"El porcentaje de comisión manual debe estar entre {MIN_MANUAL_RATE * 100:.1f}% y "
+                f"{MAX_MANUAL_RATE * 100:.1f}% (tarifas vigentes). Se recibió {rate * 100:.2f}%."
+            ),
+        )
+    if not reason or len(reason.strip()) < 10:
+        raise HTTPException(
+            status_code=422,
+            detail="Indica el motivo (mínimo 10 caracteres) para aplicar un porcentaje de comisión manual; queda registrado en la auditoría.",
+        )
+
 async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict[str, Any]]:
     """
     Busca clientes a medida que el comercial escribe:
@@ -308,6 +328,14 @@ async def calculate_marginal_commission(
         
     return comm_amount, effective_rate, tramo_a, tramo_b
 
+def prevailing_commission(existing_commission: Decimal, candidate_commission: Decimal) -> str:
+    """
+    REGLA PROVISIONAL (H-153 / pregunta #14): cuando dos comisiones de distinto tipo competirían por la
+    misma venta, prevalece la de MAYOR valor. Retorna "existing" o "candidate" (en empate gana la ya
+    registrada). El negocio aún no definió el criterio definitivo: para cambiarlo basta editar esta función.
+    """
+    return "candidate" if candidate_commission > existing_commission else "existing"
+
 async def register_commercial_sale(
     db: AsyncSession,
     commercial_id: int,
@@ -361,6 +389,29 @@ async def register_commercial_sale(
     duplicate_sale = existing_sale_res.scalars().first()
     if duplicate_sale:
         assigned_name = duplicate_sale.commercial.name if duplicate_sale.commercial else f"ID #{duplicate_sale.commercial_id}"
+        if duplicate_sale.sale_type != final_sale_type:
+            # H-153 (decisión de negocio #14): sobre una misma venta solo puede existir UNA comisión;
+            # 'Contrato Nuevo/Reinversión' y 'Referido' no coexisten. Se informa cuál prevalece.
+            candidate_amount, _, _, _ = await calculate_marginal_commission(
+                db, commercial_id, final_sale_type, amount, target_date
+            )
+            winner = prevailing_commission(Decimal(str(duplicate_sale.commission_amount)), candidate_amount)
+            if winner == "candidate":
+                hint = (
+                    f"Con la regla vigente prevalece la comisión de mayor valor, que sería la de la venta nueva "
+                    f"(${candidate_amount:,.0f} frente a ${Decimal(str(duplicate_sale.commission_amount)):,.0f}): "
+                    f"para corregirla anule primero la venta #{duplicate_sale.id} y regístrela de nuevo."
+                )
+            else:
+                hint = "Con la regla vigente prevalece la comisión de mayor valor, que es la ya registrada."
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Esta operación ya tiene una comisión registrada (Venta #{duplicate_sale.id} por ${amount:,.2f} a cargo de "
+                    f"'{assigned_name}', clasificada como {duplicate_sale.sale_type.value}). Sobre una misma venta solo puede existir "
+                    f"una comisión: 'Contrato Nuevo/Reinversión' y 'Referido' no pueden coexistir. {hint}"
+                ),
+            )
         raise HTTPException(
             status_code=409,
             detail=f"Ya existe una venta registrada para esta inversión (Venta #{duplicate_sale.id} por ${amount:,.2f} a cargo de '{assigned_name}', clasificada como {duplicate_sale.sale_type.value}). Cada inversión solo puede generar una única comisión y ningún asesor puede cobrar la inversión de otro."
@@ -399,6 +450,7 @@ async def register_commercial_sale(
         raise HTTPException(status_code=403, detail="Solo un administrador puede fijar manualmente el porcentaje o monto de la comisión.")
 
     if sale_data.custom_commission_rate is not None and sale_data.custom_commission_rate >= 0:
+        validate_manual_commission_rate(sale_data.custom_commission_rate, sale_data.custom_rate_reason)
         comm_rate = sale_data.custom_commission_rate
         comm_amount = amount * comm_rate
         tramo_a = Decimal("0.00")
@@ -406,6 +458,7 @@ async def register_commercial_sale(
     elif sale_data.custom_commission_amount is not None and sale_data.custom_commission_amount >= 0:
         comm_amount = sale_data.custom_commission_amount
         comm_rate = (comm_amount / amount) if amount > 0 else Decimal("0.00")
+        validate_manual_commission_rate(comm_rate, sale_data.custom_rate_reason)
         tramo_a = Decimal("0.00")
         tramo_b = Decimal("0.00")
     
