@@ -26,6 +26,7 @@ from src.models.package import Package
 from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
 
 from src.api.v1.endpoints.wallets import check_withdrawal_dates_active
+from src.services.audit_trail_service import audit_in_tx
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1081,6 +1082,15 @@ async def withdraw_investment_capital(
         await CompanyWalletService.credit_tax_retention(db, withdrawal, current_user.name)
     except Exception as cw_err:
         logger.warning(f"Aviso al acreditar retención 3.2% de capital a Billetera Corporativa: {cw_err}")
+
+    await audit_in_tx(
+        db, "INVESTMENT_CAPITAL_WITHDRAW", "investments", current_user, "Investor", investment_id,
+        f"Solicitud de retiro de capital #{withdrawal.id} del contrato #{investment_id} por ${capital_disponible:,.0f}",
+        {"investor_id": investment_id, "withdrawal_id": withdrawal.id, "monto": float(capital_disponible),
+         "impuesto": float(tax), "monto_neto": float(net_amount), "capital_liberado": float(capital_liberado),
+         "capital_retirado_antes": float(capital_retirado), "banco": bank_account.banco,
+         "cuenta_ultimos4": str(bank_account.numero_cuenta or "")[-4:]},
+    )
 
     try:
         await db.commit()

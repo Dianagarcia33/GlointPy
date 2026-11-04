@@ -13,6 +13,7 @@ from src.schemas.withdrawal import WithdrawalCreate, WithdrawalUpdate
 from src.services.pdf_service import PDFService
 from datetime import datetime
 from fastapi import HTTPException
+from src.services.audit_trail_service import audit_in_tx
 
 logger = logging.getLogger(__name__)
 
@@ -253,7 +254,7 @@ class WithdrawalService:
         return withdrawal
 
     @staticmethod
-    async def sync_wallet_debits(db: AsyncSession, admin_id: int) -> Dict[str, Any]:
+    async def sync_wallet_debits(db: AsyncSession, admin_id: int, actor=None) -> Dict[str, Any]:
         """
         Sincroniza retroactivamente todas las transacciones de débito de billetera que no tengan un registro en la tabla de retiros.
         """
@@ -279,6 +280,8 @@ class WithdrawalService:
         rows = tx_result.all()
 
         synced_count = 0
+        synced_ids = []
+        synced_total = Decimal("0")
 
         for tx, user_id in rows:
             monto_abs = abs(Decimal(str(tx.amount)))
@@ -337,7 +340,15 @@ class WithdrawalService:
             tx.reference_type = "withdrawal"
             tx.reference_id = withdrawal.id
             synced_count += 1
+            synced_ids.append(withdrawal.id)
+            synced_total += monto_abs
 
+        await audit_in_tx(
+            db, "WITHDRAWAL_SYNC_WALLET_DEBITS", "withdrawals", actor, "Withdrawal", "bulk",
+            f"Sincronización de débitos de billetera: {synced_count} retiros creados",
+            {"admin_id": admin_id, "cantidad": synced_count, "monto_total": float(synced_total),
+             "withdrawal_ids": synced_ids[:200]},
+        )
         await db.commit()
         return {
             "message": f"Sincronización completada exitosamente. Se registraron {synced_count} retiros.",
@@ -345,7 +356,7 @@ class WithdrawalService:
         }
 
     @staticmethod
-    async def bulk_process_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int) -> Dict[str, Any]:
+    async def bulk_process_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int, actor=None) -> Dict[str, Any]:
         """
         Actualiza masivamente una lista de retiros al estado 'procesado'.
         """
@@ -383,6 +394,13 @@ class WithdrawalService:
             updated_count += 1
             user_notifications.append((w.user_id, w.id, w.monto_neto or w.monto))
 
+        await audit_in_tx(
+            db, "WITHDRAWAL_BULK_PROCESS", "withdrawals", actor, "Withdrawal", "bulk",
+            f"Procesamiento masivo de {updated_count} retiros",
+            {"cantidad": updated_count, "withdrawal_ids": [w.id for w in withdrawals][:200],
+             "estado_antes": "PENDING", "estado_despues": "PROCESSED",
+             "monto_total": float(sum((w.monto_neto or w.monto or 0) for w in withdrawals))},
+        )
         await db.commit()
 
         # Generar notificaciones push internas en background o bloque protegido
@@ -407,7 +425,7 @@ class WithdrawalService:
         }
 
     @staticmethod
-    async def bulk_approve_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int) -> Dict[str, Any]:
+    async def bulk_approve_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int, actor=None) -> Dict[str, Any]:
         """
         Aprueba masivamente una lista de retiros que estén en estado 'procesado' o 'pendiente'.
         """
@@ -427,8 +445,10 @@ class WithdrawalService:
         user_notifications = []
         emails_to_send = []
 
+        approved_detail = []
         for w in withdrawals:
             if w.estado in [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSED]:
+                approved_detail.append({"id": w.id, "estado_antes": str(getattr(w.estado, "value", w.estado)), "monto_neto": float(w.monto_neto or w.monto or 0)})
                 w.estado = WithdrawalStatus.APPROVED
                 w.aprobado_por = admin_id
                 w.fecha_aprobacion = now
@@ -448,6 +468,13 @@ class WithdrawalService:
                         "withdrawal_id": w.id
                     })
 
+        await audit_in_tx(
+            db, "WITHDRAWAL_BULK_APPROVE", "withdrawals", actor, "Withdrawal", "bulk",
+            f"Aprobación masiva de {updated_count} retiros",
+            {"cantidad": updated_count, "estado_despues": "APPROVED", "retiros": approved_detail[:200],
+             "monto_total": float(sum(d["monto_neto"] for d in approved_detail)),
+             "solicitados": len(withdrawal_ids), "omitidos": len(withdrawals) - updated_count},
+        )
         await db.commit()
 
         try:

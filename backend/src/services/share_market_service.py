@@ -15,6 +15,7 @@ from src.models.package import Package
 from src.models.user import User
 from src.models.wallet import Wallet, WalletTransaction
 from src.services.system_event_service import SystemEventService, SHARES_SALE_EVENT_TYPES
+from src.services.audit_trail_service import audit_in_tx
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "share_receipts")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -96,7 +97,8 @@ class ShareMarketService:
         new_price: float, 
         justification_notes: str, 
         admin_id: int,
-        available_shares: Optional[int] = None
+        available_shares: Optional[int] = None,
+        actor=None
     ) -> SharePriceHistory:
         """Actualiza el precio oficial y la cantidad de acciones disponibles con trazabilidad obligatoria."""
         if not justification_notes or not justification_notes.strip() or len(justification_notes.strip()) < 5:
@@ -123,6 +125,14 @@ class ShareMarketService:
             admin_id=admin_id
         )
         db.add(history)
+        await db.flush()
+        await audit_in_tx(
+            db, "SHARE_PRICE_UPDATE", "shares", actor, "SharePriceHistory", history.id,
+            f"Precio oficial de la acción: {current_price:,.0f} → {new_price:,.0f}",
+            {"precio_antes": float(current_price), "precio_despues": float(new_price),
+             "acciones_disponibles_antes": current_available_shares, "acciones_disponibles_despues": new_shares,
+             "variacion_pct": round(pct, 2), "motivo": justification_notes.strip()[:300]},
+        )
         await db.commit()
         await db.refresh(history)
         return history
@@ -663,7 +673,7 @@ class ShareMarketService:
         ]
 
     @staticmethod
-    async def buy_shares_instant(db: AsyncSession, buyer_id: int, listing_id: int, shares_quantity: int) -> ShareTradeOrder:
+    async def buy_shares_instant(db: AsyncSession, buyer_id: int, listing_id: int, shares_quantity: int, actor=None) -> ShareTradeOrder:
         """Compra inmediata en tiempo real con 100% de saldo en billetera."""
         if shares_quantity <= 0:
             raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a 0.")
@@ -766,6 +776,12 @@ class ShareMarketService:
             listing_id=listing.id
         )
 
+        await audit_in_tx(
+            db, "SHARE_BUY_INSTANT", "shares", actor, "ShareTradeOrder", order.id,
+            f"Compra instantánea de {shares_quantity} acción(es) por ${float(total_cost):,.0f} (orden #{order.id})",
+            {"order_id": order.id, "listing_id": listing.id, "vendedor_id": listing.seller_id, "comprador_id": buyer_id,
+             "cantidad": shares_quantity, "precio_unitario": float(unit_price), "total": float(total_cost)},
+        )
         await db.commit()
         await db.refresh(order)
         return order
@@ -778,7 +794,8 @@ class ShareMarketService:
         shares_quantity: int,
         wallet_amount_used: float,
         surplus_amount: float,
-        receipt_file: UploadFile
+        receipt_file: UploadFile,
+        actor=None
     ) -> ShareTradeOrder:
         """Crea una orden con excedente/transferencia bancaria, bloqueando acciones en custodia."""
         if shares_quantity <= 0:
@@ -848,6 +865,14 @@ class ShareMarketService:
             status="pending_admin_approval"
         )
         db.add(order)
+        await db.flush()
+        await audit_in_tx(
+            db, "SHARE_BUY_SURPLUS", "shares", actor, "ShareTradeOrder", order.id,
+            f"Orden de compra #{order.id} de {shares_quantity} acción(es) con excedente",
+            {"order_id": order.id, "listing_id": listing.id, "vendedor_id": listing.seller_id, "comprador_id": buyer_id,
+             "cantidad": shares_quantity, "total": float(total_cost), "saldo_billetera_usado": float(wallet_amount_used),
+             "excedente": float(surplus_amount), "estado": "pending_admin_approval"},
+        )
         await db.commit()
         await db.refresh(order)
         return order
@@ -902,7 +927,7 @@ class ShareMarketService:
         ]
 
     @staticmethod
-    async def admin_decide_trade(db: AsyncSession, order_id: int, admin_id: int, action: str, notes: Optional[str] = None) -> ShareTradeOrder:
+    async def admin_decide_trade(db: AsyncSession, order_id: int, admin_id: int, action: str, notes: Optional[str] = None, actor=None) -> ShareTradeOrder:
         """Aprueba o rechaza una orden de compra con excedente pendiente de verificación."""
         result = await db.execute(
             select(ShareTradeOrder)
@@ -1009,12 +1034,20 @@ class ShareMarketService:
         else:
             raise HTTPException(status_code=400, detail="Acción no válida. Usa 'approve' o 'reject'.")
 
+        await audit_in_tx(
+            db, "SHARE_ORDER_DECIDE", "shares", actor, "ShareTradeOrder", order.id,
+            f"Decisión sobre la orden #{order.id}: {action}",
+            {"order_id": order.id, "decision": action, "estado_despues": order.status, "comprador_id": order.buyer_id,
+             "vendedor_id": order.seller_id, "cantidad": order.shares_quantity,
+             "total": float(order.total_amount), "saldo_billetera_usado": float(order.wallet_amount_used or 0),
+             "excedente": float(order.surplus_amount or 0), "notas": (notes or "")[:300] or None},
+        )
         await db.commit()
         await db.refresh(order)
         return order
 
     @staticmethod
-    async def create_issuance(db: AsyncSession, admin_id: int, title: str, description: Optional[str], total_shares: int, price_per_share: float) -> ShareIssuance:
+    async def create_issuance(db: AsyncSession, admin_id: int, title: str, description: Optional[str], total_shares: int, price_per_share: float, actor=None) -> ShareIssuance:
         """Crea una nueva emisión de acciones corporativas y la sincroniza con el stock y la bitácora del fondo."""
         # 1. Obtener precio y stock ANTES de crear la nueva emisión
         previous_price = await ShareMarketService.get_current_price(db)
@@ -1050,6 +1083,14 @@ class ShareMarketService:
         )
         db.add(history)
 
+        await db.flush()
+        await audit_in_tx(
+            db, "SHARE_ISSUANCE_CREATE", "shares", actor, "ShareIssuance", issuance.id,
+            f"Emisión de {total_shares} acciones a ${price_per_share:,.0f}",
+            {"issuance_id": issuance.id, "titulo": (title or "")[:200], "acciones": total_shares,
+             "precio_antes": float(previous_price), "precio_despues": float(price_per_share),
+             "acciones_disponibles_antes": current_available_shares, "acciones_disponibles_despues": new_total_shares},
+        )
         await db.commit()
         await db.refresh(issuance)
         return issuance
@@ -1116,7 +1157,7 @@ class ShareMarketService:
         ]
 
     @staticmethod
-    async def sync_all_users_legacy_shares(db: AsyncSession, allow_reductions: bool = False) -> dict:
+    async def sync_all_users_legacy_shares(db: AsyncSession, allow_reductions: bool = False, actor=None) -> dict:
         """Sincroniza retroactivamente a todos los usuarios del sistema que tengan contratos de inversión, órdenes o cuentas de acciones.
 
         H-192: por defecto solo acredita lo que falta y lista en `discrepancies` lo que difiere de la
@@ -1193,6 +1234,12 @@ class ShareMarketService:
                 })
             synced_count += 1
 
+        if actor is not None:
+            await audit_in_tx(
+                db, "SHARE_LEGACY_SYNC", "shares", actor, "ShareMovement", "bulk",
+                f"Sincronización retroactiva de acciones: {synced_count} usuarios",
+                {"usuarios_sincronizados": synced_count, "permite_reducciones": bool(allow_reductions)},
+            )
         await db.commit()
         return {
             "status": "success",
@@ -1216,7 +1263,8 @@ class ShareMarketService:
         reason: str,
         admin_id: int,
         custom_date: Optional[datetime] = None,
-        operation: Optional[str] = None
+        operation: Optional[str] = None,
+        actor=None
     ) -> ShareMovement:
         """Asigna o descuenta acciones a un usuario de manera manual por decisión administrativa con registro en el ledger."""
         if quantity == 0:
@@ -1288,6 +1336,12 @@ class ShareMarketService:
             db, effective_qty, admin_id, user_id, clean_reason, movement.id
         )
 
+        await audit_in_tx(
+            db, "SHARE_MANUAL_GRANT", "shares", actor, "ShareMovement", movement.id,
+            f"{'Asignación' if effective_qty > 0 else 'Deducción'} manual de {abs(effective_qty)} acción(es)",
+            {"movement_id": movement.id, "usuario_id": user_id, "cantidad": effective_qty,
+             "fecha_asiento": acq_date.isoformat(), "motivo": clean_reason[:300]},
+        )
         await db.commit()
         return movement
 

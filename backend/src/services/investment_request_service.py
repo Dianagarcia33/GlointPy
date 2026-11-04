@@ -17,6 +17,7 @@ from src.models.user import User
 from src.models.investor import Investor
 from src.models.package import Package
 from src.models.period import Period
+from src.services.audit_trail_service import audit_in_tx
 
 # Los bonos por referido (aceleración de contratos) están desactivados por decisión de negocio (H-140)
 REFERRAL_ACCELERATION_ENABLED = False
@@ -140,7 +141,7 @@ class InvestmentRequestService:
                 return None
 
     @staticmethod
-    async def approve_request(db: AsyncSession, request_id: int, user_id: int, override_commercial_id: Optional[int] = None) -> InvestmentRequest:
+    async def approve_request(db: AsyncSession, request_id: int, user_id: int, override_commercial_id: Optional[int] = None, actor=None) -> InvestmentRequest:
         import random
         from src.models.acceleration import Acceleration
         from sqlalchemy.orm import selectinload
@@ -159,6 +160,7 @@ class InvestmentRequestService:
             raise HTTPException(status_code=400, detail="La solicitud ya fue aprobada")
 
         # 2. Update request status
+        prev_status = str(getattr(req.status, "value", req.status))
         req.status = InvestmentRequestStatus.approved
         req.reviewed_by = user_id
         req.reviewed_at = datetime.utcnow()
@@ -560,6 +562,14 @@ class InvestmentRequestService:
             except Exception as e:
                 logger.error(f"Error al adjudicar venta comercial automática al Directivo #{c_id}: {e}")
 
+        await audit_in_tx(
+            db, "INVESTMENT_REQUEST_APPROVE", "investments", actor, "InvestmentRequest", req.id,
+            f"Aprobación de la solicitud de inversión #{req.id} por ${float(req.monto):,.0f}",
+            {"request_id": req.id, "usuario_id": req.user_id, "monto": float(req.monto),
+             "paquete_id": req.paquete_inversion_id, "estado_antes": prev_status, "estado_despues": "approved",
+             "es_aumento_capital": bool(is_upgrade and existing_investor is not None),
+             "contrato_id": req.investor_id, "reviewed_by": user_id},
+        )
         await db.commit()
         await db.refresh(req)
 
@@ -610,7 +620,7 @@ class InvestmentRequestService:
 
 
     @staticmethod
-    async def reject_request(db: AsyncSession, request_id: int, user_id: int, reason: str) -> InvestmentRequest:
+    async def reject_request(db: AsyncSession, request_id: int, user_id: int, reason: str, actor=None) -> InvestmentRequest:
         from fastapi import HTTPException
         from decimal import Decimal
         from src.models.wallet import Wallet, WalletStatus, WalletTransaction
@@ -626,6 +636,8 @@ class InvestmentRequestService:
         if req.status == InvestmentRequestStatus.rejected:
             raise HTTPException(status_code=400, detail="La solicitud ya fue rechazada")
 
+        prev_status = str(getattr(req.status, "value", req.status))
+        refunded = 0.0
         req.status = InvestmentRequestStatus.rejected
         req.rejection_reason = reason
         req.reviewed_by = user_id
@@ -656,8 +668,16 @@ class InvestmentRequestService:
                     balance_after=Decimal(str(new_balance))
                 )
                 db.add(tx)
+                refunded = monto_billetera
                 logger.info(f"Reembolso de ${monto_billetera} devuelto a la billetera del usuario #{req.user_id} por rechazo de solicitud #{req.id}")
 
+        await audit_in_tx(
+            db, "INVESTMENT_REQUEST_REJECT", "investments", actor, "InvestmentRequest", req.id,
+            f"Rechazo de la solicitud de inversión #{req.id}",
+            {"request_id": req.id, "usuario_id": req.user_id, "monto": float(req.monto),
+             "estado_antes": prev_status, "estado_despues": "rejected", "motivo": (reason or "")[:300],
+             "reembolso_billetera": refunded},
+        )
         await db.commit()
         await db.refresh(req)
         return req

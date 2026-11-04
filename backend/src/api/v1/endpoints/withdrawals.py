@@ -317,7 +317,7 @@ async def sync_wallet_debits(
     """
     Sincroniza retroactivamente todas las transacciones de débito de billetera creando registros de retiro en estado APROBADO.
     """
-    return await WithdrawalService.sync_wallet_debits(db, current_user.id)
+    return await WithdrawalService.sync_wallet_debits(db, current_user.id, actor=current_user)
 
 @router.post("/bulk-process", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def bulk_process_withdrawals(
@@ -331,7 +331,8 @@ async def bulk_process_withdrawals(
     return await WithdrawalService.bulk_process_withdrawals(
         db=db,
         withdrawal_ids=req.withdrawal_ids,
-        admin_id=current_user.id
+        admin_id=current_user.id,
+        actor=current_user
     )
 
 @router.post("/bulk-approve", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
@@ -346,6 +347,7 @@ async def bulk_approve_withdrawals(
     return await WithdrawalService.bulk_approve_withdrawals(
         db=db,
         withdrawal_ids=req.withdrawal_ids,
-        admin_id=current_user.id
+        admin_id=current_user.id,
+        actor=current_user
     )
 

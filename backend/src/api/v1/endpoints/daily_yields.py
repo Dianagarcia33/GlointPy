@@ -24,6 +24,7 @@ from src.models.investor import Investor
 from src.models.wallet import Wallet, WalletTransaction
 from src.models.audit_log import AuditLog
 from src.services.daily_yield_service import DailyYieldService
+from src.core.audit_context import audit_request_ctx
 
 router = APIRouter()
 
@@ -718,7 +719,7 @@ async def trigger_daily_yield_manually(
     today_cot = run_time_cot.date()
     yesterday_cot = today_cot - timedelta(days=1)
 
-    ip_address = request.client.host if request.client else None
+    ip_address = (audit_request_ctx.get() or {}).get("ip") or (request.client.host if request.client else None)
     user_agent = request.headers.get("user-agent", "")[:300]
 
     try:

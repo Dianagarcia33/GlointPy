@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Request
 from src.models.audit_log import AuditLog
 from src.models.user import User
-from src.core.audit_context import mark_detailed_logged, resolve_client_ip
+from src.core.audit_context import audit_request_ctx, mark_detailed_logged, resolve_client_ip
 
 async def log_audit_trail(
     db: AsyncSession,
@@ -70,3 +70,25 @@ async def log_audit_trail(
             raise
         print(f"[AuditTrailService] Error recording audit trail event: {e}")
         return None
+
+
+async def audit_in_tx(
+    db: AsyncSession,
+    action: str,
+    module: str,
+    user: Optional[User],
+    entity_type: Optional[str] = None,
+    entity_id: Optional[Any] = None,
+    description: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+    status: str = "SUCCESS",
+) -> Optional[AuditLog]:
+    """H-65 nivel 1: auditoría ATÓMICA. Se agrega a la transacción abierta del endpoint (la guarda
+    su `db.commit()`); si no se puede registrar lanza error y la operación no se ejecuta.
+    La IP y el navegador salen del contexto que fija el middleware de auditoría."""
+    ctx = audit_request_ctx.get() or {}
+    return await log_audit_trail(
+        db=db, action=action, module=module, user=user, entity_type=entity_type, entity_id=entity_id,
+        description=description, details=details, ip_address=ctx.get("ip"), user_agent=ctx.get("ua"),
+        status=status, commit=False, strict=True,
+    )

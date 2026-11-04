@@ -107,7 +107,8 @@ async def buy_shares_instant(
         db=db,
         buyer_id=current_user.id,
         listing_id=listing_id,
-        shares_quantity=shares_quantity
+        shares_quantity=shares_quantity,
+        actor=current_user
     )
 
 @router.post("/buy-surplus", response_model=ShareTradeOrderOut, dependencies=SHARES_TRADE)
@@ -128,7 +129,8 @@ async def buy_shares_with_surplus(
         shares_quantity=shares_quantity,
         wallet_amount_used=wallet_amount_used,
         surplus_amount=surplus_amount,
-        receipt_file=receipt
+        receipt_file=receipt,
+        actor=current_user
     )
 
 @router.get("/my-orders", response_model=List[ShareTradeOrderOut], dependencies=SHARES_READ)
@@ -165,7 +167,8 @@ async def update_official_share_price(
         new_price=payload.new_price,
         justification_notes=payload.justification_notes,
         admin_id=current_user.id,
-        available_shares=payload.available_shares
+        available_shares=payload.available_shares,
+        actor=current_user
     )
     return {
         "id": record.id,
@@ -201,7 +204,8 @@ async def decide_pending_trade_order(
         order_id=order_id,
         admin_id=current_user.id,
         action=payload.action,
-        notes=payload.notes
+        notes=payload.notes,
+        actor=current_user
     )
 
 @router.get("/admin/all-orders", response_model=List[ShareTradeOrderOut], dependencies=[Depends(RequirePermission("admin.shares.manage"))])
@@ -225,7 +229,8 @@ async def create_share_issuance(
         title=payload.title,
         description=payload.description,
         total_shares=payload.total_shares_issued,
-        price_per_share=payload.price_per_share
+        price_per_share=payload.price_per_share,
+        actor=current_user
     )
     return {
         "id": issuance.id,
@@ -264,7 +269,7 @@ async def sync_legacy_shares_endpoint(
     current_user: User = Depends(get_current_user)
 ):
     """Sincroniza las acciones otorgadas por paquetes históricos. Por defecto solo acredita las que faltan (H-192)."""
-    result = await ShareMarketService.sync_all_users_legacy_shares(db, allow_reductions=allow_reductions)
+    result = await ShareMarketService.sync_all_users_legacy_shares(db, allow_reductions=allow_reductions, actor=current_user)
     return {"message": "Sincronización retroactiva completada exitosamente.", "details": result}
 
 @router.get("/admin/users/{user_id}/account", response_model=UserShareAccountOut, dependencies=[Depends(RequirePermission("admin.shares.manage"))])
@@ -292,7 +297,8 @@ async def manual_share_grant_endpoint(
         reason=payload.reason,
         admin_id=current_user.id,
         custom_date=payload.custom_date,
-        operation=payload.operation
+        operation=payload.operation,
+        actor=current_user
     )
     return movement
 

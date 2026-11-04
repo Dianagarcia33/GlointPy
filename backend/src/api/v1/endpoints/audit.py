@@ -38,6 +38,8 @@ from dateutil.relativedelta import relativedelta
 from datetime import datetime, timedelta
 
 from src.schemas.acceleration import AccelerationResponse
+from src.services.audit_trail_service import audit_in_tx
+from src.core.audit_context import audit_request_ctx
 
 class SimpleInvestorAuditResponse(InvestorBase):
     id: int
@@ -405,6 +407,7 @@ async def preview_investment_yield(
 async def pay_investment_yield(
     investment_id: int,
     request: PayYieldRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     query = select(Investor).where(Investor.id == investment_id).options(
@@ -429,6 +432,7 @@ async def pay_investment_yield(
         raise HTTPException(status_code=400, detail="El usuario no tiene una billetera activa")
         
     # Update balance
+    balance_before = wallet.balance
     wallet.balance += calc_result.total_yield
     
     # Create transaction
@@ -442,7 +446,14 @@ async def pay_investment_yield(
         balance_after=wallet.balance
     )
     db.add(transaction)
-    
+
+    await audit_in_tx(
+        db, "YIELD_PAY_INVESTMENT", "audit", current_user, "Investor", investment.id,
+        f"Pago manual de rendimiento del contrato {investment.assigned_code or investment.id} por ${float(calc_result.total_yield):,.0f}",
+        {"investor_id": investment.id, "usuario_id": investment.user_id, "wallet_id": wallet.id,
+         "desde": str(calc_result.effective_start_date), "hasta": str(calc_result.effective_end_date),
+         "monto": float(calc_result.total_yield), "saldo_antes": float(balance_before), "saldo_despues": float(wallet.balance)},
+    )
     await db.commit()
     return {"message": "Pago de rendimiento procesado exitosamente", "amount_paid": calc_result.total_yield}
 
@@ -491,6 +502,7 @@ async def preview_user_yields(
 async def pay_user_yields(
     user_id: int,
     request: PayUserYieldRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     query = select(User).where(User.id == user_id).options(
@@ -556,6 +568,7 @@ async def pay_user_yields(
         raise HTTPException(status_code=400, detail="No hay rendimientos ni bonos para pagar en este ciclo según el modo seleccionado")
         
     current_balance = user.wallet.balance
+    balance_before = current_balance
     
     for obj in db.new:
         if isinstance(obj, WalletTransaction):
@@ -563,6 +576,14 @@ async def pay_user_yields(
             obj.balance_after = current_balance
             
     user.wallet.balance = current_balance
+    await audit_in_tx(
+        db, "YIELD_PAY_USER", "audit", current_user, "User", user.id,
+        f"Pago manual de rendimientos/bonos al usuario #{user.id} por ${float(grand_total):,.0f}",
+        {"usuario_id": user.id, "wallet_id": user.wallet.id, "desde": str(request.start_date), "hasta": str(request.end_date),
+         "modo": request.pay_mode or "all", "monto_rendimientos": float(total_yield),
+         "monto_bonos": float(total_acceleration_bonus), "monto_total": float(grand_total),
+         "contratos": len(investments_yields), "saldo_antes": float(balance_before), "saldo_despues": float(current_balance)},
+    )
     await db.commit()
     
     return {
@@ -637,6 +658,7 @@ async def get_user_wallet_transactions(
 @router.post("/wallets/{user_id}", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def create_user_wallet(
     user_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     query = select(User).where(User.id == user_id).options(selectinload(User.wallet))
@@ -655,6 +677,12 @@ async def create_user_wallet(
         status="active"
     )
     db.add(new_wallet)
+    await db.flush()
+    await audit_in_tx(
+        db, "WALLET_CREATE", "wallets", current_user, "Wallet", new_wallet.id,
+        f"Creación de la billetera #{new_wallet.id} del usuario #{user.id}",
+        {"wallet_id": new_wallet.id, "usuario_id": user.id},
+    )
     await db.commit()
     
     return {"message": "Billetera creada exitosamente"}
@@ -751,7 +779,7 @@ async def bulk_pay_yields(
     """
     from src.services.daily_yield_service import DailyYieldService
 
-    ip = req.headers.get("x-forwarded-for", req.client.host if req.client else None)
+    ip = (audit_request_ctx.get() or {}).get("ip") or (req.client.host if req.client else None)
     ua = req.headers.get("user-agent")
 
     res = await DailyYieldService.execute_yield_dispersal(
@@ -792,7 +820,7 @@ async def trigger_daily_automatic(
     today_cot = get_colombia_today()
     yesterday_cot = today_cot - timedelta(days=1)
 
-    ip = req.headers.get("x-forwarded-for", req.client.host if req.client else None)
+    ip = (audit_request_ctx.get() or {}).get("ip") or (req.client.host if req.client else None)
     ua = req.headers.get("user-agent")
 
     return await DailyYieldService.execute_yield_dispersal(

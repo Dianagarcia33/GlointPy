@@ -8,6 +8,7 @@ from src.schemas.investor import InvestorCreate, InvestorUpdate, InvestorRespons
 from src.services.investor_service import InvestorService
 from src.api.deps import RequirePermission, get_current_user
 from src.models.user import User
+from src.services.audit_trail_service import audit_in_tx
 
 router = APIRouter()
 
@@ -84,7 +85,7 @@ async def create_investor(
     """
     Create a new investor.
     """
-    created = await InvestorService.create_investor(db, investor=investor)
+    created = await InvestorService.create_investor(db, investor=investor, actor=current_user)
     reason = InvestorService.check_retroactive_start_date(investor.start_date, None, investor.start_date_reason)
     if reason:
         await _log_retroactive_start_date(db, request, current_user, created, None, created.start_date, reason)
@@ -103,7 +104,7 @@ async def update_investor(
     """
     current = await InvestorService.get_investor(db, investor_id=investor_id, current_user=current_user)  # H-187: alcance
     previous_start = current.start_date
-    updated = await InvestorService.update_investor(db, investor_id=investor_id, investor=investor)
+    updated = await InvestorService.update_investor(db, investor_id=investor_id, investor=investor, actor=current_user)
     # H-142: la fecha de ingreso retroactiva queda registrada con su motivo en el Audit Trail
     reason = InvestorService.check_retroactive_start_date(investor.start_date, previous_start, investor.start_date_reason)
     if reason:
@@ -113,12 +114,13 @@ async def update_investor(
 @router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission("admin.investors.delete"))])
 async def delete_investor(
     investor_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Delete an investor.
     """
-    await InvestorService.delete_investor(db, investor_id=investor_id)
+    await InvestorService.delete_investor(db, investor_id=investor_id, actor=current_user)
 
 from decimal import Decimal
 from datetime import datetime, date
@@ -296,6 +298,17 @@ async def admin_withdraw_capital(
         )
     except Exception as notif_err:
         print(f"Error creating notification for capital withdrawal: {notif_err}")
+
+    await audit_in_tx(
+        db, "INVESTOR_ADMIN_CAPITAL_WITHDRAW", "investments", current_user, "Investor", investor.id,
+        f"Liquidación de capital del contrato {assigned_code} por {formatted_amount}",
+        {"investor_id": investor.id, "withdrawal_id": withdrawal.id, "usuario_id": investor.user_id,
+         "monto": amount_to_withdraw, "capital_disponible_antes": available_capital,
+         "capital_pendiente_despues": max(0.0, available_capital - amount_to_withdraw),
+         "acredita_billetera": bool(credit_wallet),
+         "saldo_billetera_despues": float(wallet.balance) if wallet else None,
+         "notas": (req.notes or "")[:300] or None},
+    )
 
     try:
         await db.commit()

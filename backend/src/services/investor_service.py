@@ -23,6 +23,7 @@ from src.models.security import Role
 from src.models.user_bank_account import UserBankAccount
 from src.models.wallet import Wallet
 from src.schemas.investor import InvestorCreate, InvestorUpdate
+from src.services.audit_trail_service import audit_in_tx
 
 # Roles con alcance global sobre todos los inversionistas (H-187). Un rol comercial (p. ej. directivo_inversion)
 # al que se le dé admin.investors.manage solo ve a SUS clientes, salvo que tenga admin.investors.view_all.
@@ -256,7 +257,7 @@ class InvestorService:
         return clean[:500]
 
     @staticmethod
-    async def create_investor(db: AsyncSession, investor: InvestorCreate) -> Investor:
+    async def create_investor(db: AsyncSession, investor: InvestorCreate, actor=None) -> Investor:
         # Validate foreign keys
         user_result = await db.execute(select(User).where(User.id == investor.user_id))
         if not user_result.scalars().first():
@@ -335,6 +336,14 @@ class InvestorService:
                     created_at=db_investor.start_date or db_investor.created_at or datetime.utcnow()
                 )
 
+            await audit_in_tx(
+                db, "INVESTOR_CREATE", "investments", actor, "Investor", db_investor.id,
+                f"Creación del contrato {assigned_code}",
+                {"investor_id": db_investor.id, "assigned_code": assigned_code, "usuario_id": db_investor.user_id,
+                 "paquete_id": db_investor.package_id, "periodo_id": db_investor.period_id,
+                 "fecha_inicio": db_investor.start_date.date().isoformat() if db_investor.start_date else None,
+                 "acciones_otorgadas": db_investor.shares_granted_frozen},
+            )
             await db.commit()
             await db.refresh(db_investor)
             # Re-fetch with relationships
@@ -353,7 +362,7 @@ class InvestorService:
             )
 
     @staticmethod
-    async def update_investor(db: AsyncSession, investor_id: int, investor: InvestorUpdate) -> Investor:
+    async def update_investor(db: AsyncSession, investor_id: int, investor: InvestorUpdate, actor=None) -> Investor:
         db_investor = await InvestorService.get_investor(db, investor_id)
         if not db_investor:
             raise HTTPException(status_code=404, detail="Inversionista no encontrado")
@@ -392,6 +401,11 @@ class InvestorService:
         old_package_id = db_investor.package_id
         new_package_id = update_data.get("package_id")
 
+        def _audit_val(v):
+            return v.isoformat() if hasattr(v, "isoformat") else (str(v)[:200] if v is not None else None)
+
+        audit_before = {k: _audit_val(getattr(db_investor, k, None)) for k in update_data}
+
         for field, value in update_data.items():
             setattr(db_investor, field, value)
 
@@ -422,6 +436,12 @@ class InvestorService:
                 )
 
         try:
+            await audit_in_tx(
+                db, "INVESTOR_UPDATE", "investments", actor, "Investor", db_investor.id,
+                f"Edición del contrato {db_investor.assigned_code or db_investor.id}: {', '.join(update_data) or 'sin cambios'}",
+                {"investor_id": db_investor.id, "antes": audit_before,
+                 "despues": {k: _audit_val(v) for k, v in update_data.items()}},
+            )
             await db.commit()
             await db.refresh(db_investor)
             return await InvestorService.get_investor(db, db_investor.id)
@@ -434,7 +454,7 @@ class InvestorService:
             )
 
     @staticmethod
-    async def delete_investor(db: AsyncSession, investor_id: int):
+    async def delete_investor(db: AsyncSession, investor_id: int, actor=None):
         db_investor = await InvestorService.get_investor(db, investor_id)
         if not db_investor:
             raise HTTPException(status_code=404, detail="Inversionista no encontrado")
@@ -501,6 +521,13 @@ class InvestorService:
             req.rejection_reason = "Contrato de inversión eliminado o anulado por la administración."
             req.investor_id = None
             
+        await audit_in_tx(
+            db, "INVESTOR_DELETE", "investments", actor, "Investor", investor_id,
+            f"Eliminación del contrato {db_investor.assigned_code or investor_id}",
+            {"investor_id": investor_id, "assigned_code": db_investor.assigned_code, "usuario_id": db_investor.user_id,
+             "paquete_id": db_investor.package_id, "ventas_comerciales_anuladas": len(linked_sales),
+             "solicitudes_rechazadas": len(associated_requests)},
+        )
         await db.delete(db_investor)
         await db.commit()
 

@@ -237,7 +237,8 @@ class AuditWriteMiddleware:
         if actor is None:
             return await self.app(scope, receive, send)
 
-        ctx: dict = {"detailed": False}
+        ua = _headers(scope).get(b"user-agent", b"").decode("latin-1")
+        ctx: dict = {"detailed": False, "ip": _client_ip(scope), "ua": ua[:300] or None}
         token = audit_request_ctx.set(ctx)
         state = {"status": 500}
 

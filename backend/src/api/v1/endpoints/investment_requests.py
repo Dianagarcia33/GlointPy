@@ -53,7 +53,7 @@ async def approve_investment_request(
     Optionally accepts commercial_id to adjudicate sale volume.
     """
     c_id = payload.commercial_id if payload else None
-    return await InvestmentRequestService.approve_request(db, request_id, current_user.id, override_commercial_id=c_id)
+    return await InvestmentRequestService.approve_request(db, request_id, current_user.id, override_commercial_id=c_id, actor=current_user)
 
 @router.post("/{request_id}/reject", dependencies=[Depends(RequirePermission("admin.investments.reject"))])
 async def reject_investment_request(
@@ -65,4 +65,4 @@ async def reject_investment_request(
     """
     Reject an investment request.
     """
-    return await InvestmentRequestService.reject_request(db, request_id, current_user.id, payload.rejection_reason)
+    return await InvestmentRequestService.reject_request(db, request_id, current_user.id, payload.rejection_reason, actor=current_user)

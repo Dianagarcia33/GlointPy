@@ -45,6 +45,7 @@ async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optiona
     return False, "Actualmente no se encuentra habilitada la ventana de retiros. Por favor consulta las fechas de retiro autorizadas en el sistema."
 
 from pydantic import BaseModel, Field
+from src.services.audit_trail_service import audit_in_tx
 
 class WalletWithdrawRequest(BaseModel):
     monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
@@ -329,6 +330,16 @@ async def request_withdrawal(
     except Exception as cw_err:
         logger.warning(f"Aviso al acreditar retención 3.2% a Billetera Corporativa: {cw_err}")
 
+    # H-65: auditoría atómica (misma transacción que el débito del saldo)
+    await audit_in_tx(
+        db, "WITHDRAWAL_REQUEST", "wallets", current_user, "Withdrawal", withdrawal.id,
+        f"Solicitud de retiro #{withdrawal.id} por ${float(monto_decimal):,.0f}",
+        {"withdrawal_id": withdrawal.id, "wallet_id": wallet.id, "monto": float(monto_decimal),
+         "impuesto": float(impuesto), "monto_neto": float(monto_neto),
+         "saldo_antes": float(wallet.balance + monto_decimal), "saldo_despues": float(wallet.balance),
+         "banco": bank_account.banco, "cuenta_ultimos4": str(bank_account.numero_cuenta or "")[-4:]},
+    )
+
     try:
         await db.commit()
     except Exception as e:
@@ -375,7 +386,7 @@ async def request_withdrawal(
         "yoint": yoint_tracking
     }
 
-def _translate_wallet_text(text: str | None) -> str:
+def _translate_wallet_text(text: Optional[str]) -> str:
     if not text:
         return ""
     import re
@@ -437,7 +448,7 @@ def _translate_wallet_text(text: str | None) -> str:
     return cleaned
 
 
-def _translate_payment_method(method: str | None) -> str:
+def _translate_payment_method(method: Optional[str]) -> str:
     if not method:
         return "Transferencia Bancaria"
     norm = str(method).strip().upper().replace("-", "_").replace(" ", "_")
@@ -465,7 +476,7 @@ def _translate_payment_method(method: str | None) -> str:
     return mapping.get(norm, str(method).replace("_", " ").title())
 
 
-def _translate_status(status_val: str | None) -> str:
+def _translate_status(status_val: Optional[str]) -> str:
     if not status_val:
         return "completado"
     norm = str(status_val).lower().strip()
@@ -493,7 +504,7 @@ def _translate_status(status_val: str | None) -> str:
     return mapping.get(norm, "completado")
 
 
-def _get_movement_type_display(raw_type: str | None, is_ingreso: bool) -> str:
+def _get_movement_type_display(raw_type: Optional[str], is_ingreso: bool) -> str:
     if not raw_type:
         return "Ingreso a Billetera" if is_ingreso else "Egreso de Billetera"
     norm = str(raw_type).lower().strip().replace("-", "_").replace(" ", "_")
@@ -891,7 +902,15 @@ async def cancel_my_withdrawal(
         await CompanyWalletService.refund_tax_retention(db, withdrawal)
     except Exception as cw_err:
         logger.warning(f"Aviso al revertir retención en libro fiscal para retiro cancelado #{withdrawal.id}: {cw_err}")
-    
+
+    await audit_in_tx(
+        db, "WITHDRAWAL_CANCEL", "wallets", current_user, "Withdrawal", withdrawal.id,
+        f"Cancelación del retiro #{withdrawal.id}; se devuelven ${float(monto_decimal):,.0f}",
+        {"withdrawal_id": withdrawal.id, "estado_antes": "PENDING", "estado_despues": "CANCELLED",
+         "monto_devuelto": float(monto_decimal), "saldo_antes": float(wallet.balance - monto_decimal),
+         "saldo_despues": float(wallet.balance)},
+    )
+
     try:
         await db.commit()
     except Exception as e:
@@ -1006,7 +1025,17 @@ async def admin_adjust_wallet(
 
         tx.reference_type = "withdrawal"
         tx.reference_id = withdrawal.id
-    
+
+    await audit_in_tx(
+        db, "WALLET_ADMIN_ADJUST", "wallets", current_user, "Wallet", wallet.id,
+        f"Ajuste administrativo de billetera #{wallet.id} ({req.action}) por ${abs(float(diff)):,.0f}",
+        {"wallet_id": wallet.id, "wallet_user_id": wallet.user_id, "accion": req.action,
+         "monto_solicitado": float(req.amount), "diferencia": float(diff),
+         "saldo_antes": float(old_balance), "saldo_despues": float(wallet.balance),
+         "motivo": (req.description or "").strip()[:300] or None,
+         "retiro_generado_id": tx.reference_id if tx.reference_type == "withdrawal" else None},
+    )
+
     try:
         await db.commit()
     except Exception as e:
@@ -1166,6 +1195,15 @@ async def transfer_wallet_funds(
     )
     db.add(recipient_tx)
 
+    await audit_in_tx(
+        db, "WALLET_TRANSFER", "wallets", current_user, "Wallet", sender_wallet.id,
+        f"Transferencia de ${float(amount):,.0f} de la billetera #{sender_wallet.id} a la #{recipient_wallet.id}",
+        {"wallet_origen_id": sender_wallet.id, "wallet_destino_id": recipient_wallet.id,
+         "usuario_destino_id": recipient.id, "monto": float(amount),
+         "saldo_origen_antes": float(sender_wallet.balance + amount), "saldo_origen_despues": float(sender_wallet.balance),
+         "saldo_destino_antes": float(recipient_wallet.balance - amount), "saldo_destino_despues": float(recipient_wallet.balance)},
+    )
+
     await db.commit()
 
     # Notificaciones in-app y push
@@ -1295,6 +1333,13 @@ async def create_wallet_recharge(
         user_notes=notes.strip() if notes else None
     )
     db.add(recharge)
+    await db.flush()
+    await audit_in_tx(
+        db, "WALLET_RECHARGE_CREATE", "wallets", current_user, "WalletRecharge", recharge.id,
+        f"Solicitud de recarga #{recharge.id} por ${float(recharge.amount):,.0f}",
+        {"recharge_id": recharge.id, "wallet_id": wallet.id, "monto": float(recharge.amount),
+         "metodo": recharge.payment_method, "estado": "pending"},
+    )
     await db.commit()
     await db.refresh(recharge)
 
@@ -1438,6 +1483,11 @@ async def cancel_my_recharge(
 
     recharge.status = "cancelled"
     recharge.admin_notes = "Cancelada por el usuario"
+    await audit_in_tx(
+        db, "WALLET_RECHARGE_CANCEL", "wallets", current_user, "WalletRecharge", recharge.id,
+        f"Cancelación de la recarga #{recharge.id}",
+        {"recharge_id": recharge.id, "monto": float(recharge.amount), "estado_antes": "pending", "estado_despues": "cancelled"},
+    )
     await db.commit()
 
     return {"message": "Solicitud de recarga cancelada exitosamente."}
@@ -1671,6 +1721,15 @@ async def approve_wallet_recharge_admin(
     if payload and payload.admin_notes:
         recharge.admin_notes = payload.admin_notes.strip()
 
+    await audit_in_tx(
+        db, "WALLET_RECHARGE_APPROVE", "wallets", current_user, "WalletRecharge", recharge.id,
+        f"Aprobación de la recarga #{recharge.id} por ${float(recharge_amount):,.0f}",
+        {"recharge_id": recharge.id, "wallet_id": wallet.id, "usuario_id": recharge.user_id,
+         "monto": float(recharge_amount), "estado_antes": "pending", "estado_despues": "approved",
+         "saldo_acreditado": existing_tx is None, "saldo_despues": float(wallet.balance),
+         "notas": (payload.admin_notes or "").strip()[:300] if payload else None},
+    )
+
     await db.commit()
 
     # Notificar al inversionista
@@ -1750,6 +1809,13 @@ async def reject_wallet_recharge_admin(
     recharge.reviewed_by = current_user.id
     recharge.reviewed_at = datetime.utcnow()
     recharge.admin_notes = payload.reason.strip()
+
+    await audit_in_tx(
+        db, "WALLET_RECHARGE_REJECT", "wallets", current_user, "WalletRecharge", recharge.id,
+        f"Rechazo de la recarga #{recharge.id}",
+        {"recharge_id": recharge.id, "usuario_id": recharge.user_id, "monto": float(recharge.amount),
+         "estado_antes": "pending", "estado_despues": "rejected", "motivo": payload.reason.strip()[:300]},
+    )
 
     await db.commit()
 
