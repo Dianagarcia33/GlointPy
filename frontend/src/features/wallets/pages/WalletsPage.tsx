@@ -19,6 +19,7 @@ import {
     Building2 
 } from 'lucide-react';
 import { Can } from '../../../components/security/Can';
+import { usePermissions } from '../../../hooks/usePermissions';
 import { fetchApi } from '../../../services/api';
 import { formatApiDate } from '../../../utils/format';
 import { useQueryClient } from '@tanstack/react-query';
@@ -80,6 +81,7 @@ export const WalletsPage: React.FC = () => {
     );
 
     const queryClient = useQueryClient();
+    const canViewHistory = usePermissions().hasPermission('wallets:view_history');
     const [balance, setBalance] = useState<number>(0);
     const [balanceVisible, setBalanceVisible] = useState(true);
     const [bankDetails, setBankDetails] = useState<any>(null);
@@ -108,11 +110,12 @@ export const WalletsPage: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
+            // H-236: el servidor exige wallets:view_history en los tres listados; sin él solo se pide el saldo
             const [balanceRes, movementsRes, withdrawalsRes, rechargesRes] = await Promise.all([
                 fetchApi('/wallets/me/balance'),
-                fetchApi('/wallets/me/movements'),
-                fetchApi('/wallets/me/withdrawals'),
-                getMyRecharges()
+                canViewHistory ? fetchApi('/wallets/me/movements') : Promise.resolve([]),
+                canViewHistory ? fetchApi('/wallets/me/withdrawals') : Promise.resolve([]),
+                canViewHistory ? getMyRecharges() : Promise.resolve([])
             ]);
             setBalance(balanceRes?.balance || 0);
             setBalanceVisible(balanceRes?.balance_visible !== false);
@@ -542,7 +545,7 @@ export const WalletsPage: React.FC = () => {
                     </div>}
 
                     {/* Card 2: Total Movimientos */}
-                    <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+                    {canViewHistory && <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Transacciones</span>
                             <ArrowRightLeft className="w-4 h-4 text-blue-600" />
@@ -553,10 +556,10 @@ export const WalletsPage: React.FC = () => {
                         <span className="text-[11px] text-slate-500 font-medium block">
                             Movimientos en tu historial
                         </span>
-                    </div>
+                    </div>}
 
                     {/* Card 3: Recargas Realizadas */}
-                    <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+                    {canViewHistory && <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Recargas Realizadas</span>
                             <ArrowDownToLine className="w-4 h-4 text-emerald-600" />
@@ -569,10 +572,10 @@ export const WalletsPage: React.FC = () => {
                                 ? `${recharges.filter(r => r.status === 'pending').length} pendientes de validación`
                                 : 'Sin solicitudes pendientes'}
                         </span>
-                    </div>
+                    </div>}
 
                     {/* Card 4: Solicitudes de Retiro */}
-                    <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+                    {canViewHistory && <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Solicitudes de Retiro</span>
                             <ArrowUpToLine className="w-4 h-4 text-amber-600" />
@@ -585,7 +588,7 @@ export const WalletsPage: React.FC = () => {
                                 ? `${withdrawals.filter(w => w.estado === 'pendiente').length} en proceso de aprobación`
                                 : 'Sin retiros pendientes'}
                         </span>
-                    </div>
+                    </div>}
                 </div>
 
                 {/* ⚡ Acciones Secundarias Rápidas */}
@@ -627,7 +630,7 @@ export const WalletsPage: React.FC = () => {
                 </div>
 
                 {/* 🎛️ 3. Pestañas de Navegación Segmentadas (Pill Controls) */}
-                <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80 overflow-x-auto max-w-full">
+                {canViewHistory && <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80 overflow-x-auto max-w-full">
                     <button
                         onClick={() => setActiveTab('movements')}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat whitespace-nowrap flex items-center gap-2 ${
@@ -663,7 +666,7 @@ export const WalletsPage: React.FC = () => {
                         <ArrowUpToLine className="w-3.5 h-3.5" />
                         <span>Solicitudes de Retiro ({withdrawals.length})</span>
                     </button>
-                </div>
+                </div>}
 
                 {/* Estado de Carga */}
                 {loading ? (

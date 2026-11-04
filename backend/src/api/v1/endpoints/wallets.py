@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 from src.core.database import get_db
+from src.core.timezone import get_colombia_today
 from src.api.deps import RequirePermission, get_current_user
 from sqlalchemy.future import select
 from src.models.wallet import Wallet
@@ -52,6 +53,11 @@ class WalletWithdrawRequest(BaseModel):
 
 class SendCodeRequest(BaseModel):
     monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
+
+# H-236: el historial propio (movimientos, retiros y recargas) exige wallets:view_history en el servidor
+# (antes solo se ocultaba en pantalla). Mismo mecanismo PBAC que H-223 (credits.py / share_market.py).
+WALLET_HISTORY = [Depends(RequirePermission("wallets:view_history"))]
+
 
 def _can_view_balance(user) -> bool:
     from src.core.pbac import PBACEngine
@@ -302,7 +308,7 @@ async def request_withdrawal(
         monto=monto_decimal,
         impuesto=impuesto,
         monto_neto=monto_neto,
-        fecha_solicitud=date.today(),
+        fecha_solicitud=get_colombia_today(),  # H-152: día calendario de Colombia, no el del servidor (UTC)
         estado=WithdrawalStatus.PENDING,
         metodo_pago="Transferencia",
         banco=bank_account.banco,
@@ -559,7 +565,7 @@ def _get_movement_type_display(raw_type: str | None, is_ingreso: bool) -> str:
     return "Ingreso a Billetera" if is_ingreso else "Egreso de Billetera"
 
 
-@router.get("/me/movements")
+@router.get("/me/movements", dependencies=WALLET_HISTORY)
 async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the wallet transactions of the current logged-in user.
@@ -739,7 +745,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         
     return response
 
-@router.get("/me/withdrawals")
+@router.get("/me/withdrawals", dependencies=WALLET_HISTORY)
 async def get_my_withdrawals(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the withdrawals of the current logged-in user.
@@ -981,8 +987,8 @@ async def admin_adjust_wallet(
             monto=monto_abs,
             impuesto=impuesto,
             monto_neto=monto_neto,
-            fecha_solicitud=date.today(),
-            fecha_retiro=date.today(),
+            fecha_solicitud=get_colombia_today(),  # H-152: día calendario de Colombia, no el del servidor (UTC)
+            fecha_retiro=get_colombia_today(),
             estado=WithdrawalStatus.APPROVED,
             metodo_pago="Ajuste Admin Wallet",
             banco=bank_account.banco if bank_account else None,
@@ -1306,7 +1312,7 @@ async def create_wallet_recharge(
     }
 
 
-@router.get("/me/recharges")
+@router.get("/me/recharges", dependencies=WALLET_HISTORY)
 async def get_my_recharges(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
