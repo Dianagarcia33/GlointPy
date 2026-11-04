@@ -48,7 +48,13 @@ class ShareIssuanceOut(BaseModel):
 # --- Esquemas de Mercado Secundario / Ofertas P2P ---
 class ShareListingCreate(BaseModel):
     shares_quantity: int = Field(..., gt=0, description="Cantidad de acciones a poner en venta")
-    price_per_share: float = Field(..., gt=0, description="Precio unitario por acción en COP")
+    # H-238: se rechaza <= 0, NaN e infinito. El tope es solo el límite técnico de la columna
+    # Numeric(15,2) (evita el 500 por desbordamiento); NO es una regla de negocio.
+    # REQUIERE DECISIÓN de negocio: precio mínimo/máximo real o precio oficial fijado en el servidor.
+    price_per_share: float = Field(
+        ..., gt=0, le=9_999_999_999_999.99, allow_inf_nan=False,
+        description="Precio unitario por acción en COP",
+    )
 
 class ShareListingOut(BaseModel):
     id: int
