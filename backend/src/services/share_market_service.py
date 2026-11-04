@@ -164,6 +164,21 @@ class ShareMarketService:
         return acc
 
     @staticmethod
+    async def get_contract_frozen_shares(db: AsyncSession, investor) -> int:
+        """H-192: acciones por paquete de un contrato. Usa el valor congelado al comprar; si es NULL
+        (contrato anterior al congelado) usa la suma del libro y nunca el paquete vivo."""
+        frozen = getattr(investor, "shares_granted_frozen", None)
+        if frozen is not None:
+            return int(frozen)
+        res = await db.execute(
+            select(func.coalesce(func.sum(ShareMovement.shares_quantity), 0)).where(
+                ShareMovement.investor_id == investor.id,
+                ShareMovement.movement_type == "package_grant",
+            )
+        )
+        return int(res.scalar() or 0)
+
+    @staticmethod
     async def record_share_movement(
         db: AsyncSession,
         user_id: int,

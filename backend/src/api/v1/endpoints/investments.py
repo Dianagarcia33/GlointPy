@@ -231,7 +231,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             "paquete": {
                 "id": inv_record.package.id if inv_record.package else 0,
                 "paquete_accion_adquirido": str(inv_record.package.value) if inv_record.package else "0",
-                "acciones_otorgadas": inv_record.package.granted_shares if inv_record.package else 0
+                "acciones_otorgadas": (inv_record.shares_granted_frozen if inv_record.shares_granted_frozen is not None else (inv_record.package.granted_shares if inv_record.package else 0))
             } if inv_record.package else None
         }
         investments.append(inv)
@@ -803,7 +803,7 @@ async def get_investment_details(
         "paquete": {
             "id": inv_record.package.id if inv_record.package else 0,
             "paquete_accion_adquirido": str(inv_record.package.value) if inv_record.package else "0",
-            "acciones_otorgadas": inv_record.package.granted_shares if inv_record.package else 0
+            "acciones_otorgadas": (inv_record.shares_granted_frozen if inv_record.shares_granted_frozen is not None else (inv_record.package.granted_shares if inv_record.package else 0))
         } if inv_record.package else None,
         "periodo": {
             "id": inv_record.period.id,
