@@ -17,6 +17,7 @@ import {
     Calendar
 } from 'lucide-react';
 import { shareMarketService, ShareTradeOrder, SharePriceHistory, ShareIssuance, UserShareAccount } from '../../../../services/shareMarket';
+import { getMediaUrl } from '../../../../services/api';
 import { usersService, User } from '../../../../services/users';
 import { ShareGrowthChart } from '../components/ShareGrowthChart';
 
@@ -546,7 +547,7 @@ export const AdminSharesPage: React.FC = () => {
                                     <div className="flex items-center justify-between gap-3 pt-2">
                                         {order.receipt_url && (
                                             <a
-                                                href={order.receipt_url}
+                                                href={getMediaUrl(order.receipt_url)}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
@@ -762,7 +763,7 @@ export const AdminSharesPage: React.FC = () => {
                                         </td>
                                         <td className="p-4 pr-6">
                                             {o.receipt_url && (
-                                                <a href={o.receipt_url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline font-bold text-[11px] block">
+                                                <a href={getMediaUrl(o.receipt_url)} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline font-bold text-[11px] block">
                                                     Ver Comprobante
                                                 </a>
                                             )}
