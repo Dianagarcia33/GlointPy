@@ -189,10 +189,19 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
   const selectSearchResult = (item: SearchClientResult) => {
     // Resetear inmediatamente estados dependientes del cliente anterior
-    setClientInfo(null);
+    setClientInfo(item.is_existing_client ? {
+      client_document: item.document_id || item.assigned_code || '',
+      client_exists: true,
+      is_existing_client: true,
+      client_name: item.name,
+      allowed_types: ['reinversion', 'referido'],
+      forced_type: item.forced_type || 'referido'
+    } as CommercialClientCheckResponse : null);
     setAmount('');
     setReferrerCode('');
-    setSaleType('contrato_nuevo');
+    // H-154: respetar desde ya lo que devolvió search-clients (is_existing_client / forced_type),
+    // sin esperar a check-client, para no dejar "Contrato Nuevo" activo a un cliente existente.
+    setSaleType((item.forced_type as any) || (item.is_existing_client ? 'referido' : 'contrato_nuevo'));
     setError(null);
 
     const effectiveDoc = item.document_id || item.assigned_code || searchTerm;
