@@ -22,6 +22,15 @@ class BeneficiaryUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
 
+class BeneficiaryDistributionItem(BeneficiaryUpdate):
+    """Ítem de ``PUT /beneficiaries/me/distribution``: con ``id`` edita, sin ``id`` crea."""
+    id: Optional[int] = None
+
+
+class BeneficiaryDistribution(BaseModel):
+    items: list[BeneficiaryDistributionItem] = Field(..., min_length=1)
+
+
 class BeneficiaryResponse(BeneficiaryBase):
     # En el modelo ORM el atributo es 'relationship_type' (columna 'relationship'): sin este alias la
     # respuesta siempre devolvía null aunque el parentesco estuviera guardado (H-149)

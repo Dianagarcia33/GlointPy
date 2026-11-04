@@ -440,6 +440,7 @@ export const BeneficiariesPage: React.FC = () => {
         onSaved={fetchData}
         beneficiary={editingBeneficiary}
         availablePercentage={editingBeneficiary ? availablePercentage + Number(editingBeneficiary.percentage) : availablePercentage}
+        otherBeneficiaries={beneficiaries.filter(b => b.id !== editingBeneficiary?.id)}
       />
 
       {/* Modal de Confirmación de Eliminación */}

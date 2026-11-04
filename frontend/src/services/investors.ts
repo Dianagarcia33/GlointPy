@@ -58,6 +58,7 @@ export interface Investor {
   package_id: number;
   period_id: number;
   start_date: string;
+  start_date_reason?: string; // H-142: motivo si la fecha de ingreso es retroactiva (solo al enviar)
   end_date: string;
   observations?: string;
   created_at: string;

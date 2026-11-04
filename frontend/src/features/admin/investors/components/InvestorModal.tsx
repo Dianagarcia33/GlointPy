@@ -27,6 +27,8 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
   const [periodId, setPeriodId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [originalStartDate, setOriginalStartDate] = useState('');
+  const [startDateReason, setStartDateReason] = useState('');
   
   const [userSearch, setUserSearch] = useState('');
 
@@ -50,10 +52,14 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
         // Format start_date for input type="date"
         if (investor.start_date) {
             const dateObj = new Date(investor.start_date);
-            setStartDate(dateObj.toISOString().split('T')[0]);
+            const iso = dateObj.toISOString().split('T')[0];
+            setStartDate(iso);
+            setOriginalStartDate(iso);
         } else {
             setStartDate('');
+            setOriginalStartDate('');
         }
+        setStartDateReason('');
       } else {
         setAssignedCode('');
         setReferredBy('');
@@ -61,7 +67,10 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
         setPackageId('');
         setPeriodId('');
         setObservations('');
-        setStartDate(new Date().toISOString().split('T')[0]);
+        // Hoy en Colombia (no el día UTC): de noche el día UTC ya sería «futuro»
+        setStartDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }));
+        setOriginalStartDate('');
+        setStartDateReason('');
       }
       setError(null);
       
@@ -109,6 +118,9 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
   // Hoy en Colombia (AAAA-MM-DD): la fecha de ingreso no puede ser futura (H-142)
   const todayColombia = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
+  // H-142: una fecha anterior a hoy (distinta de la actual del contrato) exige un motivo que queda registrado
+  const isRetroactive = !!startDate && startDate < todayColombia && startDate !== originalStartDate;
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,6 +134,11 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       return;
     }
 
+    if (isRetroactive && startDateReason.trim().length < 5) {
+      setError('La fecha de ingreso es anterior a hoy: indica el motivo (mínimo 5 caracteres) para que quede registrado.');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -132,7 +149,8 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
         package_id: Number(packageId),
         period_id: Number(periodId),
         observations: observations || undefined,
-        start_date: startDate ? new Date(startDate).toISOString() : undefined
+        start_date: startDate ? new Date(startDate).toISOString() : undefined,
+        start_date_reason: isRetroactive ? startDateReason.trim() : undefined
     };
 
     try {
@@ -334,6 +352,21 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
                 }`}
                 required
               />
+              {isRetroactive && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-amber-700">Motivo de la fecha retroactiva *</label>
+                  <textarea
+                    value={startDateReason}
+                    onChange={(e) => setStartDateReason(e.target.value)}
+                    maxLength={500}
+                    rows={2}
+                    placeholder="Ej. Contrato firmado el 10/10 y registrado con retraso"
+                    className="w-full px-3 py-2 border border-amber-200 bg-amber-50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    required
+                  />
+                  <p className="text-[11px] text-amber-700">Quedará registrado en el Audit Trail.</p>
+                </div>
+              )}
               {investor ? (
                 isAdmin ? (
                   <p className="text-xs text-emerald-600 font-medium">

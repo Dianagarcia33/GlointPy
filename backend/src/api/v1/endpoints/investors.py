@@ -1,5 +1,5 @@
 from src.core.errors import public_error_detail
-from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Query
+from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
@@ -10,6 +10,26 @@ from src.api.deps import RequirePermission, get_current_user
 from src.models.user import User
 
 router = APIRouter()
+
+
+async def _log_retroactive_start_date(db, request, actor, investor, before, after, reason: str):
+    """Audit Trail (H-142): fecha de ingreso retroactiva con su motivo. No cambia ningún dato del contrato."""
+    from src.services.audit_trail_service import log_audit_trail
+    await log_audit_trail(
+        db=db,
+        action="INVESTOR_RETROACTIVE_START_DATE",
+        module="investments",
+        user=actor,
+        request=request,
+        entity_type="Investor",
+        entity_id=investor.id,
+        description=f"Fecha de ingreso retroactiva en el contrato {investor.assigned_code or investor.id}",
+        details={
+            "before": before.date().isoformat() if before else None,
+            "after": after.date().isoformat() if after else None,
+            "reason": reason,
+        },
+    )
 
 @router.get("/", response_model=InvestorPaginatedResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investors(
@@ -57,25 +77,38 @@ async def read_investor(
 @router.post("/", response_model=InvestorResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("admin.investors.create"))])
 async def create_investor(
     investor: InvestorCreate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new investor.
     """
-    return await InvestorService.create_investor(db, investor=investor)
+    created = await InvestorService.create_investor(db, investor=investor)
+    reason = InvestorService.check_retroactive_start_date(investor.start_date, None, investor.start_date_reason)
+    if reason:
+        await _log_retroactive_start_date(db, request, current_user, created, None, created.start_date, reason)
+    return created
 
 @router.put("/{investor_id}", response_model=InvestorResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def update_investor(
     investor_id: int,
     investor: InvestorUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Update an existing investor.
     """
-    await InvestorService.get_investor(db, investor_id=investor_id, current_user=current_user)  # H-187: alcance
-    return await InvestorService.update_investor(db, investor_id=investor_id, investor=investor)
+    current = await InvestorService.get_investor(db, investor_id=investor_id, current_user=current_user)  # H-187: alcance
+    previous_start = current.start_date
+    updated = await InvestorService.update_investor(db, investor_id=investor_id, investor=investor)
+    # H-142: la fecha de ingreso retroactiva queda registrada con su motivo en el Audit Trail
+    reason = InvestorService.check_retroactive_start_date(investor.start_date, previous_start, investor.start_date_reason)
+    if reason:
+        await _log_retroactive_start_date(db, request, current_user, updated, previous_start, updated.start_date, reason)
+    return updated
 
 @router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission("admin.investors.delete"))])
 async def delete_investor(

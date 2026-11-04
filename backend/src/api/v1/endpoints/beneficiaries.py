@@ -4,7 +4,7 @@ from typing import List
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
-from src.schemas.beneficiary import BeneficiaryCreate, BeneficiaryUpdate, BeneficiaryResponse
+from src.schemas.beneficiary import BeneficiaryCreate, BeneficiaryUpdate, BeneficiaryResponse, BeneficiaryDistribution
 from src.services.beneficiary_service import BeneficiaryService
 
 router = APIRouter(prefix="/beneficiaries", tags=["beneficiaries"])
@@ -23,6 +23,15 @@ async def create_my_beneficiary(
     current_user: User = Depends(get_current_user)
 ):
     return await BeneficiaryService.create(db, current_user.id, data)
+
+@router.put("/me/distribution", response_model=List[BeneficiaryResponse])
+async def save_my_distribution(
+    data: BeneficiaryDistribution,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """H-91: guarda varios cambios a la vez; el total resultante debe ser exactamente 100 %."""
+    return await BeneficiaryService.save_distribution(db, current_user.id, data.items)
 
 @router.put("/me/{beneficiary_id}", response_model=BeneficiaryResponse)
 async def update_my_beneficiary(

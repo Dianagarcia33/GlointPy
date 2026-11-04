@@ -236,6 +236,25 @@ class InvestorService:
         if start_date and start_date.date() > get_colombia_today():
             raise HTTPException(status_code=422, detail="La fecha de ingreso no puede ser posterior a hoy.")
 
+    MIN_START_DATE_REASON_LENGTH = 5
+
+    @staticmethod
+    def check_retroactive_start_date(new_start: Optional[datetime], previous_start: Optional[datetime], reason: Optional[str]) -> Optional[str]:
+        """Una fecha de ingreso retroactiva (anterior a hoy en Colombia y distinta de la actual) exige un motivo (H-142).
+        Devuelve el motivo limpio si aplica (para registrarlo en el Audit Trail) o None si no es retroactiva."""
+        from src.core.timezone import get_colombia_today
+        if not new_start or new_start.date() >= get_colombia_today():
+            return None
+        if previous_start is not None and previous_start.date() == new_start.date():
+            return None  # la fecha no cambia: no se toca el contrato
+        clean = (reason or "").strip()
+        if len(clean) < InvestorService.MIN_START_DATE_REASON_LENGTH:
+            raise HTTPException(
+                status_code=422,
+                detail=f"La fecha de ingreso es anterior a hoy (retroactiva): indica el motivo del cambio (mínimo {InvestorService.MIN_START_DATE_REASON_LENGTH} caracteres) para que quede registrado."
+            )
+        return clean[:500]
+
     @staticmethod
     async def create_investor(db: AsyncSession, investor: InvestorCreate) -> Investor:
         # Validate foreign keys
@@ -252,6 +271,7 @@ class InvestorService:
             raise HTTPException(status_code=404, detail="Periodo no encontrado")
             
         InvestorService._ensure_start_date_not_future(investor.start_date)
+        InvestorService.check_retroactive_start_date(investor.start_date, None, investor.start_date_reason)
         start_date = investor.start_date or datetime.utcnow()
 
         if investor.assigned_code:
@@ -338,8 +358,10 @@ class InvestorService:
 
         old_referred_by = (db_investor.referred_by or "").strip()
         update_data = investor.model_dump(exclude_unset=True)
+        start_date_reason = update_data.pop("start_date_reason", None)  # no es una columna del contrato
         if update_data.get("start_date"):
             InvestorService._ensure_start_date_not_future(update_data["start_date"])
+            InvestorService.check_retroactive_start_date(update_data["start_date"], db_investor.start_date, start_date_reason)
 
         # Los bonos por referido (aceleraciones) ya no se aplican: el código de referido queda solo para
         # consultar los bonos antiguos. Cambiarlo crearía o borraría aceleraciones, así que se rechaza (H-140).

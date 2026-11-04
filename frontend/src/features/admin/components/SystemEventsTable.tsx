@@ -18,10 +18,12 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
   const deletingEvent = events.find(e => e.id === deletingId);
 
   // Tipo y configuración del evento para identificarlo en el modal de eliminación (H-135)
+  const dayLabel = (d: number | null) => (d === 0 ? 'último día' : `${d}`);
+
   const describeEvent = (event: SystemEvent) => {
     const typeLabel = event.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     const when = event.is_recurring
-      ? `Día ${event.recurrence_start_day} al ${event.recurrence_end_day} de cada mes`
+      ? `Día ${dayLabel(event.recurrence_start_day)} al ${dayLabel(event.recurrence_end_day)} de cada mes`
       : `${event.start_date ? format(new Date(event.start_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'} - ${event.end_date ? format(new Date(event.end_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}`;
     return `${typeLabel} · ${when}`;
   };
@@ -98,7 +100,7 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
                   <div className="flex items-center gap-2 text-slate-700 bg-blue-50/80 border border-blue-100 px-3 py-1.5 rounded-xl w-fit">
                     <RotateCw className="w-4 h-4 text-blue-600 shrink-0" />
                     <span className="font-bold text-blue-950 font-mono text-xs">
-                      Día {event.recurrence_start_day} al {event.recurrence_end_day} de cada mes
+                      Día {event.recurrence_start_day === 0 ? 'último día' : event.recurrence_start_day} al {event.recurrence_end_day === 0 ? 'último día' : event.recurrence_end_day} de cada mes
                     </span>
                   </div>
                 ) : (

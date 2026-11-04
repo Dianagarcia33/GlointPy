@@ -74,8 +74,8 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
 
     // Mismas reglas que el backend (H-133): un evento incompleto o invertido nunca abriría la ventana
     if (formData.is_recurring) {
-      if (!formData.recurrence_start_day || !formData.recurrence_end_day) {
-        setFormError('Indica el día de inicio y el día de fin de la recurrencia (entre 1 y 31).');
+      if (!formData.recurrence_start_day && formData.recurrence_start_day !== 0 || !formData.recurrence_end_day && formData.recurrence_end_day !== 0) {
+        setFormError('Indica el día de inicio y el día de fin de la recurrencia (entre 1 y 31, o «último día del mes»).');
         return;
       }
     } else {
@@ -206,11 +206,20 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
                     type="number"
                     min="1"
                     max="31"
-                    required
+                    required={formData.recurrence_start_day !== 0}
+                    disabled={formData.recurrence_start_day === 0}
                     value={formData.recurrence_start_day || ''}
                     onChange={(e) => setFormData({ ...formData, recurrence_start_day: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none disabled:opacity-50"
                   />
+                  <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.recurrence_start_day === 0}
+                      onChange={(e) => setFormData({ ...formData, recurrence_start_day: e.target.checked ? 0 : null })}
+                    />
+                    Último día del mes
+                  </label>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Día de Fin (1-31)</label>
@@ -218,14 +227,23 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
                     type="number"
                     min="1"
                     max="31"
-                    required
+                    required={formData.recurrence_end_day !== 0}
+                    disabled={formData.recurrence_end_day === 0}
                     value={formData.recurrence_end_day || ''}
                     onChange={(e) => setFormData({ ...formData, recurrence_end_day: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none disabled:opacity-50"
                   />
+                  <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.recurrence_end_day === 0}
+                      onChange={(e) => setFormData({ ...formData, recurrence_end_day: e.target.checked ? 0 : null })}
+                    />
+                    Último día del mes
+                  </label>
                 </div>
                 <p className="col-span-2 text-xs text-slate-500">
-                  Si el mes no tiene ese día (p. ej. 30 o 31 en febrero), la ventana se abre el último día del mes.
+                  Si el mes no tiene ese día (p. ej. 30 o 31 en febrero), la ventana se abre el último día del mes. Para que una ventana sea siempre «fin de mes», marca «Último día del mes».
                 </p>
               </div>
             ) : (
