@@ -341,6 +341,10 @@ async def register_commercial_sale(
 
     # H-69: Regla 2 - Control anti-duplicados y exclusividad de la inversión
     # Cada operación de inversión solo puede generar una única comisión y nunca dos asesores cobran la misma inversión
+    # H-153: dos envíos simultáneos (doble clic, dos pestañas) leían "sin duplicado" antes de que el
+    # otro confirmara. Se serializa por asesor bloqueando su fila de usuario hasta el commit y la
+    # consulta de duplicados es una lectura bloqueante (ve lo último confirmado, no el snapshot).
+    await db.execute(select(User.id).where(User.id == commercial_id).with_for_update())
     existing_sale_res = await db.execute(
         select(CommercialSale)
         .options(selectinload(CommercialSale.commercial))
@@ -352,12 +356,13 @@ async def register_commercial_sale(
             CommercialSale.sale_date == target_date,
             CommercialSale.amount == amount
         )
+        .with_for_update()
     )
     duplicate_sale = existing_sale_res.scalars().first()
     if duplicate_sale:
         assigned_name = duplicate_sale.commercial.name if duplicate_sale.commercial else f"ID #{duplicate_sale.commercial_id}"
         raise HTTPException(
-            status_code=400,
+            status_code=409,
             detail=f"Ya existe una venta registrada para esta inversión (Venta #{duplicate_sale.id} por ${amount:,.2f} a cargo de '{assigned_name}', clasificada como {duplicate_sale.sale_type.value}). Cada inversión solo puede generar una única comisión y ningún asesor puede cobrar la inversión de otro."
         )
 
