@@ -133,6 +133,7 @@ export const AdminInvestorsPage = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
+  const [acceleratedTotal, setAcceleratedTotal] = useState<number | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [hasHistoryFilter, setHasHistoryFilter] = useState<boolean | undefined>(undefined);
@@ -197,6 +198,7 @@ export const AdminInvestorsPage = () => {
       });
       setInvestors(response.data);
       setTotal(response.total);
+      if (typeof response.accelerated_total === 'number') setAcceleratedTotal(response.accelerated_total);
       setError(null);
     } catch (err: any) {
       console.error("Ignorando error del servidor para poder pintar el front:", err);
@@ -519,7 +521,7 @@ export const AdminInvestorsPage = () => {
             </div>
           </div>
           <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
-            {acceleratedCount}
+            {acceleratedTotal ?? acceleratedCount}
           </span>
           <span className="text-[11px] text-amber-600 font-medium block truncate">
             Bonos de referidos activos

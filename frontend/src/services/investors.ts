@@ -80,7 +80,7 @@ export interface Investor {
   is_finalized?: boolean;
 }
 
-export const getInvestors = async (params?: { page?: number; limit?: number; search?: string; has_history?: boolean }): Promise<{ data: Investor[]; total: number }> => {
+export const getInvestors = async (params?: { page?: number; limit?: number; search?: string; has_history?: boolean }): Promise<{ data: Investor[]; total: number; accelerated_total?: number }> => {
   const queryParams = new URLSearchParams();
   if (params) {
     if (params.page !== undefined) queryParams.append('page', params.page.toString());

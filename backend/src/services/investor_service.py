@@ -131,12 +131,27 @@ class InvestorService:
         result = await db.execute(query)
         data = result.scalars().all()
         
+        # H-225: total global de contratos acelerados (respeta solo el alcance del asesor, no la búsqueda ni la página)
+        accel_query = select(func.count(Investor.id)).where(InvestorService.accelerated_contract_condition())
+        if scope_id is not None:
+            accel_query = accel_query.where(investor_scope_condition(scope_id))
+        accelerated_total = (await db.execute(accel_query)).scalar_one()
+
         return {
             "total": total,
+            "accelerated_total": accelerated_total,
             "page": page,
             "limit": limit,
             "data": data
         }
+
+    @staticmethod
+    def accelerated_contract_condition():
+        """Contrato acelerado = tiene alguna aceleración aplicada con días reducidos (misma regla que InvestorResponse.is_accelerated)."""
+        from src.models.acceleration import Acceleration
+        return Investor.accelerations.any(
+            (Acceleration.applied.is_(True)) & (Acceleration.days_to_reduce > 0)
+        )
 
     @staticmethod
     async def get_investor(db: AsyncSession, investor_id: int, current_user: Optional[User] = None) -> Optional[Investor]:
