@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -126,7 +127,11 @@ async def create_ranking(
     """
     Crea un nuevo rango de inversión.
     """
-    return await InvestmentRankService.create_rank(db, rank_in.model_dump())
+    rank = await InvestmentRankService.create_rank(db, rank_in.model_dump())
+    # H-114: avisos (no bloquean) de huecos de capital entre tramos
+    data = jsonable_encoder(rank)
+    data["warnings"] = await InvestmentRankService.gap_warnings_for(db, rank.name)
+    return data
 
 @router.put("/rankings/{rank_id}", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def update_ranking(
@@ -138,7 +143,10 @@ async def update_ranking(
     Actualiza un rango existente.
     """
     update_data = {k: v for k, v in rank_in.model_dump().items() if v is not None}
-    return await InvestmentRankService.update_rank(db, rank_id, update_data)
+    rank = await InvestmentRankService.update_rank(db, rank_id, update_data)
+    data = jsonable_encoder(rank)
+    data["warnings"] = await InvestmentRankService.gap_warnings_for(db, rank.name)
+    return data
 
 @router.delete("/rankings/{rank_id}", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def delete_ranking(

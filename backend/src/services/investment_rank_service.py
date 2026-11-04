@@ -23,15 +23,66 @@ class InvestmentRankService:
         s = re.sub(r'[^\w\s-]', '', s)
         return re.sub(r'[-\s]+', '-', s)
 
+    # H-114: el orden jerárquico se DERIVA del capital mínimo (a mayor capital, mayor nivel).
+    # Tolerancia de contigüidad: un tramo que termina en 49.999.999 y otro que empieza en 50.000.000
+    # son contiguos (no hay hueco).
+    GAP_TOLERANCE = 1.0
+
+    @staticmethod
+    def derive_order(ranks: list) -> dict:
+        """Orden derivado (1..n) de los rangos ACTIVOS por capital mínimo (desempate por id). {id: orden}"""
+        activos = sorted(
+            (r for r in ranks if r.is_active),
+            key=lambda r: (float(r.min_investment or 0), r.id if r.id is not None else 10**12),
+        )
+        return {r.id: i + 1 for i, r in enumerate(activos)}
+
+    @staticmethod
+    def detect_gaps(ranks: list) -> list:
+        """Avisos (no bloquean) de huecos de capital entre tramos activos consecutivos."""
+        activos = sorted((r for r in ranks if r.is_active), key=lambda r: float(r.min_investment or 0))
+        avisos = []
+        for a, b in zip(activos, activos[1:]):
+            if a.max_investment is None:
+                continue
+            hueco = float(b.min_investment or 0) - float(a.max_investment)
+            if hueco > InvestmentRankService.GAP_TOLERANCE:
+                avisos.append(
+                    f"Hueco de capital entre '{a.name}' (hasta ${float(a.max_investment):,.0f} COP) y "
+                    f"'{b.name}' (desde ${float(b.min_investment):,.0f} COP): el capital intermedio no calificaría a ningún tramo."
+                )
+        return avisos
+
+    @staticmethod
+    async def _active_ranks(db: AsyncSession) -> list:
+        res = await db.execute(select(InvestmentRank).where(InvestmentRank.is_active == True))
+        return list(res.scalars().all())
+
+    @staticmethod
+    async def _resequence_active_orders(db: AsyncSession) -> None:
+        """Alinea el `order` almacenado de los rangos activos con el derivado del capital (solo en altas/ediciones)."""
+        await db.flush()
+        activos = await InvestmentRankService._active_ranks(db)
+        for rid, orden in InvestmentRankService.derive_order(activos).items():
+            for r in activos:
+                if r.id == rid and r.order != orden:
+                    r.order = orden
+
+    @staticmethod
+    async def gap_warnings_for(db: AsyncSession, rank_name: str) -> list:
+        return [w for w in InvestmentRankService.detect_gaps(await InvestmentRankService._active_ranks(db)) if f"'{rank_name}'" in w]
+
     @staticmethod
     async def get_all_ranks(db: AsyncSession, only_active: bool = False) -> List[dict]:
         query = select(InvestmentRank)
         if only_active:
             query = query.where(InvestmentRank.is_active == True)
-        query = query.order_by(asc(InvestmentRank.order), asc(InvestmentRank.min_investment))
-        
+        # H-114: se ordena por capital mínimo y se devuelve el orden derivado para los rangos activos
+        query = query.order_by(asc(InvestmentRank.min_investment), asc(InvestmentRank.id))
+
         result = await db.execute(query)
         ranks = result.scalars().all()
+        derived = InvestmentRankService.derive_order(ranks)
 
         # Count users per rank
         ranks_data = []
@@ -53,7 +104,7 @@ class InvestmentRankService:
                 "icon": r.icon or "trophy",
                 "priority_withdrawal": bool(r.priority_withdrawal),
                 "benefits": r.benefits if isinstance(r.benefits, list) else [],
-                "order": r.order or 1,
+                "order": derived.get(r.id, r.order or 1),
                 "is_active": bool(r.is_active),
                 "users_count": users_count,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
@@ -75,7 +126,6 @@ class InvestmentRankService:
         db: AsyncSession,
         min_inv: float,
         max_inv: Optional[float],
-        order: int,
         is_active: bool,
         exclude_rank_id: Optional[int] = None
     ):
@@ -97,7 +147,6 @@ class InvestmentRankService:
         for other in other_ranks:
             o_min = float(other.min_investment or 0)
             o_max = float(other.max_investment) if other.max_investment is not None else None
-            o_order = int(other.order or 1)
 
             # 1. Validación de solapamiento de capital
             is_overlap = False
@@ -117,23 +166,6 @@ class InvestmentRankService:
                     detail=f"El capital se solapa con el rango activo '{other.name}' (${o_min:,.0f} COP a {o_max_str}). Los tramos de capital deben ser disjuntos."
                 )
 
-            # 2. Validación de coherencia entre orden y capital mínimo
-            if o_min > min_inv and o_order <= order:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Incoherencia de orden: '{other.name}' requiere mayor capital (${o_min:,.0f} COP) pero tiene un orden igual o menor (#{o_order} vs #{order})."
-                )
-            if o_min < min_inv and o_order >= order:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Incoherencia de orden: '{other.name}' requiere menor capital (${o_min:,.0f} COP) pero tiene un orden igual o mayor (#{o_order} vs #{order})."
-                )
-            if o_min == min_inv and o_order == order:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Ya existe otro rango activo ('{other.name}') con el mismo orden jerárquico ({order}) e inversión mínima."
-                )
-
     @staticmethod
     async def create_rank(db: AsyncSession, rank_in: dict) -> InvestmentRank:
         name = rank_in.get("name", "").strip()
@@ -151,12 +183,15 @@ class InvestmentRankService:
 
         min_investment = float(rank_in.get("min_investment", 0))
         max_investment = float(rank_in["max_investment"]) if rank_in.get("max_investment") is not None else None
-        order = int(rank_in.get("order", 1))
         is_active = bool(rank_in.get("is_active", True))
 
         await InvestmentRankService._validate_rank_ranges_and_order(
-            db, min_investment, max_investment, order, is_active
+            db, min_investment, max_investment, is_active
         )
+
+        # H-114: el orden NO se acepta manual; se deriva del capital mínimo (posición entre los rangos activos)
+        activos = await InvestmentRankService._active_ranks(db)
+        order = 1 + sum(1 for r in activos if float(r.min_investment or 0) < min_investment)
 
         rank = InvestmentRank(
             name=name,
@@ -173,6 +208,7 @@ class InvestmentRankService:
         )
 
         db.add(rank)
+        await InvestmentRankService._resequence_active_orders(db)
         await db.commit()
         await db.refresh(rank)
         return rank
@@ -197,11 +233,10 @@ class InvestmentRankService:
 
         eff_min = float(rank_in["min_investment"]) if "min_investment" in rank_in else float(rank.min_investment or 0)
         eff_max = float(rank_in["max_investment"]) if ("max_investment" in rank_in and rank_in["max_investment"] is not None) else (float(rank.max_investment) if ("max_investment" not in rank_in and rank.max_investment is not None) else None)
-        eff_order = int(rank_in["order"]) if "order" in rank_in else int(rank.order or 1)
         eff_is_active = bool(rank_in["is_active"]) if "is_active" in rank_in else bool(rank.is_active)
 
         await InvestmentRankService._validate_rank_ranges_and_order(
-            db, eff_min, eff_max, eff_order, eff_is_active, exclude_rank_id=rank_id
+            db, eff_min, eff_max, eff_is_active, exclude_rank_id=rank_id
         )
 
         rank.name = name
@@ -220,10 +255,10 @@ class InvestmentRankService:
             rank.priority_withdrawal = bool(rank_in["priority_withdrawal"])
         if "benefits" in rank_in:
             rank.benefits = rank_in["benefits"]
-        if "order" in rank_in:
-            rank.order = eff_order
         if "is_active" in rank_in:
             rank.is_active = eff_is_active
+        # H-114: `order` enviado manualmente se ignora; se re-deriva del capital mínimo
+        await InvestmentRankService._resequence_active_orders(db)
 
         rank.updated_at = datetime.utcnow()
         await db.commit()
@@ -450,7 +485,7 @@ class InvestmentRankService:
         """
         # 1. Asegurar que existan rangos
         ranks_query = select(InvestmentRank).where(InvestmentRank.is_active == True).order_by(
-            asc(InvestmentRank.order), asc(InvestmentRank.min_investment)
+            asc(InvestmentRank.min_investment), asc(InvestmentRank.id)
         )
         ranks_res = await db.execute(ranks_query)
         ranks = ranks_res.scalars().all()
