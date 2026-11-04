@@ -135,15 +135,16 @@ export const SellSharesModal: React.FC<SellSharesModalProps> = ({
 
                     <div>
                         <label className="text-xs font-bold text-slate-700 block mb-1.5">Precio Unitario por Acción ($ COP)</label>
+                        {/* H-238: el precio lo fija el administrador; es de solo lectura para todos. */}
                         <input
-                            type="number"
-                            min={1}
-                            value={pricePerShare || ''}
-                            onChange={(e) => setPricePerShare(parseFloat(e.target.value) || 0)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono"
-                            placeholder="Ej. 50000"
-                            required
+                            type="text"
+                            readOnly
+                            tabIndex={-1}
+                            value={pricePerShare ? pricePerShare.toLocaleString('es-CO') : ''}
+                            title="El precio oficial lo define el administrador y no se puede modificar"
+                            className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-slate-700 font-bold outline-hidden text-sm font-mono cursor-not-allowed"
                         />
+                        <p className="text-[11px] text-slate-500 mt-1">Todas las acciones se venden al precio oficial definido por el administrador.</p>
                     </div>
 
                     {/* Resumen Calculado */}

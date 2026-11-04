@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List
+from typing import Any, Optional, List
 from datetime import datetime, timedelta
 
 # --- Esquemas de Valoración & Creación de Acciones ---
@@ -48,12 +48,12 @@ class ShareIssuanceOut(BaseModel):
 # --- Esquemas de Mercado Secundario / Ofertas P2P ---
 class ShareListingCreate(BaseModel):
     shares_quantity: int = Field(..., gt=0, description="Cantidad de acciones a poner en venta")
-    # H-238: se rechaza <= 0, NaN e infinito. El tope es solo el límite técnico de la columna
-    # Numeric(15,2) (evita el 500 por desbordamiento); NO es una regla de negocio.
-    # REQUIERE DECISIÓN de negocio: precio mínimo/máximo real o precio oficial fijado en el servidor.
-    price_per_share: float = Field(
-        ..., gt=0, le=9_999_999_999_999.99, allow_inf_nan=False,
-        description="Precio unitario por acción en COP",
+    # H-238 (decisión de negocio): el precio de una oferta SIEMPRE es el precio oficial vigente que
+    # fija el administrador; nadie puede cambiarlo. El campo se conserva solo por compatibilidad con
+    # clientes existentes (web/móvil): si llega, el servidor lo IGNORA (no se valida ni se usa).
+    price_per_share: Optional[Any] = Field(
+        default=None,
+        description="DEPRECADO/IGNORADO: el servidor usa el precio oficial vigente.",
     )
 
 class ShareListingOut(BaseModel):
