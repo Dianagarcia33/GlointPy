@@ -53,6 +53,11 @@ class WalletWithdrawRequest(BaseModel):
 class SendCodeRequest(BaseModel):
     monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
 
+# H-236: el historial propio (movimientos, retiros y recargas) exige wallets:view_history en el servidor
+# (antes solo se ocultaba en pantalla). Mismo mecanismo PBAC que H-223 (credits.py / share_market.py).
+WALLET_HISTORY = [Depends(RequirePermission("wallets:view_history"))]
+
+
 def _can_view_balance(user) -> bool:
     from src.core.pbac import PBACEngine
     return PBACEngine.has_permission(user, "wallets:view_balance")
@@ -559,7 +564,7 @@ def _get_movement_type_display(raw_type: str | None, is_ingreso: bool) -> str:
     return "Ingreso a Billetera" if is_ingreso else "Egreso de Billetera"
 
 
-@router.get("/me/movements")
+@router.get("/me/movements", dependencies=WALLET_HISTORY)
 async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the wallet transactions of the current logged-in user.
@@ -739,7 +744,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         
     return response
 
-@router.get("/me/withdrawals")
+@router.get("/me/withdrawals", dependencies=WALLET_HISTORY)
 async def get_my_withdrawals(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the withdrawals of the current logged-in user.
@@ -1306,7 +1311,7 @@ async def create_wallet_recharge(
     }
 
 
-@router.get("/me/recharges")
+@router.get("/me/recharges", dependencies=WALLET_HISTORY)
 async def get_my_recharges(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
