@@ -4,3 +4,14 @@ DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=
 DB_NAME=glointpruebas_db
+
+# ==========================================
+# CORS y cookie de sesion (H-33)
+# Origenes (CSV) que pueden leer respuestas con la cookie de sesion. Web y API comparten dominio en
+# staging/produccion, asi que alli basta con los dominios propios; FRONTEND_URL se agrega solo.
+# Produccion: CORS_ALLOWED_ORIGINS=https://gloint.com.co,https://www.gloint.com.co
+# Staging:    CORS_ALLOWED_ORIGINS=https://pruebas.gloint.com.co
+# ==========================================
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+# lax (recomendado). "none" solo como reversa de emergencia
+COOKIE_SAMESITE=lax

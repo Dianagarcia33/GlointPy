@@ -26,9 +26,14 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
     elif getattr(settings, 'ENVIRONMENT', 'development') == 'production':
         is_secure = True
 
-    # SameSite=None is required for cross-origin HTTPS (e.g. Vercel frontend -> API domain)
-    # SameSite=Lax is used for local HTTP development (browsers reject SameSite=None without Secure)
-    samesite = "none" if is_secure else "lax"
+    # H-33: la web y la API comparten dominio, así que SameSite=Lax basta (antes "none" por un front en Vercel
+    # que ya no existe). Lax sigue enviando la cookie en navegaciones GET (checkout, enlaces de correo) pero
+    # no en POST ni WebSockets desde otros sitios. COOKIE_SAMESITE=none queda solo como reversa de emergencia
+    # (los navegadores exigen Secure con None; sin HTTPS se usa lax).
+    configured = str(getattr(settings, "COOKIE_SAMESITE", "lax") or "lax").lower()
+    if configured not in ("lax", "strict", "none"):
+        configured = "lax"
+    samesite = "lax" if (configured == "none" and not is_secure) else configured
     max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 1440)) * 60
 
     response.set_cookie(
@@ -44,7 +49,9 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
 def clear_auth_cookie(response: Response):
     response.delete_cookie(
         key="access_token",
-        path="/"
+        path="/",
+        httponly=True,
+        samesite="lax",
     )
 
 @router.post("/login", response_model=Token)
