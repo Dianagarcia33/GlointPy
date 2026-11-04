@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import log_audit_trail
 from src.core.search import like_contains, LIKE_ESCAPE
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -164,7 +165,7 @@ async def send_admin_broadcast(
     """
     Endpoint administrativo para enviar comunicados o notificaciones masivas/segmentadas.
     """
-    return await PushNotificationService.send_broadcast_notification(
+    result = await PushNotificationService.send_broadcast_notification(
         db=db,
         sender_id=current_user.id,
         title=req.title,
@@ -176,6 +177,17 @@ async def send_admin_broadcast(
         link=req.link,
         send_push=req.send_push
     )
+    # Best-effort A PROPÓSITO: el comunicado ya salió (irreversible) y no mueve dinero ni cambia permisos;
+    # revertirlo por no poder auditar no es posible. Se guarda solo la audiencia y el título, nunca el cuerpo.
+    await log_audit_trail(
+        db=db, action="NOTIFICATION_BROADCAST", module="notifications", user=current_user,
+        entity_type="Broadcast", entity_id="broadcast",
+        description=f"Comunicado masivo a '{req.target_audience}': {(req.title or '')[:120]}",
+        details={"audiencia": req.target_audience, "rol_id": req.target_role_id,
+                 "usuarios_seleccionados": len(req.target_user_ids or []), "push": bool(req.send_push),
+                 "tipo": req.type, "resultado": result if isinstance(result, dict) and len(str(result)) < 400 else None},
+    )
+    return result
 
 @router.get("/admin/broadcast-history", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.notifications.manage"]))])
 async def get_admin_broadcast_history(

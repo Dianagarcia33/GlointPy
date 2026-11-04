@@ -296,6 +296,11 @@ AUDITED = {
                                              "create_issuance", "sync_all_users_legacy_shares", "manual_share_grant"],
     "src/services/commercial_sale_service.py": ["register_commercial_sale"],
     "src/services/purchase_order_service.py": ["approve_purchase_order"],
+    "src/api/v1/endpoints/bank_accounts.py": ["create_my_bank_account", "update_my_bank_account", "delete_my_bank_account"],
+    "src/api/v1/endpoints/sarlaft.py": ["set_user_sarlaft_status"],
+    "src/api/v1/endpoints/auth.py": ["switch_to_child_account", "switch_back_to_parent"],
+    "src/services/security_service.py": ["create_role", "delete_role", "sync_all_system_permissions"],
+    "src/services/external_app_service.py": ["create_app", "update_app", "regenerate_api_key", "delete_app"],
     "src/services/user_service.py": ["create_user_admin", "update_user_admin", "change_password", "force_profile_update",
                                      "toggle_force_profile_update", "create_wallet_for_user"],
 }

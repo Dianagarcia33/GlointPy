@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import audit_in_tx
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -36,7 +37,7 @@ class SecurityService:
         return role
 
     @staticmethod
-    async def create_role(db: AsyncSession, role_data: RoleCreate):
+    async def create_role(db: AsyncSession, role_data: RoleCreate, actor=None):
         clean_name = role_data.name.strip().lower()
         # Verificar nombre duplicado (case-insensitive)
         existing = await db.execute(select(Role).where(func.lower(Role.name) == clean_name))
@@ -54,6 +55,13 @@ class SecurityService:
 
         try:
             db.add(new_role)
+            await db.flush()
+            await audit_in_tx(
+                db, "ROLE_CREATE", "security", actor, "Role", new_role.id,
+                f"Creación del rol '{clean_name}'",
+                {"role_id": new_role.id, "nombre": clean_name,
+                 "permisos": sorted(p.name for p in (new_role.permissions or []))},
+            )
             await db.commit()
         except IntegrityError:
             await db.rollback()
@@ -119,7 +127,7 @@ class SecurityService:
         return result.scalars().first()
 
     @staticmethod
-    async def delete_role(db: AsyncSession, role_id: int):
+    async def delete_role(db: AsyncSession, role_id: int, actor=None):
         role = await SecurityService.get_role(db, role_id)
         is_protected = str(role.is_system_role).strip().lower() in ("1", "true") or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
         if is_protected:
@@ -135,6 +143,11 @@ class SecurityService:
         if count > 0:
             raise HTTPException(status_code=400, detail="No se puede eliminar el rol porque hay usuarios que lo tienen asignado")
             
+        await audit_in_tx(
+            db, "ROLE_DELETE", "security", actor, "Role", role_id,
+            f"Eliminación del rol '{role.name}'",
+            {"role_id": role_id, "nombre": role.name},
+        )
         await db.delete(role)
         await db.commit()
 
@@ -150,7 +163,7 @@ class SecurityService:
         return perms
 
     @staticmethod
-    async def sync_all_system_permissions(db: AsyncSession):
+    async def sync_all_system_permissions(db: AsyncSession, actor=None):
         from src.models.security import role_permissions
         from sqlalchemy import insert, delete
 
@@ -418,6 +431,11 @@ class SecurityService:
                         permission_id=perm.id
                     ))
 
+        await audit_in_tx(
+            db, "ROLE_PERMISSIONS_SYNC", "security", actor, "Role", "bulk",
+            "Sincronización de permisos del sistema y de los roles base",
+            {"total_permisos": len(all_perms_map)},
+        )
         await db.commit()
         return {
             "message": "Permisos del sistema sincronizados exitosamente",

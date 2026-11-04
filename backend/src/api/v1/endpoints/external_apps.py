@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import log_audit_trail
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
@@ -44,7 +45,7 @@ async def create_external_app(
     """
     Crea una nueva aplicación externa y genera su client_id y API Key secreta.
     """
-    app, api_key = await ExternalAppService.create_app(db, app_in, current_user.id)
+    app, api_key = await ExternalAppService.create_app(db, app_in, current_user.id, actor=current_user)
     return {
         "id": app.id,
         "name": app.name,
@@ -66,23 +67,25 @@ async def create_external_app(
 async def update_external_app(
     app_id: int,
     app_in: ExternalAppUpdate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Actualiza la configuración de una aplicación externa.
     """
-    app = await ExternalAppService.update_app(db, app_id, app_in)
+    app = await ExternalAppService.update_app(db, app_id, app_in, actor=current_user)
     return app
 
 @router.post("/admin/external-apps/{app_id}/regenerate-key", dependencies=[Depends(RequirePermission(["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def regenerate_api_key(
     app_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Regenera la API Key y el Webhook Secret de una aplicación externa.
     """
-    app, api_key = await ExternalAppService.regenerate_api_key(db, app_id)
+    app, api_key = await ExternalAppService.regenerate_api_key(db, app_id, actor=current_user)
     return {
         "app_id": app.id,
         "name": app.name,
@@ -95,12 +98,13 @@ async def regenerate_api_key(
 @router.delete("/admin/external-apps/{app_id}", dependencies=[Depends(RequirePermission(["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def delete_external_app(
     app_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Elimina una aplicación externa registrada.
     """
-    return await ExternalAppService.delete_app(db, app_id)
+    return await ExternalAppService.delete_app(db, app_id, actor=current_user)
 
 @router.get("/admin/external-apps/orders/all", response_model=List[ExternalPaymentOrderResponse], dependencies=[Depends(RequirePermission(["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def list_all_external_orders(
@@ -119,12 +123,23 @@ async def list_all_external_orders(
 )
 async def resend_order_webhook(
     order_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Reintenta el despacho manual de webhook para una orden completada y retorna el código y cuerpo de respuesta inmediato.
     """
-    return await ExternalAppService.resend_webhook(db, order_id)
+    result = await ExternalAppService.resend_webhook(db, order_id)
+    # Best-effort A PROPÓSITO: el reenvío ya salió al comercio (irreversible) y no cambia dinero; si el registro
+    # fallara, deshacer el estado del webhook sería peor que perder esta fila.
+    await log_audit_trail(
+        db=db, action="EXTERNAL_APP_WEBHOOK_RESEND", module="external-apps", user=current_user,
+        entity_type="ExternalPaymentOrder", entity_id=order_id,
+        description=f"Reenvío manual del webhook de la orden #{order_id}",
+        details={"order_id": order_id, "resultado": result.get("status"), "intentos": result.get("webhook_attempts")},
+        status="SUCCESS" if result.get("status") == "success" else "WARNING",
+    )
+    return result
 
 
 # ==============================================================================

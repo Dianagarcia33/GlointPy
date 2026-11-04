@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import audit_in_tx
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, distinct
@@ -282,6 +283,7 @@ async def set_user_sarlaft_status(
         db.add(check)
 
     check.updated_at = now
+    prev_status = f"{check.tusdatos_status or 'sin_estado'}/{check.risk_level or '-'}" if getattr(check, "id", None) else "sin_chequeo"
 
     if target_status == "approved":
         check.tusdatos_status = "finalizado"
@@ -316,6 +318,13 @@ async def set_user_sarlaft_status(
         check.tusdatos_msg = "Rechazado por administración / Alerta de riesgo"
         action_msg = "marcado como rechazado"
 
+    await db.flush()
+    await audit_in_tx(
+        db, "SARLAFT_STATUS_SET", "sarlaft", current_user, "User", user.id,
+        f"Estado SARLAFT del usuario #{user.id} {action_msg}",
+        {"usuario_id": user.id, "check_id": check.id, "estado_antes": prev_status, "estado_despues": target_status,
+         "nivel_riesgo": check.risk_level, "justificacion": (check.tusdatos_justificacion or "")[:300]},
+    )
     await db.commit()
     await db.refresh(check)
 

@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import audit_in_tx
 from src.core.errors import public_error_detail
 import os
 import random
@@ -16,6 +17,17 @@ from src.models.withdrawal_verification_code import WithdrawalVerificationCode
 from src.services.email_service import EmailService
 
 router = APIRouter()
+
+
+def _acct_view(acc) -> dict:
+    """Vista de una cuenta bancaria para auditoría: banco, tipo y SOLO los últimos 4 dígitos."""
+    return {
+        "banco": getattr(acc, "banco", None),
+        "tipo_cuenta": getattr(acc, "tipo_cuenta", None),
+        "cuenta_ultimos4": str(getattr(acc, "numero_cuenta", "") or "")[-4:],
+        "activa": bool(getattr(acc, "is_active", True)),
+    }
+
 
 class BankAccountRequest(BaseModel):
     banco: str
@@ -145,6 +157,12 @@ async def create_my_bank_account(
     db.add(new_acc)
     
     try:
+        await db.flush()
+        await audit_in_tx(
+            db, "BANK_ACCOUNT_CREATE", "bank-accounts", current_user, "UserBankAccount", new_acc.id,
+            f"Nueva cuenta bancaria de retiro #{new_acc.id}",
+            {"account_id": new_acc.id, "despues": _acct_view(new_acc), "verificada_con_otp": True},
+        )
         await db.commit()
         await db.refresh(new_acc)
     except Exception as e:
@@ -176,6 +194,7 @@ async def update_my_bank_account(
     if not acc:
         raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada.")
         
+    before_view = _acct_view(acc)
     if req.banco:
         acc.banco = req.banco.strip()
     if req.tipo_cuenta:
@@ -184,6 +203,11 @@ async def update_my_bank_account(
         acc.numero_cuenta = req.numero_cuenta.strip()
         
     try:
+        await audit_in_tx(
+            db, "BANK_ACCOUNT_UPDATE", "bank-accounts", current_user, "UserBankAccount", acc.id,
+            f"Edición de la cuenta bancaria de retiro #{acc.id}",
+            {"account_id": acc.id, "antes": before_view, "despues": _acct_view(acc), "verificada_con_otp": True},
+        )
         await db.commit()
         await db.refresh(acc)
     except Exception as e:
@@ -215,9 +239,15 @@ async def delete_my_bank_account(
     if not acc:
         raise HTTPException(status_code=404, detail="Cuenta bancaria no encontrada.")
         
+    before_view = _acct_view(acc)
     acc.is_active = False
     
     try:
+        await audit_in_tx(
+            db, "BANK_ACCOUNT_DELETE", "bank-accounts", current_user, "UserBankAccount", acc.id,
+            f"Desactivación de la cuenta bancaria de retiro #{acc.id}",
+            {"account_id": acc.id, "antes": before_view, "despues": _acct_view(acc), "verificada_con_otp": True},
+        )
         await db.commit()
     except Exception as e:
         await db.rollback()
