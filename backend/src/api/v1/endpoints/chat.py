@@ -11,6 +11,16 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from jose import jwt, JWTError
 from src.core.session_revocation import is_session_current
+from src.core.csrf import origin_allowed, request_host
+
+
+def ws_origin_ok(websocket) -> bool:
+    """Navegadores envían Origin en el handshake; apps nativas no. Si viene, debe ser propio o de la lista blanca."""
+    return origin_allowed(
+        websocket.headers.get("origin"),
+        request_host({k.lower().encode(): v for k, v in websocket.headers.items()}),
+        settings.get_credentialed_origins(),
+    )
 
 from src.core.database import get_db, async_session_maker
 from src.core.config import settings
@@ -378,6 +388,10 @@ async def websocket_chat_endpoint(
 ):
     """Endpoint en tiempo real para transmisión de mensajes mediante WebSockets con guardas PBAC."""
     await websocket.accept()
+    # Defensa extra contra secuestro de WebSocket entre sitios: si el navegador envía Origin debe ser propio
+    if not ws_origin_ok(websocket):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+        return
 
     # 1. Autenticar JWT desde cookie HttpOnly o query token
     auth_token = websocket.cookies.get("access_token") or token
@@ -508,6 +522,10 @@ async def websocket_global_notifications(
     token: Optional[str] = Query(None)
 ):
     """Endpoint en tiempo real para notificaciones globales del usuario (sin sala específica)."""
+    # Defensa extra contra secuestro de WebSocket entre sitios: si el navegador envía Origin debe ser propio
+    if not ws_origin_ok(websocket):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+        return
     # 1. Autenticar JWT desde cookie HttpOnly o query token
     auth_token = websocket.cookies.get("access_token") or token
     if not auth_token:

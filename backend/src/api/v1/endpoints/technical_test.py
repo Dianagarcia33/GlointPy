@@ -381,7 +381,7 @@ async def verify_admin_or_pin(
     try:
         from src.api.deps import oauth2_scheme
         token = await oauth2_scheme(request)
-        if token or request.cookies.get("access_token") or request.query_params.get("token"):
+        if token or request.cookies.get("access_token"):
             user = await get_current_user(request=request, db=db, token=token)
             if user:
                 return True
