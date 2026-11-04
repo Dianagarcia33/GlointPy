@@ -1,3 +1,4 @@
+import secrets
 from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, Text, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -46,6 +47,12 @@ class EventAttendee(Base):
     companion_name = Column(String(255), nullable=True)
     seats_reserved = Column(Integer, nullable=False, default=1)
     status = Column(String(20), nullable=False, default="confirmed")  # 'confirmed' | 'cancelled'
+
+    # Código personal e impredecible: identifica al inscrito en el enlace del correo (sin necesidad de cuenta)
+    # y es el contenido del QR único que se escaneará en la entrada.
+    access_token = Column(String(64), unique=True, index=True, nullable=True, default=lambda: secrets.token_urlsafe(32))
+    attendance_confirmed_at = Column(DateTime(timezone=True), nullable=True)   # confirmó asistencia presencial
+    attendance_email_sent_at = Column(DateTime(timezone=True), nullable=True)  # último correo de confirmación enviado
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

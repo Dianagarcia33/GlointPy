@@ -1384,5 +1384,99 @@ class EmailTemplateService:
         )
         return subject, html
 
+    @staticmethod
+    def _format_event_datetime(event_date: Optional[datetime]) -> str:
+        """Fecha y hora del evento en español para los correos del evento."""
+        if not event_date:
+            return "Próximamente"
+        meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio",
+                 "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        try:
+            hour_12 = event_date.hour % 12 or 12
+            ampm = "AM" if event_date.hour < 12 else "PM"
+            return (f"{dias[event_date.weekday()]}, {event_date.day} de {meses[event_date.month - 1]} "
+                    f"de {event_date.year} • {hour_12}:{event_date.minute:02d} {ampm} (COT)")
+        except Exception:
+            return str(event_date)
 
+    @classmethod
+    def get_event_attendance_confirmation_template(
+        cls,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[datetime],
+        location: Optional[str],
+        seats_reserved: int,
+        companion_name: Optional[str],
+        confirm_url: str,
+        virtual_url: str,
+        qr_cid: Optional[str] = None,
+    ) -> Tuple[str, str]:
+        """
+        Plantilla corporativa: solicitud de confirmación de asistencia presencial al evento
+        Gloint Power Tech, con QR único del inscrito. Si no responde, su inscripción no cambia.
+        No incluye el enlace de la transmisión virtual.
+        """
+        title_ev = event_title or "Gloint Power Tech"
+        subject = f"Confirma tu asistencia presencial: {title_ev} - GLOINT"
+        title = "Confirma tu asistencia presencial"
+        preheader = f"Hola {user_name}, confirma si asistirás presencialmente a {title_ev} o cámbiate a la modalidad virtual."
+        formatted_date = cls._format_event_datetime(event_date)
+        cupos = f"{seats_reserved} cupo" if seats_reserved == 1 else f"{seats_reserved} cupos"
+        companion_row = (
+            f'<tr><td style="font-weight: 600; color: #64748b; padding: 4px 0;">Acompañante:</td>'
+            f'<td style="color: #0f172a; padding: 4px 0;">{companion_name}</td></tr>'
+        ) if companion_name else ""
+        qr_block = (
+            f"""
+        <div style="text-align: center; margin: 24px 0 8px;">
+            <img src="cid:{qr_cid}" width="190" height="190" alt="Tu código QR de acceso" style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; background: #ffffff;">
+            <p style="margin: 10px 0 0; font-size: 12px; color: #64748b; line-height: 1.6;">
+                Tu código QR personal e intransferible. Preséntalo en la entrada del evento.<br>
+                Si no ves la imagen, también la encuentras en el enlace de confirmación.
+            </p>
+        </div>"""
+        ) if qr_cid else ""
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Estimado/a <strong>{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Estás inscrito/a en <strong>{title_ev}</strong> con asistencia <strong>presencial</strong>.
+            Para organizar el aforo necesitamos que confirmes si nos acompañarás en persona.
+        </p>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; margin: 22px 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.85;">
+                <tr><td style="font-weight: 600; width: 130px; color: #64748b; padding: 4px 0;">Evento:</td>
+                    <td style="font-weight: 800; color: #0f172a; padding: 4px 0;">{title_ev}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b; padding: 4px 0;">Fecha y hora:</td>
+                    <td style="color: #0f172a; font-weight: 700; padding: 4px 0;">{formatted_date}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b; padding: 4px 0;">Lugar:</td>
+                    <td style="color: #0f172a; padding: 4px 0;">{location or "Por confirmar"}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b; padding: 4px 0;">Reserva:</td>
+                    <td style="color: #0f172a; padding: 4px 0;">{cupos}</td></tr>
+                {companion_row}
+            </table>
+        </div>
+        <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #9a3412; line-height: 1.65;">
+            • Si vas a asistir, pulsa <strong>«Confirmo mi asistencia»</strong>.<br>
+            • Si no podrás ir en persona, pulsa <strong>«Cambiar a virtual»</strong> y liberarás tu cupo para otra persona.<br>
+            • Si no respondes este correo, tu inscripción se mantiene tal como está.
+        </div>
+        {qr_block}
+        """
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="CONFIRMACIÓN DE ASISTENCIA • PRESENCIAL",
+            badge_variant="orange",
+            cta_text="Confirmo mi asistencia",
+            cta_url=confirm_url,
+            secondary_cta_text="Cambiar a virtual",
+            secondary_cta_url=virtual_url,
+        )
+        return subject, html
 

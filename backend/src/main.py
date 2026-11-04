@@ -535,7 +535,11 @@ async def on_startup():
                     "ALTER TABLE event_attendees ADD COLUMN company_name VARCHAR(255) NULL",
                     "ALTER TABLE event_attendees ADD COLUMN company_nit VARCHAR(50) NULL",
                     "ALTER TABLE event_attendees ADD COLUMN job_title VARCHAR(100) NULL",
-                    "ALTER TABLE event_attendees ADD COLUMN interests TEXT NULL"
+                    "ALTER TABLE event_attendees ADD COLUMN interests TEXT NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN access_token VARCHAR(64) NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN attendance_confirmed_at DATETIME NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN attendance_email_sent_at DATETIME NULL",
+                    "CREATE UNIQUE INDEX uq_ea_access_token ON event_attendees (access_token)"
                 ]:
                     try:
                         await conn.execute(text(col_query))

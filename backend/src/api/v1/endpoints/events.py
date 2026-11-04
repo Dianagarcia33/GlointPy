@@ -18,6 +18,8 @@ from src.schemas.event import (
     DomainCheckResponse
 )
 from src.services.event_service import EventService
+from src.services.event_attendance_service import EventAttendanceService
+from pydantic import BaseModel
 from fastapi import Request, Response
 
 router = APIRouter()
@@ -97,6 +99,55 @@ async def cancel_attendee_registration(
     """
     await EventService.cancel_attendee(db, attendee_id)
     return {"message": "Registro de asistencia cancelado correctamente."}
+
+# ==========================================
+# CONFIRMACIÓN DE ASISTENCIA PRESENCIAL (enlace personal del correo, sin sesión)
+# ==========================================
+
+class AttendanceEmailsRequest(BaseModel):
+    send: bool = False  # False = solo vista previa de destinatarios; True = encola el envío real
+
+@router.post("/admin/attendance-emails", dependencies=event_admin)
+async def send_attendance_confirmation_emails(
+    body: AttendanceEmailsRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Envía el correo de confirmación de asistencia presencial (con QR único) a los inscritos presenciales
+    que aún no han confirmado. Con send=false devuelve únicamente la lista de destinatarios.
+    """
+    return await EventAttendanceService.send_confirmation_emails(db, body.send)
+
+@router.post("/admin/attendees/{attendee_id}/attendance-email", dependencies=event_admin)
+async def send_attendance_confirmation_email_to_attendee(
+    attendee_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Envía el correo de confirmación de asistencia a un solo inscrito (pruebas o reenvíos)."""
+    return await EventAttendanceService.send_confirmation_email_to_attendee(db, attendee_id)
+
+@router.get("/attendance/{token}")
+async def get_attendance_status(token: str, db: AsyncSession = Depends(get_db)):
+    """Estado de la inscripción identificada por el enlace personal del correo."""
+    return await EventAttendanceService.get_public_status(db, token)
+
+@router.post("/attendance/{token}/confirm")
+async def confirm_attendance(token: str, db: AsyncSession = Depends(get_db)):
+    """El inscrito confirma que asistirá de forma presencial."""
+    return await EventAttendanceService.confirm_in_person(db, token)
+
+@router.post("/attendance/{token}/virtual")
+async def switch_attendance_to_virtual(token: str, db: AsyncSession = Depends(get_db)):
+    """El inscrito cambia a modalidad virtual y libera su cupo presencial."""
+    return await EventAttendanceService.switch_to_virtual(db, token)
+
+@router.get("/attendance/{token}/qr.png")
+async def get_attendance_qr(token: str, db: AsyncSession = Depends(get_db)):
+    """QR único del inscrito (PNG)."""
+    png = await EventAttendanceService.get_qr(db, token)
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
 
 # ==========================================
 # GESTIÓN DE DOMINIOS AUTORIZADOS (ECOSISTEMA GLOINT)

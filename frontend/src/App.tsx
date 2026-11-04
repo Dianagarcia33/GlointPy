@@ -9,6 +9,7 @@ import { PlacePage } from "./features/landing_v2/pages/PlacePage";
 import { TechPage } from "./features/landing_v2/pages/TechPage";
 import { ContactoPage } from "./features/landing_v2/pages/ContactoPage";
 import { EventRegistrationPage } from "./features/landing_v2/pages/EventRegistrationPage";
+import { EventAttendancePage } from "./features/events/pages/EventAttendancePage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
@@ -134,6 +135,7 @@ function App() {
         <Route path="/power-tech" element={<EventRegistrationPage />} />
         <Route path="/evento" element={<EventRegistrationPage />} />
         <Route path="/registro-evento" element={<EventRegistrationPage />} />
+        <Route path="/evento/asistencia/:token" element={<EventAttendancePage />} />
       </Route>
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />

@@ -1,4 +1,4 @@
-import { fetchApi } from './api';
+import { fetchApi, API_URL } from './api';
 
 export interface EventData {
   id: number;
@@ -126,3 +126,55 @@ export const cancelAttendeeRegistration = async (attendeeId: number): Promise<{ 
     method: 'DELETE',
   });
 };
+
+// ---------------------------------------------------------------------------
+// Confirmación de asistencia presencial (enlace personal del correo, sin sesión)
+// ---------------------------------------------------------------------------
+
+export interface AttendanceStatus {
+  full_name: string;
+  attendance_mode: 'in_person' | 'virtual';
+  status: 'confirmed' | 'cancelled';
+  seats_reserved: number;
+  companion_name?: string | null;
+  attendance_confirmed_at?: string | null;
+  event_title: string;
+  event_date?: string | null;
+  location?: string | null;
+}
+
+export interface AttendanceEmailsResult {
+  send: boolean;
+  recipients: number;
+  emails: string[];
+}
+
+export const getAttendanceStatus = async (token: string): Promise<AttendanceStatus> => {
+  return await fetchApi(`/events/attendance/${encodeURIComponent(token)}`);
+};
+
+export const confirmAttendance = async (token: string): Promise<AttendanceStatus> => {
+  return await fetchApi(`/events/attendance/${encodeURIComponent(token)}/confirm`, { method: 'POST' });
+};
+
+export const switchAttendanceToVirtual = async (token: string): Promise<AttendanceStatus> => {
+  return await fetchApi(`/events/attendance/${encodeURIComponent(token)}/virtual`, { method: 'POST' });
+};
+
+export const getAttendanceQrUrl = (token: string): string => {
+  return `${API_URL}/events/attendance/${encodeURIComponent(token)}/qr.png`;
+};
+
+// Admin: send=false solo devuelve la lista de destinatarios; send=true encola el envío real.
+export const sendAttendanceConfirmationEmails = async (send: boolean): Promise<AttendanceEmailsResult> => {
+  return await fetchApi('/events/admin/attendance-emails', {
+    method: 'POST',
+    body: JSON.stringify({ send }),
+  });
+};
+
+// Admin: envía el correo de confirmación a un solo inscrito (pruebas o reenvíos).
+export const sendAttendanceEmailToAttendee = async (attendeeId: number): Promise<{ sent: boolean; email: string }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/attendance-email`, { method: 'POST' });
+};
+

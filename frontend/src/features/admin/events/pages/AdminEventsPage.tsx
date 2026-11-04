@@ -30,10 +30,12 @@ import {
   getAdminEventSummary, 
   updateAdminEventConfig, 
   cancelAttendeeRegistration, 
+  sendAttendanceEmailToAttendee, 
   AdminEventSummary, 
   AttendeeData, 
   EventConfigPayload 
 } from '../../../../services/events';
+import { AttendanceEmailsCard } from '../components/AttendanceEmailsCard';
 
 const formatInterests = (interests?: string[] | string | null): string[] => {
   if (!interests) return [];
@@ -66,6 +68,7 @@ export const AdminEventsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [emailingId, setEmailingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'investor' | 'external'>('all');
   const [modeFilter, setModeFilter] = useState<'all' | 'in_person' | 'virtual'>('all');
@@ -183,6 +186,21 @@ export const AdminEventsPage: React.FC = () => {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isConfigOpen, savingConfig]);
+
+  const handleSendAttendanceEmail = async (id: number, name: string, email: string) => {
+    if (!window.confirm(`Se enviará el correo de confirmación de asistencia a "${name}" (${email}). ¿Continuar?`)) {
+      return;
+    }
+    try {
+      setEmailingId(id);
+      await sendAttendanceEmailToAttendee(id);
+      setFeedbackMsg({ type: 'success', text: `Correo de confirmación enviado a ${email}.` });
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'No se pudo enviar el correo.' });
+    } finally {
+      setEmailingId(null);
+    }
+  };
 
   const handleCancelAttendee = async (id: number, name: string) => {
     if (!window.confirm(`¿Seguro que deseas cancelar el registro de asistencia de "${name}"? El cupo reservado será liberado.`)) {
@@ -371,6 +389,8 @@ export const AdminEventsPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <AttendanceEmailsCard onSent={loadSummary} />
 
       {feedbackMsg && (
         <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in shadow-xs ${
@@ -703,6 +723,21 @@ export const AdminEventsPage: React.FC = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        {att.status === 'confirmed' && att.attendance_mode === 'in_person' && (
+                          <button
+                            type="button"
+                            disabled={emailingId === att.id}
+                            onClick={() => handleSendAttendanceEmail(att.id, att.full_name, att.email)}
+                            className="p-1.5 hover:bg-brand-50 text-slate-400 hover:text-brand-700 rounded-xl transition-all border border-transparent hover:border-brand-100 shadow-2xs cursor-pointer disabled:opacity-50"
+                            title="Enviar correo de confirmación de asistencia"
+                          >
+                            {emailingId === att.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+                            ) : (
+                              <Mail className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
                         {att.status === 'confirmed' ? (
                           <button
                             type="button"

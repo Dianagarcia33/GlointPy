@@ -93,19 +93,22 @@ class EmailService:
         return cls.send_html_email(to_email, subject, html)
 
     @staticmethod
-    def send_html_email(to_email: str, subject: str, html_content: str) -> bool:
+    def send_html_email(to_email: str, subject: str, html_content: str, attachments: Optional[List[dict]] = None) -> bool:
         if not settings.RESEND_API_KEY:
             logger.warning(f"[EmailService] RESEND_API_KEY no configurada. Omitiendo envío a {to_email}.")
             return False
 
         resend.api_key = settings.RESEND_API_KEY
         try:
-            resend.Emails.send({
+            payload = {
                 "from": f"GLOINT <{settings.SENDER_EMAIL}>",
                 "to": to_email,
                 "subject": subject,
                 "html": html_content
-            })
+            }
+            if attachments:
+                payload["attachments"] = attachments
+            resend.Emails.send(payload)
             logger.info(f"[EmailService] Correo enviado exitosamente a {to_email} | Asunto: {subject}")
             return True
         except Exception as e:
@@ -470,4 +473,45 @@ class EmailService:
         )
         return cls.send_html_email(to_email, subject, html)
 
-
+    @classmethod
+    def send_event_attendance_confirmation_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[object],
+        location: Optional[str],
+        seats_reserved: int,
+        companion_name: Optional[str],
+        access_token: str,
+        qr_png: Optional[bytes] = None,
+    ) -> bool:
+        """
+        Correo de confirmación de asistencia presencial al evento Gloint Power Tech con QR único.
+        El QR viaja embebido (CID) para que se vea sin depender de que el cliente cargue imágenes remotas.
+        """
+        import base64
+        from src.services.email_template_service import EmailTemplateService
+        base = settings.FRONTEND_URL.rstrip("/")
+        page = f"{base}/evento/asistencia/{access_token}"
+        qr_cid = "qr-asistencia" if qr_png else None
+        subject, html = EmailTemplateService.get_event_attendance_confirmation_template(
+            user_name=user_name,
+            event_title=event_title,
+            event_date=event_date,
+            location=location,
+            seats_reserved=seats_reserved,
+            companion_name=companion_name,
+            confirm_url=f"{page}?accion=confirmar",
+            virtual_url=f"{page}?accion=virtual",
+            qr_cid=qr_cid,
+        )
+        attachments = None
+        if qr_png:
+            attachments = [{
+                "filename": "qr-asistencia.png",
+                "content": base64.b64encode(qr_png).decode("ascii"),
+                "content_type": "image/png",
+                "content_id": qr_cid,
+            }]
+        return cls.send_html_email(to_email, subject, html, attachments=attachments)
