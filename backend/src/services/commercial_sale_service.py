@@ -15,6 +15,7 @@ from src.models.commercial_bonus import CommercialBonus, CommercialBonusType, Co
 from src.models.wallet import Wallet, WalletTransaction
 from src.schemas.commercial_sale import CommercialSaleCreate
 from src.core.timezone import get_colombia_today, get_colombia_now
+from src.services.audit_trail_service import audit_in_tx
 
 THRESHOLD_36M = Decimal("36000000.00")
 RATE_30 = Decimal("0.030") # 3.0%
@@ -342,7 +343,8 @@ async def register_commercial_sale(
     sale_data: CommercialSaleCreate,
     is_admin: bool = False,
     investor_id: Optional[int] = None,
-    investment_request_id: Optional[int] = None
+    investment_request_id: Optional[int] = None,
+    audit_actor=None
 ) -> CommercialSale:
     """
     Registra la venta comercial, valida la clasificación forzada si el cliente existe,
@@ -482,6 +484,16 @@ async def register_commercial_sale(
         investment_request_id=investment_request_id
     )
     db.add(sale)
+    if audit_actor is not None:
+        await db.flush()
+        await audit_in_tx(
+            db, "COMMERCIAL_ADMIN_SALE_CREATE", "commercial", audit_actor, "CommercialSale", sale.id,
+            f"Venta #{sale.id} adjudicada por un administrador al asesor #{commercial_id}",
+            {"sale_id": sale.id, "commercial_id": commercial_id, "cliente_documento_ultimos4": str(sale_data.client_document or "").strip()[-4:],
+             "tipo": str(getattr(final_sale_type, "value", final_sale_type)), "monto": float(amount),
+             "comision_pct": float(comm_rate), "comision_monto": float(comm_amount),
+             "estado": str(getattr(sale_status, "value", sale_status)), "fecha_venta": str(target_date)},
+        )
     await db.commit()
     await db.refresh(sale)
 

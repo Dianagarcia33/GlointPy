@@ -13,6 +13,7 @@ from src.models.supplier import InventorySupplier
 from src.models.inventory import InventoryItem, InventoryMovement
 from src.models.user import User
 from src.schemas.purchase_order import PurchaseOrderCreate, PurchaseOrderUpdate, PurchaseOrderReceiveRequest
+from src.services.audit_trail_service import audit_in_tx
 
 class PurchaseOrderService:
 
@@ -243,8 +244,16 @@ class PurchaseOrderService:
                 detail=f"La orden se encuentra en estado '{order.status}' y no puede ser aprobada."
             )
 
+        prev_status = order.status
         order.status = "APPROVED"
         order.approved_by_id = current_user.id
+        await audit_in_tx(
+            db, "PURCHASE_ORDER_APPROVE", "purchase-orders", current_user, "PurchaseOrder", order.id,
+            f"Aprobación de la orden de compra #{order.id}",
+            {"order_id": order.id, "estado_antes": prev_status, "estado_despues": "APPROVED",
+             "proveedor_id": getattr(order, "supplier_id", None),
+             "total": float(getattr(order, "total_amount", 0) or 0)},
+        )
         await db.commit()
         await db.refresh(order)
         return order

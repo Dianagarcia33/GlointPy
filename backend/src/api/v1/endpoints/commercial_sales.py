@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import audit_in_tx
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from datetime import date
@@ -113,7 +114,7 @@ async def create_admin_sale(
     """
     Permite a un Administrador adjudicar una venta comercial a cualquier asesor del equipo.
     """
-    sale = await register_commercial_sale(db, target_commercial_id, sale_data, is_admin=True)
+    sale = await register_commercial_sale(db, target_commercial_id, sale_data, is_admin=True, audit_actor=current_user)
     await _audit_custom_commission(db, sale, sale_data, current_user, request)
     return sale
 
@@ -498,6 +499,13 @@ async def delete_commercial_sale(
         )
 
     comm_id = sale.commercial_id
+    await audit_in_tx(
+        db, "COMMERCIAL_SALE_DELETE", "commercial", current_user, "CommercialSale", sale_id,
+        f"Anulación de la venta #{sale_id} del asesor #{comm_id}",
+        {"sale_id": sale_id, "commercial_id": comm_id, "monto": float(sale.amount),
+         "comision_monto": float(sale.commission_amount), "estado_antes": str(getattr(sale.status, "value", sale.status)),
+         "investor_id": sale.investor_id, "fecha_venta": str(sale.sale_date)},
+    )
     await db.delete(sale)
     await db.commit()
 
@@ -1074,6 +1082,15 @@ async def settle_commissions(
         ))
         wallet_balance_after = float(wallet.balance)
 
+    await audit_in_tx(
+        db, "COMMISSION_SETTLE", "commercial", current_user, "CommissionSettlement", settlement.id,
+        f"Liquidación #{settlement.id} de comisiones y bonos del asesor #{req.commercial_id} por ${float(total_amount):,.0f}",
+        {"settlement_id": settlement.id, "commercial_id": req.commercial_id, "monto_total": float(total_amount),
+         "monto_ventas": float(sales_total), "monto_bonos": float(bonuses_total), "ventas": sales_count,
+         "bonos": len(pending_bonuses), "mes": req.month, "anio": req.year,
+         "acredita_billetera": wallet_balance_after is not None, "saldo_billetera_despues": wallet_balance_after,
+         "referencia": settlement.reference_code},
+    )
     await db.commit()
     await db.refresh(settlement)
 
