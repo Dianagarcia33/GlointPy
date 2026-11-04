@@ -24,3 +24,60 @@ class AuditLog(Base):
     status = Column(String(20), nullable=False, default="SUCCESS") # 'SUCCESS', 'FAILED', 'WARNING'
     
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+
+# ---------------------------------------------------------------------------
+# H-65: inmutabilidad del Audit Trail a nivel de aplicación.
+# Los registros solo se pueden INSERTAR. Cualquier UPDATE/DELETE sobre
+# `audit_logs` (por instancia, en bloque o SQL crudo) lanza AuditImmutableError.
+# Nota: esto NO protege frente a quien tenga acceso directo a la base de datos;
+# para eso hace falta revocar UPDATE/DELETE al usuario de la aplicación en MySQL.
+# ---------------------------------------------------------------------------
+import re
+
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
+
+
+class AuditImmutableError(RuntimeError):
+    """Se intentó modificar o eliminar un registro del Audit Trail (inmutable)."""
+
+    def __init__(self, operation: str = "modificar/eliminar"):
+        super().__init__(
+            f"Los registros de auditoría (audit_logs) son inmutables: no se permite {operation}."
+        )
+
+
+# 1) Por instancia (flush del ORM). Aplica también a AsyncSession, que usa Session por debajo.
+@event.listens_for(AuditLog, "before_update")
+def _block_audit_update(mapper, connection, target):
+    raise AuditImmutableError("actualizar")
+
+
+@event.listens_for(AuditLog, "before_delete")
+def _block_audit_delete(mapper, connection, target):
+    raise AuditImmutableError("eliminar")
+
+
+# 2) Sentencias en bloque (update()/delete() ejecutados con session.execute, sync o async).
+@event.listens_for(Session, "do_orm_execute")
+def _block_audit_bulk(orm_execute_state):
+    if not (orm_execute_state.is_update or orm_execute_state.is_delete):
+        return
+    table = getattr(orm_execute_state.statement, "table", None)
+    if table is AuditLog.__table__:
+        raise AuditImmutableError("actualizar" if orm_execute_state.is_update else "eliminar")
+
+
+# 3) SQL crudo (text(...)) o cualquier ejecución por el motor: red de seguridad.
+_RAW_MUTATION = re.compile(
+    r"^\s*(?:UPDATE(?:\s+(?:LOW_PRIORITY|IGNORE))*\s+|DELETE\s+(?:\w+\s+)*?FROM\s+|TRUNCATE\s+(?:TABLE\s+)?)`?audit_logs`?\b",
+    re.IGNORECASE,
+)
+
+
+@event.listens_for(Engine, "before_cursor_execute")
+def _block_audit_raw_sql(conn, cursor, statement, parameters, context, executemany):
+    if _RAW_MUTATION.match(statement):
+        raise AuditImmutableError("actualizar/eliminar")
