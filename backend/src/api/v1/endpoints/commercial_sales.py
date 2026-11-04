@@ -505,12 +505,41 @@ async def delete_commercial_sale(
     await purge_ghost_bonuses(db, comm_id)
     return None
 
+_PUBLIC_ADVISOR_KEYWORDS = ("directiv", "comercial", "asesor", "lider", "director", "gerente")
+
+
+def _mask_email(email: Optional[str]) -> str:
+    """'dpto.projects@gloint.com.co' -> 'dp***@gloint.com.co' (H-108): sirve para distinguir al asesor sin publicar el correo."""
+    if not email or "@" not in email:
+        return ""
+    local, domain = email.split("@", 1)
+    return f"{local[:2]}***@{domain}"
+
+
+def _public_advisor_entry(user: User) -> Optional[Dict[str, Any]]:
+    """Entrada del selector público de asesores, o None si la cuenta no debe listarse (H-108).
+
+    Nunca se listan SuperAdmin ni roles de administración; solo se devuelven id, nombre y correo enmascarado.
+    """
+    role_names = [(r.name or "").lower() for r in (user.roles or [])]
+    if user.is_superuser or any("admin" in r for r in role_names):
+        return None
+    if not any(kw in r for r in role_names for kw in _PUBLIC_ADVISOR_KEYWORDS):
+        return None
+    return {
+        "id": user.id,
+        "name": user.name or "Asesor",
+        "email": _mask_email(user.email),
+    }
+
+
 @router.get("/public-advisors")
 async def get_public_commercial_advisors(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint público para listar los Directivos de Inversión y Administradores.
+    Endpoint público para el selector de asesor del registro de inversionistas.
+    Solo expone id, nombre y correo enmascarado de directivos/asesores; sin cédula, teléfono ni cuentas de administración (H-108).
     """
     stmt = (
         select(User)
@@ -519,28 +548,7 @@ async def get_public_commercial_advisors(
         .order_by(User.name.asc())
     )
     res = await db.execute(stmt)
-    users = res.scalars().all()
-    
-    commercial_users = []
-    for u in users:
-        role_names = [r.name.lower() for r in (u.roles or [])]
-        is_commercial_or_admin = (
-            u.is_superuser or 
-            any(
-                any(kw in r_name for kw in ["admin", "directiv", "comercial", "asesor", "lider", "director", "gerente"])
-                for r_name in role_names
-            )
-        )
-        if is_commercial_or_admin:
-            commercial_users.append({
-                "id": u.id,
-                "name": u.name or u.email,
-                "email": u.email,
-                "document_id": u.document_id,
-                "phone_number": u.phone_number
-            })
-            
-    return commercial_users
+    return [e for e in (_public_advisor_entry(u) for u in res.scalars().all()) if e]
 
 @router.get("/commercial-users", dependencies=[Depends(RequirePermission(["admin.commercial.manage", "commercial:view"]))])
 async def get_commercial_users_list(

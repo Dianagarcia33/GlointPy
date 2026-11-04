@@ -371,6 +371,23 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
         );
     };
 
+    // Qué falta o es inválido en el paso 3 (H-224): se muestra bajo el botón para que el prospecto sepa qué corregir
+    const getStep3Issues = (): string[] => {
+        const issues: string[] = [];
+        const age = calculateAge(formData.fecha_nacimiento);
+        if (!formData.name.trim()) issues.push('Nombre completo');
+        if (!formData.tipo_documento) issues.push('Tipo de documento');
+        if (!formData.documento.trim()) issues.push('Número de documento');
+        if (!formData.fecha_expedicion) issues.push('Fecha de expedición');
+        else if (formData.fecha_expedicion > getTodayDate()) issues.push('Fecha de expedición (no puede ser futura)');
+        if (!formData.fecha_nacimiento) issues.push('Fecha de nacimiento');
+        else if (age === null || age < 18 || age > 110) issues.push('Fecha de nacimiento (debes ser mayor de 18 años)');
+        if (!CELULAR_REGEX.test(formData.numero_celular)) issues.push('Celular (10 dígitos, debe empezar por 3)');
+        if (!selectedDepartmentId) issues.push('Departamento');
+        if (!(formData.ciudad === 'Otra' ? formData.custom_ciudad : formData.ciudad)) issues.push('Ciudad');
+        return issues;
+    };
+
     const isStep4Valid = () => {
         return (
             !!formData.email.trim() &&
@@ -711,8 +728,11 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <Phone className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required type="tel" inputMode="numeric" maxLength={10} pattern="3[0-9]{9}" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 3001234567" />
+                                        <input required type="tel" inputMode="numeric" maxLength={10} pattern="3[0-9]{9}" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 3001234567" aria-invalid={!!formData.numero_celular && !CELULAR_REGEX.test(formData.numero_celular)} aria-describedby="celular-help" />
                                     </div>
+                                    {!!formData.numero_celular && !CELULAR_REGEX.test(formData.numero_celular) && (
+                                        <p id="celular-help" role="alert" className="mt-1 text-xs font-semibold text-red-600">El celular debe tener 10 dígitos y empezar por 3 (ej. 3001234567).</p>
+                                    )}
                                 </div>
                                 
                                 {/* Departamento Select */}
@@ -858,6 +878,14 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
                                 Siguiente paso
                             </button>
                         </div>
+                        {!isStep3Valid() && (
+                            <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                                <p className="font-bold mb-1">Para continuar, completa o corrige:</p>
+                                <ul className="list-disc pl-4 space-y-0.5">
+                                    {getStep3Issues().map(i => <li key={i}>{i}</li>)}
+                                </ul>
+                            </div>
+                        )}
                     </div>
                 )}
 

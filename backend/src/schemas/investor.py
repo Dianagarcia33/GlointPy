@@ -183,6 +183,7 @@ class InvestorResponse(InvestorBase):
 class InvestorPaginatedResponse(BaseModel):
     data: list[InvestorResponse]
     total: int
+    accelerated_total: int = 0  # H-225: contratos acelerados en total, independiente de la página
 
     model_config = ConfigDict(from_attributes=True)
 

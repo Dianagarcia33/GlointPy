@@ -10,15 +10,39 @@ from src.models.investor import Investor
 from src.models.user import User
 from src.schemas.potential_referral import PotentialReferralCreate, PotentialReferralUpdate
 
+def summarize_estado_counts(rows) -> Dict[str, int]:
+    """Totales por estado a partir de filas (estado, cantidad); estado vacío cuenta como 'pendiente' (H-227)."""
+    counts = {"total": 0, "pendiente": 0, "contactado": 0, "registrado": 0, "rechazado": 0}
+    for estado, n in rows:
+        key = (estado or "pendiente")
+        key = key.value if hasattr(key, "value") else str(key)
+        counts[key] = counts.get(key, 0) + int(n)
+        counts["total"] += int(n)
+    return counts
+
+
 class PotentialReferralService:
     @staticmethod
-    async def get_by_user_id(db: AsyncSession, user_id: int) -> Sequence[PotentialReferral]:
-        # Buscar investor del usuario
+    async def _investors_of_user(db: AsyncSession, user_id: int) -> Sequence[Investor]:
+        """Contratos del usuario (por user_id o, si no tiene, por su documento). Misma regla para alta y listado (H-228)."""
         result = await db.execute(select(Investor).where(Investor.user_id == user_id))
         investors = result.scalars().all()
         if not investors:
+            user_res = await db.execute(select(User).where(User.id == user_id))
+            usr = user_res.scalars().first()
+            if usr and usr.document_id:
+                res2 = await db.execute(
+                    select(Investor).join(User, Investor.user_id == User.id).where(User.document_id == usr.document_id)
+                )
+                investors = res2.scalars().all()
+        return investors
+
+    @staticmethod
+    async def get_by_user_id(db: AsyncSession, user_id: int) -> Sequence[PotentialReferral]:
+        investors = await PotentialReferralService._investors_of_user(db, user_id)
+        if not investors:
             return []
-        
+
         investor_ids = [inv.id for inv in investors]
         ref_result = await db.execute(
             select(PotentialReferral)
@@ -60,11 +84,15 @@ class PotentialReferralService:
         result = await db.execute(query)
         referrals = result.scalars().all()
 
+        # H-227: conteos por estado de TODA la tabla, independientes de la página, el buscador y el filtro
+        counts_res = await db.execute(select(PotentialReferral.estado, func.count()).group_by(PotentialReferral.estado))
+
         return {
             "data": referrals,
             "total": total,
             "page": page,
-            "limit": limit
+            "limit": limit,
+            "counts": summarize_estado_counts(counts_res.all())
         }
 
     @staticmethod
@@ -123,24 +151,9 @@ class PotentialReferralService:
 
     @staticmethod
     async def create_by_user(db: AsyncSession, user_id: int, data: PotentialReferralCreate) -> PotentialReferral:
-        # Obtener los contratos de inversión del usuario por user_id
-        res = await db.execute(select(Investor).where(Investor.user_id == user_id))
-        investors = res.scalars().all()
-
-        if not investors:
-            user_res = await db.execute(select(User).where(User.id == user_id))
-            usr = user_res.scalars().first()
-            if usr and usr.document_id:
-                res2 = await db.execute(
-                    select(Investor).join(User, Investor.user_id == User.id).where(User.document_id == usr.document_id)
-                )
-                investors = res2.scalars().all()
-
-        if not investors:
-            res_any = await db.execute(select(Investor).limit(1))
-            first_any = res_any.scalars().first()
-            if first_any:
-                investors = [first_any]
+        # H-228: antes, sin contrato propio, el referido se asignaba al primer inversionista de la base y
+        # luego no aparecía en la lista de quien lo registró (y se atribuía a otra persona).
+        investors = await PotentialReferralService._investors_of_user(db, user_id)
 
         if not investors:
             raise HTTPException(
@@ -156,7 +169,9 @@ class PotentialReferralService:
         if not target_investor:
             target_investor = investors[0]
 
-        codigo = data.codigo_referido or target_investor.assigned_code
+        # el código guardado es siempre el del contrato al que se asigna (si el pedido no coincide con ninguno propio, se usa el del contrato)
+        matched = bool(data.codigo_referido) and target_investor.assigned_code == data.codigo_referido.strip()
+        codigo = data.codigo_referido.strip() if matched else (target_investor.assigned_code or data.codigo_referido)
 
         payload = data.model_dump()
         payload["investor_id"] = target_investor.id

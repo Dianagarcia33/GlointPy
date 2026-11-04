@@ -548,11 +548,13 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                                 <div className="border border-slate-200 p-3 rounded-xl bg-slate-50/60 space-y-2">
                                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
                                         <UploadCloud className="w-3.5 h-3.5 text-brand-600 shrink-0" />
-                                        Comprobante Pago
+                                        Comprobante Pago *
                                     </label>
                                     <input 
                                         type="file" 
                                         accept="image/*,.pdf" 
+                                        required={!formData.comprobante_path}
+                                        aria-required="true"
                                         onChange={(e) => handleFileUpload(e, 'comprobante_path')} 
                                         className="block w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer" 
                                     />
