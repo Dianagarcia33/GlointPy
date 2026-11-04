@@ -2,7 +2,8 @@ import asyncio
 import logging
 import time
 from fastapi import FastAPI, Depends, Request
-from fastapi.middleware.cors import CORSMiddleware
+from src.core.config import settings
+from src.core.cors import SplitCORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -790,12 +791,11 @@ app.include_router(api_router, prefix="/api/v1")
 
 
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
+# H-33: solo la lista blanca (CORS_ALLOWED_ORIGINS + FRONTEND_URL) recibe credenciales; el resto de
+# orígenes puede llamar sin credenciales (formularios con X-API-Key, landings). Ver src/core/cors.py
 app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r".*",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    SplitCORSMiddleware,
+    credentialed_origins=settings.get_credentialed_origins(),
 )
 
 # Compresión automática de respuestas HTTP (>1KB) para máxima velocidad de transferencia
