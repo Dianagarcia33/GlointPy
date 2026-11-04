@@ -233,7 +233,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                 </Can>
 
 
-                                <Can permissions={["credits:view", "credits:request", "wallets:view"]}>
+                                <Can permissions={["credits:view", "credits:request"]}>
                                     <NavLink to="/dashboard/credits" className={navLinkClass}>
                                         {({ isActive }) => (
                                             <>
@@ -249,7 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </NavLink>
                                 </Can>
 
-                                <Can permissions={["admin.shares.manage", "admin.roles.manage", "wallets:view", "dashboard:view_investments"]}>
+                                <Can permissions={["shares:access"]}>
                                     <NavLink to="/dashboard/shares-market" className={navLinkClass}>
                                         {({ isActive }) => (
                                             <>
