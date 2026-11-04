@@ -236,11 +236,9 @@ class PushNotificationService:
 
         recipients_count = len(target_users)
         if recipients_count == 0:
-            return {
-                "success": False,
-                "message": "No se encontraron usuarios activos para la audiencia seleccionada.",
-                "recipients_count": 0
-            }
+            # H-208: un alcance que no resuelve a ningún usuario activo (rol o ids inexistentes) se rechaza con error
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail="No se encontraron usuarios activos para la audiencia seleccionada.")
 
         # 2. Crear registros in-app (UserNotification) para cada usuario
         notifications_to_add = [
