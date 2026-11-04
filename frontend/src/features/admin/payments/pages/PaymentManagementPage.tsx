@@ -14,7 +14,9 @@ import { getAllRechargesAdmin } from '../../../../services/wallets';
 
 import { SkeletonTableRows } from '../../../../components/common/Skeleton';
 export const PaymentManagementPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'withdrawals' | 'recharges'>('withdrawals');
+  const [activeTab, setActiveTab] = useState<'withdrawals' | 'recharges'>(
+    () => (new URLSearchParams(window.location.search).get('tab') === 'recharges' ? 'recharges' : 'withdrawals')
+  );
   const [pendingRechargesCount, setPendingRechargesCount] = useState<number>(0);
 
   const [data, setData] = useState<PaginatedWithdrawals | null>(null);

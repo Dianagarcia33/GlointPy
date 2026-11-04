@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from src.services.contract_terms import contract_end, is_contract_active
+from src.services.contract_terms import contract_end, contract_start, is_contract_active
 from src.core.timezone import get_colombia_today
 from src.models.acceleration import Acceleration
 from typing import List, Dict, Any, Optional
@@ -358,7 +358,7 @@ async def get_director_analytics_dashboard(
                             "cliente_documento": doc,
                             "asesor_adjudicado": my_sales_map[doc],
                             "monto": float(inv.package.value or 0) if inv.package else 0.0,
-                            "fecha_ingreso": start_d.isoformat(),
+                            "fecha_ingreso": contract_start(inv).isoformat(),
                             "fecha_vencimiento": end_d.isoformat(),
                             "dias_restantes": days_left
                         })

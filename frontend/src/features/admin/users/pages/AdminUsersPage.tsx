@@ -59,6 +59,43 @@ export const AdminUsersPage = () => {
 
   // Menú de acciones por fila
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
+  // H-231: el menú se dibuja con posición fija (fuera del recuadro con scroll de la tabla)
+  const [actionMenuPos, setActionMenuPos] = useState<{ top?: number; bottom?: number; right: number; maxHeight: number } | null>(null);
+
+  const toggleActionMenu = (userId: number, button: HTMLElement) => {
+    if (openActionMenuId === userId) {
+      setOpenActionMenuId(null);
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    const gap = 6;
+    const margin = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - gap - margin;
+    const spaceAbove = rect.top - gap - margin;
+    const MENU_HEIGHT = 360;
+    const openUp = spaceBelow < MENU_HEIGHT && spaceAbove > spaceBelow;
+    setActionMenuPos({
+      right: Math.max(margin, window.innerWidth - rect.right),
+      ...(openUp ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
+      maxHeight: Math.max(160, openUp ? spaceAbove : spaceBelow),
+    });
+    setOpenActionMenuId(userId);
+  };
+
+  // Cerrar el menú al desplazar la página o cambiar el tamaño (la posición fija ya no sería válida)
+  useEffect(() => {
+    if (openActionMenuId === null) return;
+    const close = (e: Event) => {
+      if ((e.target as HTMLElement | Document)?.nodeType === 1 && (e.target as HTMLElement).closest?.('.user-action-menu-panel')) return;
+      setOpenActionMenuId(null);
+    };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [openActionMenuId]);
 
   // Cerrar menú de acciones al hacer clic fuera
   useEffect(() => {
@@ -70,10 +107,6 @@ export const AdminUsersPage = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const isNearBottom = (index: number) => {
-    return users.length > 2 && index >= users.length - 2;
-  };
 
   // Debounce search input
   useEffect(() => {
@@ -897,7 +930,7 @@ export const AdminUsersPage = () => {
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenActionMenuId(openActionMenuId === user.id ? null : user.id);
+                              toggleActionMenu(user.id, e.currentTarget);
                             }}
                             className={`p-1 rounded-lg transition-all border cursor-pointer ${
                               openActionMenuId === user.id
@@ -910,9 +943,10 @@ export const AdminUsersPage = () => {
                           </button>
 
                           {openActionMenuId === user.id && (
-                            <div className={`absolute right-0 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
-                              isNearBottom(index) ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'
-                            }`}>
+                            <div
+                              style={actionMenuPos ?? undefined}
+                              className="user-action-menu-panel fixed w-60 overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                            >
                               {/* Estado de Cuenta */}
                               <button
                                 onClick={() => {
