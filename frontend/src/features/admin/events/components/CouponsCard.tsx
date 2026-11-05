@@ -11,12 +11,13 @@ import {
   setCouponsActive,
   updateCouponConfig,
 } from '../../../../services/events';
+import { useLatestOnly } from '../hooks/useLatestOnly';
 
 const STATUS: Record<CouponStatus, { label: string; cls: string }> = {
   valid: { label: 'Disponible', cls: 'bg-green-100 text-green-700' },
   redeemed: { label: 'Usado', cls: 'bg-blue-100 text-blue-700' },
   expired: { label: 'Vencido', cls: 'bg-slate-200 text-slate-600' },
-  inactive: { label: 'Sin activar', cls: 'bg-amber-100 text-amber-800' },
+  inactive: { label: 'Asignado · sin activar', cls: 'bg-amber-100 text-amber-800' },
 };
 
 const GROUPS: { key: string; label: string }[] = [
@@ -58,9 +59,15 @@ export function CouponsCard() {
   const [couponFilter, setCouponFilter] = useState<CouponFilter>('all');
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
+  // Una consulta automática que sale ANTES de una acción y llega DESPUÉS pisaría el resultado nuevo con datos viejos
+  // (la fila volvía a «Sin cupón» hasta el siguiente refresco): se descarta.
+  const { startRead, invalidate } = useLatestOnly();
+
   const load = useCallback(async () => {
+    const isFresh = startRead();
     try {
       const d = await getAdminCoupons();
+      if (!isFresh()) return;
       setData(d);
       setFormReady((ready) => {
         if (!ready) {
@@ -73,7 +80,7 @@ export function CouponsCard() {
     } catch {
       // el siguiente refresco lo reintenta
     }
-  }, []);
+  }, [startRead]);
 
   useEffect(() => {
     load();
@@ -84,8 +91,10 @@ export function CouponsCard() {
   const run = async (action: () => Promise<AdminCoupons>, success: (d: AdminCoupons) => string) => {
     setBusy(true);
     setMessage(null);
+    invalidate();   // las consultas en vuelo quedan obsoletas desde ya
     try {
       const d = await action();
+      invalidate(); // y también las que salieron mientras la acción estaba en curso
       setData(d);
       setMessage({ type: 'success', text: success(d) });
     } catch (e: any) {

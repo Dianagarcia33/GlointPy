@@ -8,6 +8,7 @@ import {
   moderateQuestion,
   setQuestionsOpen,
 } from '../../../../services/events';
+import { useLatestOnly } from '../hooks/useLatestOnly';
 import { useLiveRefresh } from '../../../events/hooks/useLiveRefresh';
 
 const TABS: { key: QuestionStatus; label: string }[] = [
@@ -38,13 +39,17 @@ export function QuestionsModerationCard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { startRead, invalidate } = useLatestOnly();
+
   const load = useCallback(async () => {
+    const isFresh = startRead();
     try {
-      setData(await getAdminQuestions());
+      const d = await getAdminQuestions();
+      if (isFresh()) setData(d);   // si hubo una acción mientras se consultaba, esta respuesta ya es vieja
     } catch {
       // el siguiente aviso en vivo o refresco lo reintenta
     }
-  }, []);
+  }, [startRead]);
 
   useEffect(() => { load(); }, [load]);
   useLiveRefresh(getEventsWebSocketUrl('/admin/questions/ws'), load, 15000, { scopes: ['questions'] });
@@ -52,11 +57,13 @@ export function QuestionsModerationCard() {
   const run = async (action: () => Promise<AdminQuestions>) => {
     setBusy(true);
     setError(null);
+    invalidate();
     try {
       setData(await action());
     } catch (e: any) {
       setError(e?.message || 'No se pudo completar la acción.');
     } finally {
+      invalidate();
       setBusy(false);
     }
   };

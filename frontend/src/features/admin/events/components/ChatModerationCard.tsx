@@ -10,6 +10,7 @@ import {
   promoteChatMessage,
   setChatOpen as setChatOpenApi,
 } from '../../../../services/events';
+import { useLatestOnly } from '../hooks/useLatestOnly';
 
 const MAX_KEPT = 300;
 
@@ -33,16 +34,22 @@ export function ChatModerationCard() {
   const listRef = useRef<HTMLUListElement>(null);
   const stick = useRef(true);
 
+  // Una consulta que sale antes de un mensaje nuevo (por WebSocket) o de una acción y llega después traería la lista de
+  // antes y haría desaparecer ese mensaje o reaparecer uno borrado: se descarta.
+  const { startRead, invalidate } = useLatestOnly();
+
   const load = useCallback(async () => {
+    const isFresh = startRead();
     try {
       const d: AdminChat = await getAdminChat();
+      if (!isFresh()) return;
       setChatOpen(d.chat_open);
       setLiveOpen(d.live_open);
       setMessages(d.messages);
     } catch {
       // el siguiente reintento lo vuelve a pedir
     }
-  }, []);
+  }, [startRead]);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -66,12 +73,14 @@ export function ChatModerationCard() {
         try {
           const data = JSON.parse(ev.data);
           if (data.type === 'message') {
+            invalidate();
             setMessages((prev) => {
               if (prev.some((m) => m.id === data.message.id)) return prev;
               const muted = prev.some((m) => m.attendee_id === data.message.attendee_id && m.muted);
               return [...prev, { ...data.message, muted }].slice(-MAX_KEPT);
             });
           } else if (data.type === 'deleted') {
+            invalidate();
             setMessages((prev) => prev.filter((m) => m.id !== data.id));
           }
         } catch {
@@ -109,12 +118,14 @@ export function ChatModerationCard() {
   const remove = async (m: AdminChatMessage) => {
     setBusyId(m.id);
     setError(null);
+    invalidate();
     try {
       await deleteChatMessage(m.id);
       setMessages((prev) => prev.filter((x) => x.id !== m.id));
     } catch (e: any) {
       setError(e?.message || 'No se pudo borrar el mensaje.');
     } finally {
+      invalidate();
       setBusyId(null);
     }
   };
@@ -124,12 +135,14 @@ export function ChatModerationCard() {
     if (next && !window.confirm(`¿Silenciar a ${m.author}? No podrá escribir en el chat hasta que le devuelvas la palabra.`)) return;
     setBusyId(m.id);
     setError(null);
+    invalidate();
     try {
       await muteChatAttendee(m.attendee_id, next);
       setMessages((prev) => prev.map((x) => (x.attendee_id === m.attendee_id ? { ...x, muted: next } : x)));
     } catch (e: any) {
       setError(e?.message || 'No se pudo cambiar el silencio.');
     } finally {
+      invalidate();
       setBusyId(null);
     }
   };
@@ -138,6 +151,7 @@ export function ChatModerationCard() {
     if (chatOpen && !window.confirm('¿Apagar el chat? Los virtuales dejarán de verlo y no podrán escribir hasta que lo vuelvas a encender.')) return;
     setSwitching(true);
     setError(null);
+    invalidate();
     try {
       const d = await setChatOpenApi(!chatOpen);
       setChatOpen(d.chat_open);
@@ -145,6 +159,7 @@ export function ChatModerationCard() {
     } catch (e: any) {
       setError(e?.message || 'No se pudo cambiar el estado del chat.');
     } finally {
+      invalidate();
       setSwitching(false);
     }
   };
@@ -152,12 +167,14 @@ export function ChatModerationCard() {
   const promote = async (m: AdminChatMessage) => {
     setBusyId(m.id);
     setError(null);
+    invalidate();
     try {
       await promoteChatMessage(m.id);
       setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, is_question: true } : x)));
     } catch (e: any) {
       setError(e?.message || 'No se pudo pasar el mensaje a pregunta.');
     } finally {
+      invalidate();
       setBusyId(null);
     }
   };

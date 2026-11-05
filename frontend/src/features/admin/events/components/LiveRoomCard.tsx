@@ -8,6 +8,7 @@ import {
   sendLiveInvitationToAttendee,
   updateLiveConfig,
 } from '../../../../services/events';
+import { useLatestOnly } from '../hooks/useLatestOnly';
 
 const REFRESH_MS = 5000;
 
@@ -32,13 +33,17 @@ export function LiveRoomCard() {
   const [rowBusy, setRowBusy] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const { startRead, invalidate } = useLatestOnly();
+
   const refresh = useCallback(async () => {
+    const isFresh = startRead();
     try {
-      setData(await getLiveOverview());
+      const d = await getLiveOverview();
+      if (isFresh()) setData(d);   // si hubo una acción mientras se consultaba, esta respuesta ya es vieja
     } catch {
       // el siguiente refresco lo reintenta
     }
-  }, []);
+  }, [startRead]);
 
   useEffect(() => {
     getLiveOverview().then((d) => { setData(d); setPlaybackId(d.live_playback_id || ''); }).catch(() => {});
@@ -49,11 +54,13 @@ export function LiveRoomCard() {
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setMessage(null);
+    invalidate();
     try {
       await action();
     } catch (e: any) {
       setMessage({ type: 'error', text: e?.message || 'No se pudo completar la acción.' });
     } finally {
+      invalidate();
       setBusy(false);
     }
   };

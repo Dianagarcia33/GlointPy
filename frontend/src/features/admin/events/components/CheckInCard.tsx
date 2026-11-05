@@ -10,6 +10,7 @@ import {
   undoCheckIn,
 } from '../../../../services/events';
 import { QrScanner } from './QrScanner';
+import { useLatestOnly } from '../hooks/useLatestOnly';
 
 const GROUPS: { key: string; label: string }[] = [
   { key: 'investor:in_person', label: 'Inversionistas presenciales' },
@@ -49,13 +50,17 @@ export function CheckInCard() {
   const [attendedFilter, setAttendedFilter] = useState<'all' | 'yes' | 'no'>('all');
   const [search, setSearch] = useState('');
 
+  const { startRead, invalidate } = useLatestOnly();
+
   const refresh = useCallback(async () => {
+    const isFresh = startRead();
     try {
-      setData(await getUnifiedAttendance());
+      const d = await getUnifiedAttendance();
+      if (isFresh()) setData(d);   // si se registró una entrada mientras se consultaba, esta respuesta ya es vieja
     } catch {
       // el siguiente refresco lo reintenta
     }
-  }, []);
+  }, [startRead]);
 
   useEffect(() => {
     refresh();
@@ -65,8 +70,10 @@ export function CheckInCard() {
 
   const handle = useCallback(async (action: () => Promise<CheckInResult>) => {
     setBusy(true);
+    invalidate();
     try {
       const res = await action();
+      invalidate();
       setBanner(describe(res));
       if (res.result === 'checked_in') navigator.vibrate?.(200); // confirmación táctil en celulares
       refresh();
@@ -75,7 +82,7 @@ export function CheckInCard() {
     } finally {
       setBusy(false);
     }
-  }, [refresh]);
+  }, [refresh, invalidate]);
 
   const scan = useCallback((raw: string) => handle(() => checkInByCode(raw)), [handle]);
 
@@ -88,8 +95,10 @@ export function CheckInCard() {
 
   const undo = async (row: UnifiedAttendeeRow) => {
     if (!window.confirm(`¿Deshacer la entrada de ${row.full_name}?`)) return;
+    invalidate();
     try {
       await undoCheckIn(row.id);
+      invalidate();
       setBanner({ kind: 'warn', text: `Entrada deshecha: ${row.full_name}` });
       refresh();
     } catch (e: any) {

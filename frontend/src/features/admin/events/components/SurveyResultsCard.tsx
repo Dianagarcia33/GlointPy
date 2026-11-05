@@ -9,6 +9,7 @@ import {
   getSurveyResults,
   setSurveyOpen,
 } from '../../../../services/events';
+import { useLatestOnly } from '../hooks/useLatestOnly';
 import { useLiveRefresh } from '../../../events/hooks/useLiveRefresh';
 
 const SHORT: Record<RatingField, string> = {
@@ -42,13 +43,17 @@ export function SurveyResultsCard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { startRead, invalidate } = useLatestOnly();
+
   const load = useCallback(async () => {
+    const isFresh = startRead();
     try {
-      setData(await getSurveyResults());
+      const d = await getSurveyResults();
+      if (isFresh()) setData(d);   // si hubo una acción mientras se consultaba, esta respuesta ya es vieja
     } catch {
       // el siguiente aviso en vivo o refresco lo reintenta
     }
-  }, []);
+  }, [startRead]);
 
   useEffect(() => { load(); }, [load]);
   useLiveRefresh(getEventsWebSocketUrl('/admin/questions/ws'), load, 15000, { scopes: ['survey'] });
@@ -58,11 +63,13 @@ export function SurveyResultsCard() {
     if (data.survey_open && !window.confirm('¿Cerrar la encuesta? Nadie podrá responder más, pero se conservan los resultados.')) return;
     setBusy(true);
     setError(null);
+    invalidate();
     try {
       setData(await setSurveyOpen(!data.survey_open));
     } catch (e: any) {
       setError(e?.message || 'No se pudo completar la acción.');
     } finally {
+      invalidate();
       setBusy(false);
     }
   };
