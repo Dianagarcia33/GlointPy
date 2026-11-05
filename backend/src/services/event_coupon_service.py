@@ -1,7 +1,8 @@
 """
 Cupones de descuento del evento Gloint Power Tech para comprar en Gloint Place.
 
-- Cada asistente vigente (presencial o virtual) recibe un código personal; el equipo ve a quién se le dio cada uno.
+- El equipo ELIGE a quién se le da un cupón (no es para todos los inscritos): cada seleccionado recibe un código personal.
+  Quien no fue seleccionado no tiene cupón, no ve avisos y la tienda rechaza cualquier código inventado.
 - El equipo activa los cupones durante la presentación: desde ese momento corre la vigencia (por defecto 48 horas).
 - El descuento lo aplica Gloint Place (otro proyecto): consulta aquí si un código es válido y luego lo marca como usado.
   Cada código se puede usar una sola vez.
@@ -14,10 +15,12 @@ from typing import Optional
 from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from typing import Iterable, List
+
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.event import Event, EventAttendee, EventCoupon
+from src.models.event import Event, EventAttendee, EventCoupon, EventLiveSession
 from src.services.event_attendance_service import EventAttendanceService
 from src.services.event_coupon_rules import aware, coupon_is_live
 from src.services.event_question_service import questions_hub
@@ -77,32 +80,19 @@ class EventCouponService:
                 return code
         raise HTTPException(status_code=500, detail="No se pudo generar un código único. Inténtalo de nuevo.")
 
-    @classmethod
-    async def _ensure_coupon(cls, db: AsyncSession, event: Event, attendee: EventAttendee) -> EventCoupon:
-        coupon = (await db.execute(select(EventCoupon).where(
-            EventCoupon.event_id == event.id, EventCoupon.attendee_id == attendee.id))).scalar_one_or_none()
-        if coupon:
-            return coupon
-        coupon = EventCoupon(event_id=event.id, attendee_id=attendee.id, code=await cls._new_code(db))
-        db.add(coupon)
-        await db.commit()
-        await db.refresh(coupon)
-        return coupon
-
-    @classmethod
-    async def _ensure_all(cls, db: AsyncSession, event: Event) -> None:
-        """Un cupón para cada asistente vigente que aún no tenga (también los que se inscriban después de activar)."""
-        have = set((await db.execute(select(EventCoupon.attendee_id).where(EventCoupon.event_id == event.id))).scalars().all())
-        attendees = (await db.execute(select(EventAttendee).where(
-            EventAttendee.event_id == event.id, EventAttendee.status == "confirmed").order_by(EventAttendee.id))).scalars().all()
-        created = False
-        for a in attendees:
-            if a.id not in have:
-                db.add(EventCoupon(event_id=event.id, attendee_id=a.id, code=await cls._new_code(db)))
-                await db.flush()
-                created = True
-        if created:
-            await db.commit()
+    @staticmethod
+    def _clean_ids(attendee_ids: Iterable) -> List[int]:
+        ids = []
+        for raw in attendee_ids or []:
+            if isinstance(raw, bool) or not isinstance(raw, int):
+                raise HTTPException(status_code=422, detail="La selección tiene identificadores no válidos.")
+            ids.append(raw)
+        ids = list(dict.fromkeys(ids))   # sin repetidos, conservando el orden
+        if not ids:
+            raise HTTPException(status_code=422, detail="Selecciona al menos un asistente.")
+        if len(ids) > 2000:
+            raise HTTPException(status_code=422, detail="Demasiados asistentes en una sola acción (máximo 2000).")
+        return ids
 
     # ------------------------------------------------------------------ asistente (por token)
     @classmethod
@@ -111,15 +101,18 @@ class EventCouponService:
         if attendee.status != "confirmed":
             raise HTTPException(status_code=403, detail="Tu inscripción está cancelada.")
         event = await EventService.get_or_create_default_event(db)
-        base = {"full_name": attendee.full_name, "percent": event.coupon_percent, "hours": event.coupon_hours}
-        if not event.coupon_active:
+        coupon = (await db.execute(select(EventCoupon).where(
+            EventCoupon.event_id == event.id, EventCoupon.attendee_id == attendee.id))).scalar_one_or_none()
+        base = {"full_name": attendee.full_name, "percent": event.coupon_percent, "hours": event.coupon_hours,
+                "assigned": coupon is not None}
+        if not coupon:      # no fue seleccionado
+            return {**base, "active": False, "status": "none", "code": None}
+        if not event.coupon_active:   # seleccionado, pero el equipo aún no los activa: el código no se muestra todavía
             return {**base, "active": False, "status": "inactive", "code": None}
-        coupon = await cls._ensure_coupon(db, event, attendee)
-        status = coupon_status(event, coupon)
         return {
             **base,
             "active": coupon_is_live(event),
-            "status": status,
+            "status": coupon_status(event, coupon),
             "code": coupon.code,
             "expires_at": aware(event.coupon_expires_at),
             "store_link": build_store_link(event.coupon_store_url, coupon.code),
@@ -137,27 +130,73 @@ class EventCouponService:
     @classmethod
     async def admin_overview(cls, db: AsyncSession) -> dict:
         event = await EventService.get_or_create_default_event(db)
-        if event.coupon_active:
-            await cls._ensure_all(db, event)
-        rows = (await db.execute(
-            select(EventCoupon, EventAttendee).join(EventAttendee, EventAttendee.id == EventCoupon.attendee_id)
-            .where(EventCoupon.event_id == event.id).order_by(EventCoupon.id))).all()
+        attendees = (await db.execute(select(EventAttendee).where(
+            EventAttendee.event_id == event.id, EventAttendee.status == "confirmed").order_by(EventAttendee.id))).scalars().all()
+        coupons = {c.attendee_id: c for c in (await db.execute(
+            select(EventCoupon).where(EventCoupon.event_id == event.id))).scalars().all()}
+        joined_live = set((await db.execute(select(EventLiveSession.attendee_id).where(
+            EventLiveSession.event_id == event.id))).scalars().all())
         now = datetime.now(timezone.utc)
-        items = [{
-            "attendee_id": a.id, "full_name": a.full_name, "email": a.email,
-            "attendee_type": a.attendee_type, "attendance_mode": a.attendance_mode,
-            "code": c.code, "status": coupon_status(event, c, now),
-            "redeemed_at": c.redeemed_at, "redeemed_order_ref": c.redeemed_order_ref,
-        } for c, a in rows]
-        counts = {s: sum(1 for i in items if i["status"] == s) for s in ("valid", "redeemed", "expired", "inactive")}
+
+        candidates = []
+        for a in attendees:
+            c = coupons.get(a.id)
+            candidates.append({
+                "attendee_id": a.id, "full_name": a.full_name, "email": a.email,
+                "attendee_type": a.attendee_type, "attendance_mode": a.attendance_mode,
+                # asistió: entró por la puerta (presencial) o se conectó a la sala (virtual)
+                "attended": bool(a.checked_in_at) or a.id in joined_live,
+                "code": c.code if c else None,
+                "status": coupon_status(event, c, now) if c else None,
+                "redeemed_at": c.redeemed_at if c else None,
+                "redeemed_order_ref": c.redeemed_order_ref if c else None,
+            })
+        given = [i for i in candidates if i["code"]]
+        counts = {s: sum(1 for i in given if i["status"] == s) for s in ("valid", "redeemed", "expired", "inactive")}
         return {
             "active": bool(event.coupon_active),
             "live": coupon_is_live(event, now),
             "percent": event.coupon_percent, "hours": event.coupon_hours,
             "store_url": event.coupon_store_url or DEFAULT_STORE_URL,
             "starts_at": aware(event.coupon_starts_at), "expires_at": aware(event.coupon_expires_at),
-            "counts": counts, "total": len(items), "coupons": items,
+            "counts": counts, "total": len(given), "eligible": len(candidates),
+            "candidates": candidates, "coupons": given,
         }
+
+    @classmethod
+    async def assign(cls, db: AsyncSession, attendee_ids: Iterable) -> dict:
+        """Da cupón a los asistentes elegidos (solo inscripciones vigentes). Quien ya tiene uno lo conserva."""
+        ids = cls._clean_ids(attendee_ids)
+        event = await EventService.get_or_create_default_event(db)
+        valid = set((await db.execute(select(EventAttendee.id).where(
+            EventAttendee.event_id == event.id, EventAttendee.status == "confirmed", EventAttendee.id.in_(ids)))).scalars().all())
+        have = set((await db.execute(select(EventCoupon.attendee_id).where(
+            EventCoupon.event_id == event.id, EventCoupon.attendee_id.in_(valid or [0])))).scalars().all())
+        created = 0
+        for attendee_id in ids:
+            if attendee_id in valid and attendee_id not in have:
+                db.add(EventCoupon(event_id=event.id, attendee_id=attendee_id, code=await cls._new_code(db)))
+                await db.flush()
+                created += 1
+        if created:
+            await db.commit()
+        overview = await cls.admin_overview(db)
+        overview["result"] = {"assigned": created, "already_had": len(have), "ignored": len(ids) - len(valid)}
+        return overview
+
+    @classmethod
+    async def revoke(cls, db: AsyncSession, attendee_ids: Iterable) -> dict:
+        """Quita el cupón a los asistentes elegidos. Un cupón ya usado en una compra no se puede quitar."""
+        ids = cls._clean_ids(attendee_ids)
+        event = await EventService.get_or_create_default_event(db)
+        used = set((await db.execute(select(EventCoupon.attendee_id).where(
+            EventCoupon.event_id == event.id, EventCoupon.attendee_id.in_(ids), EventCoupon.redeemed_at.isnot(None)))).scalars().all())
+        result = await db.execute(delete(EventCoupon).where(
+            EventCoupon.event_id == event.id, EventCoupon.attendee_id.in_(ids), EventCoupon.redeemed_at.is_(None)))
+        await db.commit()
+        overview = await cls.admin_overview(db)
+        overview["result"] = {"revoked": result.rowcount or 0, "kept_used": len(used)}
+        return overview
 
     @classmethod
     async def update_config(cls, db: AsyncSession, percent: int, hours: int, store_url: str) -> dict:
@@ -178,9 +217,12 @@ class EventCouponService:
 
     @classmethod
     async def set_active(cls, db: AsyncSession, active: bool) -> dict:
-        """Activa (genera los cupones y arranca la vigencia) o desactiva. Los asistentes lo ven al instante."""
+        """Activa (arranca la vigencia para los seleccionados) o desactiva. Quien tiene cupón lo ve al instante."""
         event = await EventService.get_or_create_default_event(db)
         if active:
+            assigned = (await db.execute(select(func.count(EventCoupon.id)).where(EventCoupon.event_id == event.id))).scalar() or 0
+            if assigned == 0:
+                raise HTTPException(status_code=400, detail="Selecciona al menos un asistente para darle cupón antes de activarlos.")
             now = datetime.now(timezone.utc)
             event.coupon_active = True
             event.coupon_starts_at = now
@@ -188,7 +230,6 @@ class EventCouponService:
             if not event.coupon_store_url:
                 event.coupon_store_url = DEFAULT_STORE_URL
             await db.commit()
-            await cls._ensure_all(db, event)
         else:
             event.coupon_active = False
             await db.commit()

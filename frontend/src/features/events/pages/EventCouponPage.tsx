@@ -72,7 +72,16 @@ export function EventCouponPage() {
         {!data && !error && <p className="mt-6 text-slate-500">Cargando…</p>}
         {error && <p role="alert" className="mt-6 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-3">{error}</p>}
 
-        {data && data.status === 'inactive' && (
+        {data && !data.assigned && (
+          <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-6 text-center">
+            <p className="text-slate-900 font-semibold">Hola {data.full_name}, por ahora no tienes un cupón de descuento asignado.</p>
+            <p className="mt-2 text-sm text-slate-600">
+              Los cupones se entregan a asistentes seleccionados. Si crees que te corresponde uno, comunícate con el equipo de Gloint.
+            </p>
+          </div>
+        )}
+
+        {data && data.assigned && data.status === 'inactive' && (
           <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-6 text-center">
             <p className="text-slate-900 font-semibold">Hola {data.full_name}, tu cupón aún no está disponible.</p>
             <p className="mt-2 text-sm text-slate-600">
@@ -82,7 +91,7 @@ export function EventCouponPage() {
           </div>
         )}
 
-        {data && data.status !== 'inactive' && (
+        {data && data.assigned && data.status !== 'inactive' && data.status !== 'none' && (
           <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-6 sm:p-8">
             <p className="text-slate-700">Hola <strong>{data.full_name}</strong>, este es tu cupón personal para comprar en Gloint Place.</p>
 

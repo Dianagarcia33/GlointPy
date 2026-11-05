@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import settings
 from src.models.event import Event, EventAttendee
 from src.schemas.event import MyRegistrationResponse
-from src.services.event_coupon_rules import coupon_is_live
+from src.services.event_coupon_rules import attendee_sees_coupon
 from src.services.email_service import EmailService
 from src.services.event_service import EventService
 
@@ -152,7 +152,7 @@ class EventAttendanceService:
         data.live_open = bool(event.live_open)
         data.questions_open = bool(event.questions_open)
         data.survey_open = bool(event.survey_open)
-        data.coupon_active = coupon_is_live(event)
+        data.coupon_active = await attendee_sees_coupon(db, event, attendee.id)
         return data
 
     # ------------------------------------------------------------------ admin: envío

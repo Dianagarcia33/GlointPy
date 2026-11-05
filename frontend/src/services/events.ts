@@ -513,11 +513,13 @@ export const promoteChatMessage = async (messageId: number): Promise<{ ok: boole
 // ---------------------------------------------------------------------------
 
 export type CouponStatus = 'valid' | 'redeemed' | 'expired' | 'inactive';
+// Para el asistente: 'none' = no fue seleccionado para recibir cupón
 
 export interface MyCoupon {
   full_name: string;
+  assigned: boolean;            // el equipo lo seleccionó para recibir cupón
   active: boolean;
-  status: CouponStatus;
+  status: CouponStatus | 'none';
   code?: string | null;
   percent: number;
   hours: number;
@@ -538,6 +540,20 @@ export interface AdminCouponRow {
   redeemed_order_ref?: string | null;
 }
 
+// Cada asistente vigente, con su cupón si el equipo se lo dio (code/status en null si no)
+export interface AdminCouponCandidate {
+  attendee_id: number;
+  full_name: string;
+  email: string;
+  attendee_type: 'investor' | 'external';
+  attendance_mode: 'in_person' | 'virtual';
+  attended: boolean;            // entró por la puerta (presencial) o se conectó a la sala (virtual)
+  code: string | null;
+  status: CouponStatus | null;
+  redeemed_at?: string | null;
+  redeemed_order_ref?: string | null;
+}
+
 export interface AdminCoupons {
   active: boolean;
   live: boolean;
@@ -547,8 +563,11 @@ export interface AdminCoupons {
   starts_at?: string | null;
   expires_at?: string | null;
   counts: Record<CouponStatus, number>;
-  total: number;
+  total: number;                // cupones entregados
+  eligible: number;             // inscritos vigentes que se pueden elegir
+  candidates: AdminCouponCandidate[];
   coupons: AdminCouponRow[];
+  result?: { assigned?: number; already_had?: number; ignored?: number; revoked?: number; kept_used?: number };
 }
 
 export const getMyCoupon = async (token: string): Promise<MyCoupon> => {
@@ -572,4 +591,13 @@ export const updateCouponConfig = async (percent: number, hours: number, storeUr
 
 export const setCouponsActive = async (active: boolean): Promise<AdminCoupons> => {
   return await fetchApi('/events/admin/coupons/activate', { method: 'POST', body: JSON.stringify({ active }) });
+};
+
+// El equipo elige a quién se le da cupón (no es para todos los inscritos).
+export const assignCoupons = async (attendeeIds: number[]): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons/assign', { method: 'POST', body: JSON.stringify({ attendee_ids: attendeeIds }) });
+};
+
+export const revokeCoupons = async (attendeeIds: number[]): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons/revoke', { method: 'POST', body: JSON.stringify({ attendee_ids: attendeeIds }) });
 };

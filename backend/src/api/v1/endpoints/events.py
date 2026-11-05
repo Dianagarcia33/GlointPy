@@ -498,6 +498,9 @@ class CouponConfigRequest(BaseModel):
 class CouponActiveRequest(BaseModel):
     active: bool
 
+class CouponRecipientsRequest(BaseModel):
+    attendee_ids: List[int]
+
 @router.get("/coupon/{token}")
 async def get_my_coupon(token: str, db: AsyncSession = Depends(get_db)):
     """Cupón personal del asistente (solo con los cupones activados por el equipo)."""
@@ -518,6 +521,16 @@ async def admin_get_coupons(db: AsyncSession = Depends(get_db)):
 async def admin_update_coupon_config(body: CouponConfigRequest, db: AsyncSession = Depends(get_db)):
     """Descuento, vigencia y enlace de la tienda (solo con los cupones desactivados)."""
     return await EventCouponService.update_config(db, body.percent, body.hours, body.store_url)
+
+@router.post("/admin/coupons/assign", dependencies=event_admin)
+async def admin_assign_coupons(body: CouponRecipientsRequest, db: AsyncSession = Depends(get_db)):
+    """Da cupón a los asistentes elegidos por el equipo."""
+    return await EventCouponService.assign(db, body.attendee_ids)
+
+@router.post("/admin/coupons/revoke", dependencies=event_admin)
+async def admin_revoke_coupons(body: CouponRecipientsRequest, db: AsyncSession = Depends(get_db)):
+    """Quita el cupón a los asistentes elegidos (los ya usados se conservan)."""
+    return await EventCouponService.revoke(db, body.attendee_ids)
 
 @router.post("/admin/coupons/activate", dependencies=event_admin)
 async def admin_set_coupons_active(body: CouponActiveRequest, db: AsyncSession = Depends(get_db)):

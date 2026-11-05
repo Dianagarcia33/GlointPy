@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.config import settings
 from src.models.event import Event, EventAttendee, EventLiveSession
 from src.services.email_service import EmailService
-from src.services.event_coupon_rules import coupon_is_live
+from src.services.event_coupon_rules import attendee_sees_coupon
 from src.services.event_attendance_service import EventAttendanceService
 from src.services.event_service import EventService
 
@@ -95,7 +95,7 @@ class EventLiveService:
             "event_title": event.title,
             "event_date": event.event_date,
             "live_open": bool(event.live_open),
-            "coupon_active": coupon_is_live(event),
+            "coupon_active": await attendee_sees_coupon(db, event, attendee.id),
         }
 
     @classmethod
@@ -140,7 +140,7 @@ class EventLiveService:
             session.watch_seconds = (session.watch_seconds or 0) + int(gap)
         session.last_seen_at = now
         await db.commit()
-        return {"live_open": bool(event.live_open), "coupon_active": coupon_is_live(event)}
+        return {"live_open": bool(event.live_open), "coupon_active": await attendee_sees_coupon(db, event, attendee.id)}
 
     # ------------------------------------------------------------------ admin
     @classmethod
