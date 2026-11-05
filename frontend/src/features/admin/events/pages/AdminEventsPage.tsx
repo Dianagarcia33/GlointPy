@@ -612,7 +612,7 @@ export const AdminEventsPage: React.FC = () => {
                 <th className="px-4 py-3.5 whitespace-nowrap">Áreas de Interés</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">Modalidad & Aforo</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">Fecha Registro</th>
-                <th className="px-4 py-3.5 text-right whitespace-nowrap">Acciones</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap sticky right-0 z-10 bg-slate-50 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.18)]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -624,7 +624,7 @@ export const AdminEventsPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredAttendees.map((att) => (
-                  <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={att.id} className="group hover:bg-slate-50/80 transition-colors">
                     
                     {/* Asistente & ID */}
                     <td className="px-4 py-3.5 min-w-[190px]">
@@ -767,7 +767,8 @@ export const AdminEventsPage: React.FC = () => {
                     </td>
 
                     {/* Acciones */}
-                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                    {/* Columna fija a la derecha: la tabla es ancha y en pantallas normales las acciones quedaban fuera de vista */}
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition-colors shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.18)]">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
