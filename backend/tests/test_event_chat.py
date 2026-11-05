@@ -141,6 +141,7 @@ def test_borrar_oculta_el_mensaje_y_avisa_en_vivo():
         db.add_all([_attendee(event, "Ana"), luis])
         await db.commit()
         sent = await Svc.send(db, "tok-Ana", "mensaje a borrar")
+        await chat_hub.drain()   # el envío del mensaje va en segundo plano: que termine antes de conectar a los observadores
         att, adm = FakeWS(), FakeWS()
         chat_hub.connect(att, attendee_id=luis.id)
         chat_hub.connect(adm, admin=True)
@@ -177,6 +178,7 @@ def test_difusion_en_vivo_marca_mine_y_el_equipo_ve_el_id():
         chat_hub.connect(ws_admin, admin=True)
         try:
             await Svc.send(db, "tok-Ana", "Hola")
+            await chat_hub.drain()
         finally:
             for w in (ws_ana, ws_luis, ws_admin):
                 chat_hub.disconnect(w)
@@ -266,9 +268,10 @@ def test_pasar_a_pregunta_avisa_en_vivo_y_rechaza_mensajes_borrados_o_inexistent
         questions_hub.connect(ws, admin=True)
         try:
             await Svc.promote_to_question(db, sent["id"])
+            await questions_hub.flush_now()          # los avisos se agrupan: se envían juntos
         finally:
             questions_hub.disconnect(ws)
-        assert ws.sent == [{"type": "changed"}]
+        assert ws.sent == [{"type": "changed", "scope": "questions"}]
 
         _free_rate_limit()
         gone = await Svc.send(db, "tok-Ana", "este se borra")

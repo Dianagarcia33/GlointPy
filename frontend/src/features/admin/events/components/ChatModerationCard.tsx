@@ -48,6 +48,7 @@ export function ChatModerationCard() {
     let ws: WebSocket | null = null;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let closed = false;
+    let keepalive: ReturnType<typeof setInterval> | null = null;
 
     const connect = () => {
       try {
@@ -56,7 +57,11 @@ export function ChatModerationCard() {
         retry = setTimeout(connect, 5000);
         return;
       }
-      ws.onopen = () => { load(); };
+      ws.onopen = () => {
+        load();
+        // Ping periódico: evita que el proxy corte la conexión por inactividad (típico a los 60 s)
+        keepalive = setInterval(() => { try { ws?.send('ping'); } catch { /* se reconecta en onclose */ } }, 25000);
+      };
       ws.onmessage = (ev) => {
         try {
           const data = JSON.parse(ev.data);
@@ -73,7 +78,10 @@ export function ChatModerationCard() {
           // mensaje que no es JSON: se ignora
         }
       };
-      ws.onclose = () => { if (!closed) retry = setTimeout(connect, 3000); };
+      ws.onclose = () => {
+        if (keepalive) { clearInterval(keepalive); keepalive = null; }
+        if (!closed) retry = setTimeout(connect, 3000 + Math.random() * 3000);
+      };
     };
 
     load();
@@ -82,6 +90,7 @@ export function ChatModerationCard() {
     return () => {
       closed = true;
       if (retry) clearTimeout(retry);
+      if (keepalive) clearInterval(keepalive);
       clearInterval(poll);
       ws?.close();
     };

@@ -4,12 +4,14 @@ Preguntas moderadas de los asistentes al evento Gloint Power Tech.
 - Cualquier inscrito vigente (presencial o virtual) envía preguntas con su enlace personal (`access_token`).
 - Una pregunta nueva queda `pending`: solo su autor la ve. El equipo la aprueba, la rechaza o la marca respondida.
 - Los asistentes votan las aprobadas; las más votadas suben.
-- Cada cambio se avisa por WebSocket (un simple "cambió") y los clientes vuelven a pedir su vista.
+- Los cambios se avisan por WebSocket (un simple "cambió", con su ámbito) y los clientes vuelven a pedir su vista.
+  Para que 200 asistentes no se avalanchen sobre el servidor, los avisos van filtrados y agrupados (ver QuestionsHub).
   (Un único worker de uvicorn: el hub en memoria es suficiente, igual que el chat.)
 """
+import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Set
+from typing import Dict, Set, Tuple
 
 from fastapi import HTTPException, WebSocket
 from sqlalchemy import func, select
@@ -18,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.event import EventAttendee, EventQuestion, EventQuestionVote
 from src.services.event_attendance_service import EventAttendanceService
 from src.services.event_service import EventService
+from src.services import ws_broadcast
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +30,24 @@ MAX_PENDING_PER_ATTENDEE = 3
 MODERATION_STATUSES = {"pending", "approved", "answered", "rejected"}
 
 
+# Los avisos que llegan en este lapso se juntan en uno solo por ámbito: una ráfaga de votos o respuestas no se multiplica
+# por cada asistente conectado.
+COALESCE_SECONDS = 1.5
+
+
 class QuestionsHub:
-    """Conexiones en vivo: asistentes (por token) y paneles de administración."""
+    """
+    Conexiones en vivo: asistentes (por token) y paneles de administración.
+
+    Cada aviso lleva un ámbito (`questions`, `survey`, `coupon`) para que cada panel recargue solo lo que le importa, y
+    puede ir solo al equipo (attendees=False): por ejemplo, que alguien responda la encuesta o envíe una pregunta pendiente
+    no cambia nada para los demás asistentes, así que no les llega aviso ni recargan.
+    """
     def __init__(self):
         self.attendees: Set[WebSocket] = set()
         self.admins: Set[WebSocket] = set()
+        self._pending: Dict[str, bool] = {}   # ámbito -> ¿también a los asistentes?
+        self._task = None
 
     def connect(self, ws: WebSocket, admin: bool):
         (self.admins if admin else self.attendees).add(ws)
@@ -40,12 +56,27 @@ class QuestionsHub:
         self.attendees.discard(ws)
         self.admins.discard(ws)
 
-    async def notify(self):
-        for ws in list(self.attendees | self.admins):
-            try:
-                await ws.send_json({"type": "changed"})
-            except Exception:
-                self.disconnect(ws)
+    async def notify(self, scope: str = "questions", attendees: bool = True):
+        """Registra el aviso y lo envía agrupado, como máximo una vez por ámbito cada COALESCE_SECONDS."""
+        self._pending[scope] = self._pending.get(scope, False) or attendees
+        loop = asyncio.get_running_loop()
+        if self._task is None or self._task.done() or self._task.get_loop() is not loop:
+            self._task = loop.create_task(self._flush_later())
+
+    async def _flush_later(self):
+        await asyncio.sleep(COALESCE_SECONDS)
+        await self.flush_now()
+
+    async def flush_now(self):
+        """Envía ya los avisos pendientes (también lo usan las pruebas)."""
+        pending, self._pending = self._pending, {}
+        targets: list = []
+        for scope, to_attendees in pending.items():
+            payload = {"type": "changed", "scope": scope}
+            targets += [(ws, payload) for ws in list(self.admins)]
+            if to_attendees:
+                targets += [(ws, payload) for ws in list(self.attendees)]
+        await ws_broadcast.send_many(targets, self.disconnect)
 
 
 questions_hub = QuestionsHub()
@@ -121,7 +152,8 @@ class EventQuestionService:
             raise HTTPException(status_code=429, detail=f"Tienes {MAX_PENDING_PER_ATTENDEE} preguntas esperando revisión. Espera a que el equipo las revise.")
         db.add(EventQuestion(event_id=event.id, attendee_id=attendee.id, text=clean, status="pending"))
         await db.commit()
-        await questions_hub.notify()
+        # Una pregunta pendiente solo la ve su autor (que ya se actualiza solo): se avisa únicamente al equipo
+        await questions_hub.notify("questions", attendees=False)
         return {"ok": True}
 
     @classmethod

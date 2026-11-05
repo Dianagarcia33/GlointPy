@@ -148,9 +148,10 @@ def test_comentarios_anonimos_y_aviso_en_vivo():
         try:
             await Svc.set_open(db, True)
             await Svc.submit(db, "tok-Ana", _answers(comment="  Muy   bueno "))
+            await questions_hub.flush_now()
         finally:
             questions_hub.disconnect(ws)
-        assert ws.sent == [{"type": "changed"}] * 2
+        assert ws.sent == [{"type": "changed", "scope": "survey"}]   # abrir + responder se agrupan en un aviso al equipo
         comments = (await Svc.get_results(db))["recent_comments"]
         assert len(comments) == 1 and comments[0]["comment"] == "Muy bueno"
         assert comments[0]["group"] == "investor:in_person"

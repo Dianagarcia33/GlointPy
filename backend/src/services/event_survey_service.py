@@ -80,7 +80,9 @@ class EventSurveyService:
         except IntegrityError:
             await db.rollback()
             raise HTTPException(status_code=409, detail="Ya respondiste la encuesta. ¡Gracias!")
-        await questions_hub.notify()
+        # Una respuesta solo cambia los resultados del equipo: a los demás asistentes no se les avisa (evita que cada
+        # respuesta haga recargar a los 200 conectados)
+        await questions_hub.notify("survey", attendees=False)
         return {"ok": True}
 
     # ------------------------------------------------------------------ admin
@@ -89,7 +91,7 @@ class EventSurveyService:
         event = await EventService.get_or_create_default_event(db)
         event.survey_open = bool(is_open)
         await db.commit()
-        await questions_hub.notify()
+        await questions_hub.notify("survey")  # abrir/cerrar sí le importa a todos: aparece o desaparece la encuesta
         return await cls.get_results(db)
 
     @classmethod

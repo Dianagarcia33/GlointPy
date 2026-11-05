@@ -57,7 +57,8 @@ export function SurveyPanel({ token }: { token: string }) {
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
-  useLiveRefresh(getEventsWebSocketUrl(`/questions/${encodeURIComponent(token)}/ws`), load);
+  // Solo avisos de la encuesta (abrir/cerrar), con espera aleatoria
+  useLiveRefresh(getEventsWebSocketUrl(`/questions/${encodeURIComponent(token)}/ws`), load, 30000, { scopes: ['survey'], jitterMs: 3000 });
 
   const complete = RATING_FIELDS.every((f) => ratings[f]) && nps !== null;
 

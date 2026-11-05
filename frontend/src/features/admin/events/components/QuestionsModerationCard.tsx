@@ -47,7 +47,7 @@ export function QuestionsModerationCard() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useLiveRefresh(getEventsWebSocketUrl('/admin/questions/ws'), load, 15000);
+  useLiveRefresh(getEventsWebSocketUrl('/admin/questions/ws'), load, 15000, { scopes: ['questions'] });
 
   const run = async (action: () => Promise<AdminQuestions>) => {
     setBusy(true);

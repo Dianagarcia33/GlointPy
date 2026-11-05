@@ -6,6 +6,7 @@ Chat en vivo de la sala del evento Gloint Power Tech (solo inscritos virtuales).
 - Cada mensaje nuevo viaja por WebSocket directamente a los asistentes y a los paneles de administración.
   (Un único worker de uvicorn: el hub y el límite de ritmo en memoria son suficientes, igual que el chat.)
 """
+import asyncio
 import logging
 import time
 from datetime import datetime, timezone
@@ -19,6 +20,7 @@ from src.models.event import EventAttendee, EventChatMessage, EventQuestion
 from src.services.event_attendance_service import EventAttendanceService
 from src.services.event_question_service import questions_hub
 from src.services.event_service import EventService
+from src.services import ws_broadcast
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,7 @@ class ChatHub:
     def __init__(self):
         self.attendees: Dict[WebSocket, int] = {}
         self.admins = set()
+        self._tasks: set = set()
 
     def connect(self, ws: WebSocket, attendee_id: Optional[int] = None, admin: bool = False):
         if admin:
@@ -46,27 +49,32 @@ class ChatHub:
         self.attendees.pop(ws, None)
         self.admins.discard(ws)
 
-    async def _send(self, ws: WebSocket, payload: dict):
-        try:
-            await ws.send_json(payload)
-        except Exception:
-            self.disconnect(ws)
+    def spawn(self, coro) -> None:
+        """Lanza un envío en segundo plano: quien escribe no espera a que el mensaje llegue a todos."""
+        task = asyncio.get_running_loop().create_task(coro)
+        self._tasks.add(task)  # referencia fuerte: si no, el recolector podría descartar la tarea a medias
+        task.add_done_callback(self._tasks.discard)
+
+    async def drain(self) -> None:
+        """Espera a que terminen los envíos en segundo plano (pruebas y cierre ordenado)."""
+        if self._tasks:
+            await asyncio.gather(*list(self._tasks), return_exceptions=True)
 
     async def broadcast_message(self, msg: dict):
-        """Los asistentes reciben el mensaje con `mine`; el equipo, además, con el id de la persona."""
-        for ws, aid in list(self.attendees.items()):
-            await self._send(ws, {"type": "message", "message": {**_public(msg), "mine": aid == msg["attendee_id"]}})
-        for ws in list(self.admins):
-            await self._send(ws, {"type": "message", "message": msg})
+        """Los asistentes reciben el mensaje con `mine`; el equipo, además, con el id de la persona. Envío en paralelo."""
+        targets = [(ws, {"type": "message", "message": {**_public(msg), "mine": aid == msg["attendee_id"]}})
+                   for ws, aid in list(self.attendees.items())]
+        targets += [(ws, {"type": "message", "message": msg}) for ws in list(self.admins)]
+        await ws_broadcast.send_many(targets, self.disconnect)
 
     async def broadcast_state(self, chat_open: bool):
         """Avisa a los asistentes que el equipo encendió o apagó el chat."""
-        for ws in list(self.attendees):
-            await self._send(ws, {"type": "chat_state", "chat_open": chat_open})
+        payload = {"type": "chat_state", "chat_open": chat_open}
+        await ws_broadcast.send_many([(ws, payload) for ws in list(self.attendees)], self.disconnect)
 
     async def broadcast_deleted(self, message_id: int):
-        for ws in list(self.attendees) + list(self.admins):
-            await self._send(ws, {"type": "deleted", "id": message_id})
+        payload = {"type": "deleted", "id": message_id}
+        await ws_broadcast.send_many([(ws, payload) for ws in list(self.attendees) + list(self.admins)], self.disconnect)
 
 
 chat_hub = ChatHub()
@@ -138,7 +146,7 @@ class EventChatService:
         await db.commit()
         await db.refresh(message)
         view = cls._view(message, attendee.full_name)
-        await chat_hub.broadcast_message(view)
+        chat_hub.spawn(chat_hub.broadcast_message(view))  # en segundo plano: la respuesta a quien escribe no espera a los 200
         return {"ok": True, "id": message.id}
 
     # ------------------------------------------------------------------ admin

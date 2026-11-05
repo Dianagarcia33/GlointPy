@@ -192,7 +192,8 @@ class EventCouponService:
         else:
             event.coupon_active = False
             await db.commit()
-        await questions_hub.notify()
+        # Los asistentes ven el cupón por la sala (latido) o su página (cada 15 s); el aviso solo es para el equipo
+        await questions_hub.notify("coupon", attendees=False)
         return await cls.admin_overview(db)
 
     # ------------------------------------------------------------------ Gloint Place (app externa)

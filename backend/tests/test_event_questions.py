@@ -182,8 +182,10 @@ def test_cada_cambio_avisa_en_vivo_a_asistentes_y_admins():
             qid = _admin_id(await Svc.admin_list(db), "Una pregunta en vivo")
             await Svc.set_status(db, qid, "approved")
             await Svc.toggle_vote(db, "tok-Ana", qid)
+            await questions_hub.flush_now()
         finally:
             questions_hub.disconnect(att)
             questions_hub.disconnect(adm)
-        assert att.sent == adm.sent == [{"type": "changed"}] * 4
+        # Cuatro cambios seguidos se agrupan en un solo aviso, con su ámbito
+        assert att.sent == adm.sent == [{"type": "changed", "scope": "questions"}]
     _run(scenario)

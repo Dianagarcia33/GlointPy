@@ -51,7 +51,7 @@ export function SurveyResultsCard() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useLiveRefresh(getEventsWebSocketUrl('/admin/questions/ws'), load, 15000);
+  useLiveRefresh(getEventsWebSocketUrl('/admin/questions/ws'), load, 15000, { scopes: ['survey'] });
 
   const toggle = async () => {
     if (!data) return;

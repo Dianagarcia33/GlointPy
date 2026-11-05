@@ -37,7 +37,8 @@ export function QuestionsPanel({ token, embedded = false, fill = false }: { toke
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
-  useLiveRefresh(getEventsWebSocketUrl(`/questions/${encodeURIComponent(token)}/ws`), load);
+  // Solo avisos de preguntas, con espera aleatoria: con 200 asistentes no se piden todos al servidor a la vez
+  useLiveRefresh(getEventsWebSocketUrl(`/questions/${encodeURIComponent(token)}/ws`), load, 30000, { scopes: ['questions'], jitterMs: 3000 });
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
