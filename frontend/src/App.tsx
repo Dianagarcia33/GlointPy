@@ -13,6 +13,7 @@ import { EventAttendancePage } from "./features/events/pages/EventAttendancePage
 import { EventLivePage } from "./features/events/pages/EventLivePage";
 import { EventQuestionsPage } from "./features/events/pages/EventQuestionsPage";
 import { EventSurveyPage } from "./features/events/pages/EventSurveyPage";
+import { EventCouponPage } from "./features/events/pages/EventCouponPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
@@ -142,6 +143,7 @@ function App() {
         <Route path="/evento/en-vivo/:token" element={<EventLivePage />} />
         <Route path="/evento/preguntas/:token" element={<EventQuestionsPage />} />
         <Route path="/evento/encuesta/:token" element={<EventSurveyPage />} />
+        <Route path="/evento/cupon/:token" element={<EventCouponPage />} />
       </Route>
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />

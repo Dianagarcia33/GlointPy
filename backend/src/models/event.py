@@ -24,6 +24,13 @@ class Event(Base):
     questions_open = Column(Boolean, nullable=False, default=False)
     # Chat en vivo de la sala: apagado por defecto; el equipo lo enciende cuando pueda moderarlo
     chat_open = Column(Boolean, nullable=False, default=False)
+    # Cupones de descuento para los asistentes en Gloint Place: un código por asistente, vigente un tiempo desde que el equipo los activa
+    coupon_active = Column(Boolean, nullable=False, default=False)
+    coupon_percent = Column(Integer, nullable=False, default=20)
+    coupon_hours = Column(Integer, nullable=False, default=48)
+    coupon_starts_at = Column(DateTime(timezone=True), nullable=True)
+    coupon_expires_at = Column(DateTime(timezone=True), nullable=True)
+    coupon_store_url = Column(String(500), nullable=True, default="https://glointplace.com.co")
     # Encuesta de satisfacción en vivo: el administrador la abre/cierra durante el evento
     survey_open = Column(Boolean, nullable=False, default=False)
 
@@ -165,3 +172,19 @@ class EventChatMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by = Column(BigInteger, nullable=True)  # usuario del equipo que lo borró
+
+
+class EventCoupon(Base):
+    """Cupón personal de un asistente (un código por asistente y evento, de un solo uso)."""
+    __tablename__ = "event_coupons"
+    __table_args__ = (UniqueConstraint("event_id", "attendee_id", name="uq_coupon_event_attendee"),)
+
+    # with_variant: SQLite (solo en pruebas) no autoincrementa BIGINT; en MySQL sigue siendo BIGINT
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    attendee_id = Column(BigInteger, ForeignKey("event_attendees.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(20), nullable=False, unique=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    redeemed_at = Column(DateTime(timezone=True), nullable=True)      # cuándo lo usó en Gloint Place
+    redeemed_order_ref = Column(String(255), nullable=True)           # referencia de la compra en Gloint Place
+    redeemed_by_app_id = Column(BigInteger, nullable=True)            # app externa que lo canjeó

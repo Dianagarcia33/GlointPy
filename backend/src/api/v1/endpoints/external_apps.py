@@ -20,6 +20,8 @@ from src.schemas.external_app import (
     ResendWebhookResponse
 )
 from src.services.external_app_service import ExternalAppService
+from src.services.event_coupon_service import EventCouponService
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -198,6 +200,51 @@ async def get_payment_status(
         "description": order.description,
         "completed_at": order.completed_at
     }
+
+
+# ==============================================================================
+# CUPONES DEL EVENTO: la tienda (app externa) valida el código y lo marca como usado
+# ==============================================================================
+class CouponValidateRequest(BaseModel):
+    code: str
+
+class CouponRedeemRequest(BaseModel):
+    code: str
+    order_reference: str  # referencia de la compra en la tienda
+
+@router.post("/external-pay/coupons/validate")
+async def validate_event_coupon(
+    req_body: CouponValidateRequest,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    La tienda consulta si un cupón del evento es válido y de cuánto es el descuento.
+    Respuesta: {"valid": true, "percent": 20, "expires_at": ...} o {"valid": false, "reason": "not_found|expired|redeemed|inactive"}.
+    """
+    api_key = x_api_key or authorization
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Se requiere X-API-Key o Authorization Bearer")
+    await ExternalAppService.authenticate_api_key(db, api_key)
+    return await EventCouponService.validate(db, req_body.code)
+
+@router.post("/external-pay/coupons/redeem")
+async def redeem_event_coupon(
+    req_body: CouponRedeemRequest,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    La tienda marca el cupón como usado al confirmar la compra. Un solo uso por código;
+    repetir la misma order_reference es seguro (idempotente). Si ya se usó o venció responde 409.
+    """
+    api_key = x_api_key or authorization
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Se requiere X-API-Key o Authorization Bearer")
+    app = await ExternalAppService.authenticate_api_key(db, api_key)
+    return await EventCouponService.redeem(db, app.id, req_body.code, req_body.order_reference)
 
 
 # ==============================================================================

@@ -21,6 +21,7 @@ from src.schemas.event import (
 from src.services.event_service import EventService
 from src.services.event_attendance_service import EventAttendanceService
 from src.services.event_live_service import EventLiveService
+from src.services.event_coupon_service import EventCouponService
 from src.services.event_chat_service import EventChatService, chat_hub
 from src.services.event_survey_service import EventSurveyService
 from src.services.event_checkin_service import EventCheckinService
@@ -484,6 +485,44 @@ async def chat_admin_ws(websocket: WebSocket):
         pass
     finally:
         chat_hub.disconnect(websocket)
+
+# ==========================================
+# CUPONES DE DESCUENTO PARA GLOINT PLACE
+# ==========================================
+
+class CouponConfigRequest(BaseModel):
+    percent: int
+    hours: int
+    store_url: str
+
+class CouponActiveRequest(BaseModel):
+    active: bool
+
+@router.get("/coupon/{token}")
+async def get_my_coupon(token: str, db: AsyncSession = Depends(get_db)):
+    """Cupón personal del asistente (solo con los cupones activados por el equipo)."""
+    return await EventCouponService.get_for_attendee(db, token)
+
+@router.get("/coupon/{token}/qr.png")
+async def get_my_coupon_qr(token: str, db: AsyncSession = Depends(get_db)):
+    """QR que lleva a Gloint Place con el cupón ya puesto (PNG)."""
+    png = await EventCouponService.get_qr(db, token)
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, no-store"})
+
+@router.get("/admin/coupons", dependencies=event_admin)
+async def admin_get_coupons(db: AsyncSession = Depends(get_db)):
+    """Configuración de los cupones y a quién se le dio cada uno (con su estado)."""
+    return await EventCouponService.admin_overview(db)
+
+@router.put("/admin/coupons/config", dependencies=event_admin)
+async def admin_update_coupon_config(body: CouponConfigRequest, db: AsyncSession = Depends(get_db)):
+    """Descuento, vigencia y enlace de la tienda (solo con los cupones desactivados)."""
+    return await EventCouponService.update_config(db, body.percent, body.hours, body.store_url)
+
+@router.post("/admin/coupons/activate", dependencies=event_admin)
+async def admin_set_coupons_active(body: CouponActiveRequest, db: AsyncSession = Depends(get_db)):
+    """Activa los cupones (genera los códigos y arranca la vigencia) o los desactiva."""
+    return await EventCouponService.set_active(db, body.active)
 
 # ==========================================
 # GESTIÓN DE DOMINIOS AUTORIZADOS (ECOSISTEMA GLOINT)

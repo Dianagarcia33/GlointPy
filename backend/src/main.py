@@ -549,7 +549,13 @@ async def on_startup():
                     "ALTER TABLE events ADD COLUMN live_open TINYINT(1) NOT NULL DEFAULT 0",
                     "ALTER TABLE events ADD COLUMN questions_open TINYINT(1) NOT NULL DEFAULT 0",
                     "ALTER TABLE events ADD COLUMN survey_open TINYINT(1) NOT NULL DEFAULT 0",
-                    "ALTER TABLE events ADD COLUMN chat_open TINYINT(1) NOT NULL DEFAULT 0"
+                    "ALTER TABLE events ADD COLUMN chat_open TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN coupon_active TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN coupon_percent INT NOT NULL DEFAULT 20",
+                    "ALTER TABLE events ADD COLUMN coupon_hours INT NOT NULL DEFAULT 48",
+                    "ALTER TABLE events ADD COLUMN coupon_starts_at DATETIME NULL",
+                    "ALTER TABLE events ADD COLUMN coupon_expires_at DATETIME NULL",
+                    "ALTER TABLE events ADD COLUMN coupon_store_url VARCHAR(500) NULL DEFAULT 'https://glointplace.com.co'"
                 ]:
                     try:
                         await conn.execute(text(col_query))
@@ -644,6 +650,22 @@ async def on_startup():
                         deleted_by BIGINT NULL,
                         INDEX idx_ecm_event (event_id),
                         INDEX idx_ecm_attendee (attendee_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_coupons (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        code VARCHAR(20) NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        redeemed_at DATETIME NULL,
+                        redeemed_order_ref VARCHAR(255) NULL,
+                        redeemed_by_app_id BIGINT NULL,
+                        UNIQUE KEY uq_coupon_event_attendee (event_id, attendee_id),
+                        UNIQUE KEY uq_coupon_code (code),
+                        INDEX idx_ec_event (event_id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
             except Exception as e:

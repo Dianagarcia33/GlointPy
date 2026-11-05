@@ -374,6 +374,14 @@ export const DashboardEventWidget: React.FC = () => {
                         Responder la encuesta de satisfacción
                       </a>
                     )}
+                    {myRegistration.access_token && myRegistration.coupon_active && (
+                      <a
+                        href={`/evento/cupon/${encodeURIComponent(myRegistration.access_token)}`}
+                        className="px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-[0_0_30px_rgba(245,158,11,0.45)] transition-all text-center font-montserrat"
+                      >
+                        🎁 Obtener mi cupón de descuento en Gloint Place
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={() => {

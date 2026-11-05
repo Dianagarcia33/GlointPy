@@ -135,6 +135,7 @@ class MyRegistrationResponse(AttendeeResponse):
     live_open: bool = False              # la transmisión está abierta
     questions_open: bool = False
     survey_open: bool = False
+    coupon_active: bool = False          # los cupones de Gloint Place están disponibles
 
 
 class AdminEventSummaryResponse(BaseModel):

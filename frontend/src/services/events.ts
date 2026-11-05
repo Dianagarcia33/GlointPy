@@ -112,6 +112,7 @@ export interface MyEventRegistration extends AttendeeData {
   live_open: boolean;
   questions_open: boolean;
   survey_open: boolean;
+  coupon_active: boolean;
 }
 
 export const getMyEventRegistration = async (): Promise<MyEventRegistration | null> => {
@@ -196,6 +197,7 @@ export interface LiveStatus {
   event_title: string;
   event_date?: string | null;
   live_open: boolean;
+  coupon_active: boolean;
 }
 
 export interface LiveJoin {
@@ -237,7 +239,7 @@ export const joinLive = async (token: string): Promise<LiveJoin> => {
   return await fetchApi(`/events/live/${encodeURIComponent(token)}/join`, { method: 'POST' });
 };
 
-export const liveHeartbeat = async (token: string, sessionId: string): Promise<{ live_open: boolean }> => {
+export const liveHeartbeat = async (token: string, sessionId: string): Promise<{ live_open: boolean; coupon_active: boolean }> => {
   return await fetchApi(`/events/live/${encodeURIComponent(token)}/heartbeat`, {
     method: 'POST',
     body: JSON.stringify({ session_id: sessionId }),
@@ -504,4 +506,70 @@ export const setChatOpen = async (isOpen: boolean): Promise<AdminChat> => {
 // Convierte un mensaje del chat en pregunta oficial (aprobada) para los presentadores.
 export const promoteChatMessage = async (messageId: number): Promise<{ ok: boolean; question_id: number }> => {
   return await fetchApi(`/events/admin/chat/${messageId}/promote`, { method: 'POST' });
+};
+
+// ---------------------------------------------------------------------------
+// Cupones de descuento para Gloint Place
+// ---------------------------------------------------------------------------
+
+export type CouponStatus = 'valid' | 'redeemed' | 'expired' | 'inactive';
+
+export interface MyCoupon {
+  full_name: string;
+  active: boolean;
+  status: CouponStatus;
+  code?: string | null;
+  percent: number;
+  hours: number;
+  expires_at?: string | null;
+  store_link?: string;
+  redeemed_at?: string | null;
+}
+
+export interface AdminCouponRow {
+  attendee_id: number;
+  full_name: string;
+  email: string;
+  attendee_type: 'investor' | 'external';
+  attendance_mode: 'in_person' | 'virtual';
+  code: string;
+  status: CouponStatus;
+  redeemed_at?: string | null;
+  redeemed_order_ref?: string | null;
+}
+
+export interface AdminCoupons {
+  active: boolean;
+  live: boolean;
+  percent: number;
+  hours: number;
+  store_url: string;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  counts: Record<CouponStatus, number>;
+  total: number;
+  coupons: AdminCouponRow[];
+}
+
+export const getMyCoupon = async (token: string): Promise<MyCoupon> => {
+  return await fetchApi(`/events/coupon/${encodeURIComponent(token)}`);
+};
+
+export const getCouponQrUrl = (token: string): string => {
+  return `${API_URL}/events/coupon/${encodeURIComponent(token)}/qr.png`;
+};
+
+export const getAdminCoupons = async (): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons');
+};
+
+export const updateCouponConfig = async (percent: number, hours: number, storeUrl: string): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons/config', {
+    method: 'PUT',
+    body: JSON.stringify({ percent, hours, store_url: storeUrl }),
+  });
+};
+
+export const setCouponsActive = async (active: boolean): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons/activate', { method: 'POST', body: JSON.stringify({ active }) });
 };

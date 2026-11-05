@@ -46,12 +46,14 @@ export function EventLivePage() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [couponActive, setCouponActive] = useState(false);
   const wasOpen = useRef(false);
 
   const loadStatus = useCallback(async () => {
     try {
       const s = await getLiveStatus(token);
       setStatus(s);
+      setCouponActive(!!s.coupon_active);
       setPhase((p) => {
         if (p === 'watching' || p === 'replaced' || p === 'ended') return p;
         return s.live_open ? 'ready' : 'waiting';
@@ -78,6 +80,7 @@ export function EventLivePage() {
     const id = setInterval(async () => {
       try {
         const res = await liveHeartbeat(token, join.session_id);
+        setCouponActive(!!res.coupon_active);
         if (!res.live_open) setPhase('ended');
       } catch (e: any) {
         const msg = String(e?.message || '');
@@ -143,6 +146,14 @@ export function EventLivePage() {
               Entrar a la transmisión
             </button>
           </div>
+        )}
+
+        {phase === 'watching' && couponActive && (
+          <a href={`/evento/cupon/${encodeURIComponent(token)}`}
+            className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white px-5 py-4 shadow-sm hover:from-orange-600 hover:to-amber-600">
+            <span className="font-bold">🎁 Tienes un cupón de descuento para comprar en Gloint Place</span>
+            <span className="rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold">Ver mi cupón →</span>
+          </a>
         )}
 
         {phase === 'watching' && join && (

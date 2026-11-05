@@ -29,7 +29,8 @@ import {
   Radio,
   ScanLine,
   ClipboardCheck,
-  MessagesSquare
+  MessagesSquare,
+  Ticket
 } from 'lucide-react';
 import { 
   getAdminEventSummary, 
@@ -46,8 +47,9 @@ import { ChatModerationCard } from '../components/ChatModerationCard';
 import { QuestionsModerationCard } from '../components/QuestionsModerationCard';
 import { CheckInCard } from '../components/CheckInCard';
 import { SurveyResultsCard } from '../components/SurveyResultsCard';
+import { CouponsCard } from '../components/CouponsCard';
 
-type EventTab = 'inscritos' | 'transmision' | 'participacion' | 'entrada' | 'encuesta';
+type EventTab = 'inscritos' | 'transmision' | 'participacion' | 'entrada' | 'encuesta' | 'cupones';
 
 const EVENT_TABS: { key: EventTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'inscritos', label: 'Inscritos', icon: Users },
@@ -55,6 +57,7 @@ const EVENT_TABS: { key: EventTab; label: string; icon: React.ComponentType<{ cl
   { key: 'participacion', label: 'Participación', icon: MessagesSquare },
   { key: 'entrada', label: 'Entrada y asistencia', icon: ScanLine },
   { key: 'encuesta', label: 'Encuesta', icon: ClipboardCheck },
+  { key: 'cupones', label: 'Cupones', icon: Ticket },
 ];
 
 const formatInterests = (interests?: string[] | string | null): string[] => {
@@ -835,6 +838,9 @@ export const AdminEventsPage: React.FC = () => {
       )}
       {activeTab === 'entrada' && (
         <div role="tabpanel" id="event-panel-entrada" aria-labelledby="event-tab-entrada"><CheckInCard /></div>
+      )}
+      {activeTab === 'cupones' && (
+        <div role="tabpanel" id="event-panel-cupones" aria-labelledby="event-tab-cupones"><CouponsCard /></div>
       )}
       {activeTab === 'encuesta' && (
         <div role="tabpanel" id="event-panel-encuesta" aria-labelledby="event-tab-encuesta"><SurveyResultsCard /></div>
