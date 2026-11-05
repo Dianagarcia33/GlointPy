@@ -66,7 +66,9 @@ export function CheckInCard() {
   const handle = useCallback(async (action: () => Promise<CheckInResult>) => {
     setBusy(true);
     try {
-      setBanner(describe(await action()));
+      const res = await action();
+      setBanner(describe(res));
+      if (res.result === 'checked_in') navigator.vibrate?.(200); // confirmación táctil en celulares
       refresh();
     } catch (e: any) {
       setBanner({ kind: 'error', text: e?.message || 'No se pudo registrar la entrada.' });
@@ -132,6 +134,9 @@ export function CheckInCard() {
         </div>
       </div>
 
+      {/* La respuesta va arriba, antes de la cámara: en el celular abajo quedaba fuera de pantalla */}
+      {banner && <p role="status" className={`text-base rounded-xl p-4 border font-medium ${bannerCls[banner.kind]}`}>{banner.text}</p>}
+
       <div className="flex flex-wrap items-start gap-4">
         <div className="space-y-2">
           <button onClick={() => setScanning((s) => !s)}
@@ -151,8 +156,6 @@ export function CheckInCard() {
           </div>
         </form>
       </div>
-
-      {banner && <p role="status" className={`text-sm rounded-lg p-3 border font-medium ${bannerCls[banner.kind]}`}>{banner.text}</p>}
 
       {data && (
         <>
