@@ -26,8 +26,8 @@ export function LandingLayout() {
       {/* We only render Footer on Home page, because other pages have SharedFooter or NosotrosFooter */}
       {location.pathname === '/' && <Footer />}
       
-      {/* Global Floating WhatsApp Button */}
-      <WhatsAppButton />
+      {/* Global Floating WhatsApp Button (no en la sala en vivo: en celular tapaba el botón Enviar del chat) */}
+      {!location.pathname.startsWith('/evento/en-vivo/') && <WhatsAppButton />}
 
       {/* Modal Popup con Contador Regresivo para el Evento */}
       <EventCountdownModal />

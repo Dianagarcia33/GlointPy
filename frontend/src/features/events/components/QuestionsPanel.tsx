@@ -22,7 +22,7 @@ const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
  * Preguntas moderadas para presenciales y virtuales. Las preguntas nuevas solo las ve su autor hasta que
  * el equipo las aprueba; las aprobadas se pueden votar. Se actualiza en vivo por WebSocket.
  */
-export function QuestionsPanel({ token, embedded = false }: { token: string; embedded?: boolean }) {
+export function QuestionsPanel({ token, embedded = false, fill = false }: { token: string; embedded?: boolean; fill?: boolean }) {
   const [data, setData] = useState<AttendeeQuestions | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,7 +65,7 @@ export function QuestionsPanel({ token, embedded = false }: { token: string; emb
   };
 
   return (
-    <section className={embedded ? '' : 'mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6'}>
+    <section className={embedded ? (fill ? 'flex flex-col flex-1 min-h-0' : '') : 'mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6'}>
       {!embedded && <h2 className="text-lg font-bold text-slate-900">Preguntas</h2>}
 
       {data && !data.questions_open && (
@@ -73,7 +73,7 @@ export function QuestionsPanel({ token, embedded = false }: { token: string; emb
       )}
 
       {data?.questions_open && (
-        <form onSubmit={send} className="mt-3">
+        <form onSubmit={send} className="mt-3 shrink-0">
           <label htmlFor="question-text" className="sr-only">Tu pregunta</label>
           <textarea id="question-text" value={text} onChange={(e) => setText(e.target.value)} maxLength={MAX_LENGTH} rows={3}
             placeholder="Escribe tu pregunta para los presentadores"
@@ -89,12 +89,12 @@ export function QuestionsPanel({ token, embedded = false }: { token: string; emb
       )}
 
       {message && (
-        <p role="status" className={`mt-3 text-xs rounded-lg p-2.5 border ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+        <p role="status" className={`mt-3 shrink-0 text-xs rounded-lg p-2.5 border ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
           {message.text}
         </p>
       )}
 
-      <ul className="mt-4 space-y-3">
+      <ul className={`mt-4 space-y-3 ${fill ? 'flex-1 min-h-0 overflow-y-auto' : ''}`}>
         {data?.questions.map((q) => {
           const badge = STATUS_LABEL[q.status];
           return (

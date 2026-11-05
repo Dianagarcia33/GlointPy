@@ -18,9 +18,10 @@ function hour(value?: string | null): string {
  * Chat en vivo de la sala (solo virtuales). Los mensajes llegan por WebSocket al instante, con nombre y apellido.
  * Al reconectar se vuelve a pedir el historial, así no se pierde nada si la red se cae.
  */
-export function ChatPanel({ token, embedded = false, onChatOpenChange }: {
+export function ChatPanel({ token, embedded = false, fill = false, onChatOpenChange }: {
   token: string;
   embedded?: boolean;                          // dentro del panel con pestañas: sin marco ni título propios
+  fill?: boolean;                              // llena la altura del contenedor (lista con scroll interno y campo fijo abajo)
   onChatOpenChange?: (open: boolean) => void;  // avisa si el equipo enciende o apaga el chat
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -119,11 +120,11 @@ export function ChatPanel({ token, embedded = false, onChatOpenChange }: {
   const disabled = busy || muted || !chatOpen;
 
   return (
-    <section className={embedded ? '' : 'mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6'}>
+    <section className={embedded ? (fill ? 'flex flex-col flex-1 min-h-0' : '') : 'mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6'}>
       {!embedded && <h2 className="text-lg font-bold text-slate-900">Chat en vivo</h2>}
 
       <ul ref={listRef} onScroll={onScroll} aria-live="polite" aria-label="Mensajes del chat"
-        className="mt-3 h-72 overflow-y-auto space-y-2 rounded-xl bg-slate-50 border border-slate-200 p-3">
+        className={`${fill ? 'mt-1 flex-1 min-h-0' : 'mt-3 h-72'} overflow-y-auto space-y-2 rounded-xl bg-slate-50 border border-slate-200 p-3`}>
         {messages.map((m) => (
           <li key={m.id} className={`text-sm break-words ${m.mine ? 'text-right' : ''}`}>
             <span className={`inline-block max-w-[85%] rounded-xl px-3 py-2 text-left ${m.mine ? 'bg-orange-100 text-slate-900' : 'bg-white border border-slate-200 text-slate-800'}`}>
@@ -135,11 +136,11 @@ export function ChatPanel({ token, embedded = false, onChatOpenChange }: {
         {messages.length === 0 && <li className="text-sm text-slate-500">Aún no hay mensajes. ¡Saluda a los demás asistentes!</li>}
       </ul>
 
-      {muted && <p className="mt-3 text-xs rounded-lg p-2.5 border bg-amber-50 border-amber-200 text-amber-800">El equipo te silenció en el chat. Puedes seguir viendo los mensajes.</p>}
-      {!chatOpen && !muted && <p className="mt-3 text-xs text-slate-500">El chat no está activado en este momento.</p>}
-      {error && !muted && <p role="alert" className="mt-3 text-xs rounded-lg p-2.5 border bg-red-50 border-red-200 text-red-700">{error}</p>}
+      {muted && <p className="mt-3 shrink-0 text-xs rounded-lg p-2.5 border bg-amber-50 border-amber-200 text-amber-800">El equipo te silenció en el chat. Puedes seguir viendo los mensajes.</p>}
+      {!chatOpen && !muted && <p className="mt-3 shrink-0 text-xs text-slate-500">El chat no está activado en este momento.</p>}
+      {error && !muted && <p role="alert" className="mt-3 shrink-0 text-xs rounded-lg p-2.5 border bg-red-50 border-red-200 text-red-700">{error}</p>}
 
-      <form onSubmit={send} className="mt-3 flex gap-2">
+      <form onSubmit={send} className="mt-3 shrink-0 flex gap-2">
         <label htmlFor="chat-text" className="sr-only">Escribe un mensaje</label>
         <input id="chat-text" value={text} onChange={(e) => setText(e.target.value)} maxLength={MAX_LENGTH} autoComplete="off"
           disabled={muted || !chatOpen} placeholder={muted ? 'Estás silenciado' : 'Escribe un mensaje'}

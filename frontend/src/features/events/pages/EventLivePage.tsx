@@ -104,7 +104,7 @@ export function EventLivePage() {
 
   return (
     <div className="pt-24 pb-16 min-h-screen bg-slate-50 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className={`mx-auto ${phase === 'watching' ? 'max-w-[1600px]' : 'max-w-4xl'}`}>
         <p className="text-xs font-bold tracking-widest text-orange-600 uppercase">Gloint Power Tech</p>
         <h1 className="mt-1 text-2xl font-bold text-slate-900">Transmisión en vivo</h1>
 
@@ -146,7 +146,8 @@ export function EventLivePage() {
         )}
 
         {phase === 'watching' && join && (
-          <div className="mt-6 rounded-2xl overflow-hidden bg-black shadow-sm">
+          <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="self-start rounded-2xl overflow-hidden bg-black shadow-sm">
             {join.playback_id === SIMULATED_PLAYBACK_ID ? (
               <SimulatedPlayer />
             ) : (
@@ -160,10 +161,16 @@ export function EventLivePage() {
               />
             )}
           </div>
+          {/* Chat y preguntas al lado del video (como en Twitch). En pantalla grande iguala la altura del video; en celular va debajo */}
+          <aside aria-label="Chat y preguntas" className="relative h-[32rem] lg:h-auto">
+            <div className="absolute inset-0">
+              <ParticipationPanel token={token} fill />
+            </div>
+          </aside>
+          </div>
         )}
 
         {phase === 'watching' && <SurveyPanel token={token} />}
-        {phase === 'watching' && <ParticipationPanel token={token} />}
 
         {phase === 'replaced' && (
           <p role="alert" className="mt-6 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm p-4">

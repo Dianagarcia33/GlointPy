@@ -9,7 +9,7 @@ type Tab = 'chat' | 'preguntas';
  * La pestaña Chat aparece solo cuando el equipo enciende el chat (y desaparece si lo apaga).
  * Los dos paneles quedan montados y solo se ocultan, para no perder mensajes ni la conexión al cambiar de pestaña.
  */
-export function ParticipationPanel({ token }: { token: string }) {
+export function ParticipationPanel({ token, fill = false }: { token: string; fill?: boolean }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('preguntas');
   const userChose = useRef(false);
@@ -28,8 +28,8 @@ export function ParticipationPanel({ token }: { token: string }) {
   ];
 
   return (
-    <section className="mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
-      <div role="tablist" aria-label="Participación" className="flex gap-1 border-b border-slate-200">
+    <section className={fill ? 'h-full flex flex-col min-h-0 bg-white border border-slate-200 rounded-2xl p-4' : 'mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6'}>
+      <div role="tablist" aria-label="Participación" className="flex shrink-0 gap-1 border-b border-slate-200">
         {tabs.map((t) => (
           <button key={t.key} role="tab" type="button" id={`part-tab-${t.key}`} aria-selected={tab === t.key}
             aria-controls={`part-panel-${t.key}`} onClick={() => pick(t.key)}
@@ -38,11 +38,11 @@ export function ParticipationPanel({ token }: { token: string }) {
           </button>
         ))}
       </div>
-      <div role="tabpanel" id="part-panel-chat" aria-labelledby="part-tab-chat" className={`mt-4 ${tab === 'chat' && chatOpen ? '' : 'hidden'}`}>
-        <ChatPanel token={token} embedded onChatOpenChange={onChatOpenChange} />
+      <div role="tabpanel" id="part-panel-chat" aria-labelledby="part-tab-chat" className={`mt-4 ${tab === 'chat' && chatOpen ? (fill ? 'flex flex-col flex-1 min-h-0' : '') : 'hidden'}`}>
+        <ChatPanel token={token} embedded fill={fill} onChatOpenChange={onChatOpenChange} />
       </div>
-      <div role="tabpanel" id="part-panel-preguntas" aria-labelledby="part-tab-preguntas" className={`mt-4 ${tab === 'preguntas' ? '' : 'hidden'}`}>
-        <QuestionsPanel token={token} embedded />
+      <div role="tabpanel" id="part-panel-preguntas" aria-labelledby="part-tab-preguntas" className={`mt-4 ${tab === 'preguntas' ? (fill ? 'flex flex-col flex-1 min-h-0' : '') : 'hidden'}`}>
+        <QuestionsPanel token={token} embedded fill={fill} />
       </div>
     </section>
   );
