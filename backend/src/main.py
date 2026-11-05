@@ -539,7 +539,14 @@ async def on_startup():
                     "ALTER TABLE event_attendees ADD COLUMN access_token VARCHAR(64) NULL",
                     "ALTER TABLE event_attendees ADD COLUMN attendance_confirmed_at DATETIME NULL",
                     "ALTER TABLE event_attendees ADD COLUMN attendance_email_sent_at DATETIME NULL",
-                    "CREATE UNIQUE INDEX uq_ea_access_token ON event_attendees (access_token)"
+                    "CREATE UNIQUE INDEX uq_ea_access_token ON event_attendees (access_token)",
+                    "ALTER TABLE event_attendees ADD COLUMN live_invite_sent_at DATETIME NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN checked_in_at DATETIME NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN checked_in_by BIGINT NULL",
+                    "ALTER TABLE events ADD COLUMN live_playback_id VARCHAR(100) NULL",
+                    "ALTER TABLE events ADD COLUMN live_open TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN questions_open TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN survey_open TINYINT(1) NOT NULL DEFAULT 0"
                 ]:
                     try:
                         await conn.execute(text(col_query))
@@ -562,6 +569,63 @@ async def on_startup():
                         INDEX idx_ead_event (event_id),
                         INDEX idx_ead_domain (domain),
                         INDEX idx_ead_apikey (api_key)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_live_sessions (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        session_id VARCHAR(64) NOT NULL,
+                        first_joined_at DATETIME NOT NULL,
+                        last_seen_at DATETIME NOT NULL,
+                        watch_seconds INT NOT NULL DEFAULT 0,
+                        join_count INT NOT NULL DEFAULT 1,
+                        UNIQUE KEY uq_live_event_attendee (event_id, attendee_id),
+                        INDEX idx_els_event (event_id),
+                        INDEX idx_els_attendee (attendee_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_questions (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        text VARCHAR(500) NOT NULL,
+                        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        moderated_at DATETIME NULL,
+                        INDEX idx_eq_event (event_id),
+                        INDEX idx_eq_attendee (attendee_id),
+                        INDEX idx_eq_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_question_votes (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        question_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        UNIQUE KEY uq_question_vote (question_id, attendee_id),
+                        INDEX idx_eqv_question (question_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_survey_responses (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        overall_rating INT NOT NULL,
+                        content_rating INT NOT NULL,
+                        speakers_rating INT NOT NULL,
+                        organization_rating INT NOT NULL,
+                        nps INT NOT NULL,
+                        comment TEXT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        UNIQUE KEY uq_survey_event_attendee (event_id, attendee_id),
+                        INDEX idx_esr_event (event_id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
             except Exception as e:

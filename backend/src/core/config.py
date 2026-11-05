@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     SENDER_EMAIL: str = "soporte@gloint.com.co"
 
+    # Mux (transmisión en vivo del evento). Clave de firma de reproducción: la llave privada va en base64.
+    MUX_SIGNING_KEY_ID: Optional[str] = None
+    MUX_SIGNING_PRIVATE_KEY: Optional[str] = None
+
     # Gemini AI Settings (Chatbot de Inversión)
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-1.5-flash"

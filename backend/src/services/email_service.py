@@ -515,3 +515,20 @@ class EmailService:
                 "content_id": qr_cid,
             }]
         return cls.send_html_email(to_email, subject, html, attachments=attachments)
+
+    @classmethod
+    def send_event_live_invitation_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[object],
+        access_token: str,
+    ) -> bool:
+        """Invitación a la sala en vivo del evento con el enlace personal del inscrito virtual."""
+        from src.services.email_template_service import EmailTemplateService
+        live_url = f"{settings.FRONTEND_URL.rstrip('/')}/evento/en-vivo/{access_token}"
+        subject, html = EmailTemplateService.get_event_live_invitation_template(
+            user_name=user_name, event_title=event_title, event_date=event_date, live_url=live_url,
+        )
+        return cls.send_html_email(to_email, subject, html)

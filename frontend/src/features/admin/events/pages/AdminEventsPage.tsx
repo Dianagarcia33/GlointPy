@@ -36,6 +36,10 @@ import {
   EventConfigPayload 
 } from '../../../../services/events';
 import { AttendanceEmailsCard } from '../components/AttendanceEmailsCard';
+import { LiveRoomCard } from '../components/LiveRoomCard';
+import { QuestionsModerationCard } from '../components/QuestionsModerationCard';
+import { CheckInCard } from '../components/CheckInCard';
+import { SurveyResultsCard } from '../components/SurveyResultsCard';
 
 const formatInterests = (interests?: string[] | string | null): string[] => {
   if (!interests) return [];
@@ -391,6 +395,14 @@ export const AdminEventsPage: React.FC = () => {
       </div>
 
       <AttendanceEmailsCard onSent={loadSummary} />
+
+      <LiveRoomCard />
+
+      <QuestionsModerationCard />
+
+      <CheckInCard />
+
+      <SurveyResultsCard />
 
       {feedbackMsg && (
         <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in shadow-xs ${

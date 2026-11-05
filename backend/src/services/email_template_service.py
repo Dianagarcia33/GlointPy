@@ -1480,3 +1480,48 @@ class EmailTemplateService:
         )
         return subject, html
 
+    @classmethod
+    def get_event_live_invitation_template(
+        cls,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[datetime],
+        live_url: str,
+    ) -> Tuple[str, str]:
+        """Invitación a la sala en vivo (asistencia virtual) con enlace personal e intransferible."""
+        title_ev = event_title or "Gloint Power Tech"
+        subject = f"Tu acceso a la transmisión en vivo: {title_ev} - GLOINT"
+        preheader = f"Hola {user_name}, este es tu enlace personal para ver {title_ev} en vivo."
+        formatted_date = cls._format_event_datetime(event_date)
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Estimado/a <strong>{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Estás inscrito/a en <strong>{title_ev}</strong> con asistencia <strong>virtual</strong>.
+            La transmisión se verá directamente en la plataforma de Gloint con tu enlace personal.
+        </p>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; margin: 22px 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.85;">
+                <tr><td style="font-weight: 600; width: 130px; color: #64748b; padding: 4px 0;">Evento:</td>
+                    <td style="font-weight: 800; color: #0f172a; padding: 4px 0;">{title_ev}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b; padding: 4px 0;">Fecha y hora:</td>
+                    <td style="color: #0f172a; font-weight: 700; padding: 4px 0;">{formatted_date}</td></tr>
+            </table>
+        </div>
+        <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #9a3412; line-height: 1.65;">
+            • Tu enlace es <strong>personal e intransferible</strong>: no lo compartas.<br>
+            • Solo puede estar activo en un dispositivo a la vez.<br>
+            • Puedes abrirlo antes de la hora; la transmisión se habilita cuando el evento comience.
+        </div>
+        """
+        html = cls.build_corporate_email_layout(
+            title="Tu acceso a la transmisión en vivo",
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="TRANSMISIÓN EN VIVO • VIRTUAL",
+            badge_variant="orange",
+            cta_text="Entrar a la transmisión",
+            cta_url=live_url,
+        )
+        return subject, html

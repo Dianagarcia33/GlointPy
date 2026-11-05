@@ -97,6 +97,16 @@ export function EventAttendancePage() {
                   <p className="mt-6 text-sm text-slate-600">¿Nos acompañarás en persona? Si no respondes, tu inscripción se mantiene como está.</p>
                 )}
 
+                <a href={`/evento/preguntas/${encodeURIComponent(token)}`}
+                   className="mt-5 block text-center rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-3">
+                  Enviar una pregunta a los presentadores
+                </a>
+
+                <a href={`/evento/encuesta/${encodeURIComponent(token)}`}
+                   className="mt-3 block text-center rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-3">
+                  Responder la encuesta de satisfacción
+                </a>
+
                 <div className="mt-5 flex justify-center">
                   <img src={getAttendanceQrUrl(token)} alt="Código QR de acceso" width={200} height={200}
                        className="border border-slate-200 rounded-xl p-2 bg-white" />

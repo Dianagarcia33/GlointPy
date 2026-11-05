@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 
@@ -19,6 +19,10 @@ from src.schemas.event import (
 )
 from src.services.event_service import EventService
 from src.services.event_attendance_service import EventAttendanceService
+from src.services.event_live_service import EventLiveService
+from src.services.event_survey_service import EventSurveyService
+from src.services.event_checkin_service import EventCheckinService
+from src.services.event_question_service import EventQuestionService, questions_hub
 from pydantic import BaseModel
 from fastapi import Request, Response
 
@@ -148,6 +152,234 @@ async def get_attendance_qr(token: str, db: AsyncSession = Depends(get_db)):
     """QR único del inscrito (PNG)."""
     png = await EventAttendanceService.get_qr(db, token)
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
+
+# ==========================================
+# SALA EN VIVO (transmisión Mux incrustada, acceso por enlace personal)
+# ==========================================
+
+class LiveHeartbeatRequest(BaseModel):
+    session_id: str
+
+class LiveConfigRequest(BaseModel):
+    live_playback_id: Optional[str] = None
+    live_open: Optional[bool] = None
+
+class LiveInvitationsRequest(BaseModel):
+    send: bool = False  # False = solo vista previa de destinatarios
+
+@router.get("/live/{token}")
+async def get_live_status(token: str, db: AsyncSession = Depends(get_db)):
+    """Estado de la sala para el inscrito virtual identificado por su enlace personal."""
+    return await EventLiveService.get_status(db, token)
+
+@router.post("/live/{token}/join")
+async def join_live(token: str, db: AsyncSession = Depends(get_db)):
+    """Registra la entrada a la sala y entrega el permiso de reproducción. Toma la sesión activa del enlace."""
+    return await EventLiveService.join(db, token)
+
+@router.post("/live/{token}/heartbeat")
+async def live_heartbeat(token: str, body: LiveHeartbeatRequest, db: AsyncSession = Depends(get_db)):
+    """Latido de presencia: suma permanencia y avisa si el enlace se abrió en otro dispositivo (409)."""
+    return await EventLiveService.heartbeat(db, token, body.session_id)
+
+@router.get("/admin/live", dependencies=event_admin)
+async def get_live_overview(db: AsyncSession = Depends(get_db)):
+    """Quién está conectado ahora, quién entró y cuánto tiempo estuvo."""
+    return await EventLiveService.get_overview(db)
+
+@router.put("/admin/live/config", dependencies=event_admin)
+async def update_live_config(body: LiveConfigRequest, db: AsyncSession = Depends(get_db)):
+    """Playback ID de Mux y apertura/cierre de la sala."""
+    return await EventLiveService.update_config(db, body.live_playback_id, body.live_open)
+
+@router.post("/admin/live/invitations", dependencies=event_admin)
+async def send_live_invitations(body: LiveInvitationsRequest, db: AsyncSession = Depends(get_db)):
+    """Invita a los virtuales que aún no tienen invitación. send=false devuelve solo la lista de destinatarios."""
+    return await EventLiveService.send_invitations(db, body.send)
+
+@router.post("/admin/attendees/{attendee_id}/live-invitation", dependencies=event_admin)
+async def send_live_invitation_to_attendee(attendee_id: int, db: AsyncSession = Depends(get_db)):
+    """Envía la invitación a la sala en vivo a un solo inscrito virtual (pruebas o reenvíos)."""
+    return await EventLiveService.send_invitation_to_attendee(db, attendee_id)
+
+# ==========================================
+# PREGUNTAS MODERADAS (presenciales y virtuales)
+# ==========================================
+
+class QuestionRequest(BaseModel):
+    text: str
+
+class QuestionStatusRequest(BaseModel):
+    status: str  # pending | approved | answered | rejected
+
+class QuestionsOpenRequest(BaseModel):
+    is_open: bool
+
+@router.get("/questions/{token}")
+async def list_my_questions(token: str, db: AsyncSession = Depends(get_db)):
+    """Preguntas aprobadas de todos y las propias, con votos."""
+    return await EventQuestionService.list_for_attendee(db, token)
+
+@router.post("/questions/{token}")
+async def submit_question(token: str, body: QuestionRequest, db: AsyncSession = Depends(get_db)):
+    """Envía una pregunta: queda pendiente hasta que el equipo la apruebe."""
+    return await EventQuestionService.submit(db, token, body.text)
+
+@router.post("/questions/{token}/{question_id}/vote")
+async def vote_question(token: str, question_id: int, db: AsyncSession = Depends(get_db)):
+    """Vota (o quita el voto) de una pregunta aprobada."""
+    return await EventQuestionService.toggle_vote(db, token, question_id)
+
+@router.get("/admin/questions", dependencies=event_admin)
+async def admin_list_questions(db: AsyncSession = Depends(get_db)):
+    return await EventQuestionService.admin_list(db)
+
+@router.put("/admin/questions/open", dependencies=event_admin)
+async def admin_set_questions_open(body: QuestionsOpenRequest, db: AsyncSession = Depends(get_db)):
+    """Abre o cierra la recepción de preguntas."""
+    return await EventQuestionService.set_open(db, body.is_open)
+
+@router.put("/admin/questions/{question_id}", dependencies=event_admin)
+async def admin_moderate_question(question_id: int, body: QuestionStatusRequest, db: AsyncSession = Depends(get_db)):
+    """Aprueba, rechaza o marca como respondida una pregunta."""
+    return await EventQuestionService.set_status(db, question_id, body.status)
+
+@router.websocket("/questions/{token}/ws")
+async def questions_attendee_ws(websocket: WebSocket, token: str):
+    """Aviso en vivo de cambios en las preguntas para un asistente (el token del enlace lo identifica)."""
+    from src.core.database import async_session_maker
+    from src.api.v1.endpoints.chat import ws_origin_ok
+
+    await websocket.accept()
+    if not ws_origin_ok(websocket):
+        return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+    async with async_session_maker() as db:
+        try:
+            await EventQuestionService._attendee(db, token)
+        except HTTPException:
+            return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Enlace no válido")
+    questions_hub.connect(websocket, admin=False)
+    try:
+        while True:
+            await websocket.receive_text()  # mantiene la conexión; el cliente puede enviar pings
+    except WebSocketDisconnect:
+        pass
+    finally:
+        questions_hub.disconnect(websocket)
+
+@router.websocket("/admin/questions/ws")
+async def questions_admin_ws(websocket: WebSocket):
+    """Aviso en vivo para el panel de moderación (misma autenticación que el chat + permiso de eventos)."""
+    from jose import jwt, JWTError
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from src.core.database import async_session_maker
+    from src.core.config import settings
+    from src.core.pbac import PBACEngine
+    from src.core.session_revocation import is_session_current
+    from src.models.security import Role
+    from src.api.v1.endpoints.chat import ws_origin_ok
+
+    await websocket.accept()
+    deny = lambda reason: websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=reason)
+    if not ws_origin_ok(websocket):
+        return await deny("Origen no permitido")
+    auth_token = websocket.cookies.get("access_token") or websocket.query_params.get("token")
+    if not auth_token:
+        return await deny("Token de autenticación no proporcionado")
+    try:
+        payload = jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = int(payload.get("sub"))
+    except (JWTError, TypeError, ValueError):
+        return await deny("Token inválido")
+
+    async with async_session_maker() as db:
+        user = (await db.execute(
+            select(User).options(selectinload(User.roles).selectinload(Role.permissions)).where(User.id == user_id)
+        )).scalars().first()
+        if not user or not user.is_active or not any(PBACEngine.has_permission(user, p) for p in EVENT_ADMIN_PERMISSIONS):
+            return await deny("Acceso denegado")
+        if not await is_session_current(db, payload, user):
+            return await deny("Sesión revocada o expirada")
+
+    questions_hub.connect(websocket, admin=True)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        questions_hub.disconnect(websocket)
+
+# ==========================================
+# CONTROL DE ENTRADA PRESENCIAL (QR) Y LISTA UNIFICADA DE ASISTENCIA
+# ==========================================
+
+class CheckInRequest(BaseModel):
+    code: str  # contenido del QR (GLT-PT:<token>), el token suelto o el enlace del correo
+
+@router.post("/admin/checkin", dependencies=event_admin)
+async def check_in_by_qr(
+    body: CheckInRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Registra la entrada presencial al escanear el QR del inscrito. Un segundo escaneo avisa que ya ingresó."""
+    return await EventCheckinService.check_in_by_code(db, body.code, current_user.id)
+
+@router.post("/admin/attendees/{attendee_id}/checkin", dependencies=event_admin)
+async def check_in_attendee(
+    attendee_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Registra la entrada de un inscrito elegido en la lista (sin QR: celular sin batería, etc.)."""
+    return await EventCheckinService.check_in_by_id(db, attendee_id, current_user.id)
+
+@router.delete("/admin/attendees/{attendee_id}/checkin", dependencies=event_admin)
+async def undo_attendee_check_in(attendee_id: int, db: AsyncSession = Depends(get_db)):
+    """Deshace una entrada registrada por error."""
+    return await EventCheckinService.undo_check_in(db, attendee_id)
+
+@router.get("/admin/attendance", dependencies=event_admin)
+async def get_unified_attendance(db: AsyncSession = Depends(get_db)):
+    """Lista unificada de asistencia de los cuatro grupos (inversionista/externo × presencial/virtual)."""
+    return await EventCheckinService.get_attendance(db)
+
+# ==========================================
+# ENCUESTA DE SATISFACCIÓN EN VIVO
+# ==========================================
+
+class SurveyAnswers(BaseModel):
+    overall_rating: int
+    content_rating: int
+    speakers_rating: int
+    organization_rating: int
+    nps: int
+    comment: Optional[str] = None
+
+class SurveyOpenRequest(BaseModel):
+    is_open: bool
+
+@router.get("/survey/{token}")
+async def get_survey_status(token: str, db: AsyncSession = Depends(get_db)):
+    """Estado de la encuesta para el inscrito identificado por su enlace personal."""
+    return await EventSurveyService.get_public_status(db, token)
+
+@router.post("/survey/{token}")
+async def submit_survey(token: str, body: SurveyAnswers, db: AsyncSession = Depends(get_db)):
+    """Registra la respuesta del inscrito (una sola) y avisa en vivo al panel de administración."""
+    return await EventSurveyService.submit(db, token, body.model_dump())
+
+@router.get("/admin/survey/results", dependencies=event_admin)
+async def get_survey_results(db: AsyncSession = Depends(get_db)):
+    """Resultados en conjunto y por los cuatro grupos (anónimos)."""
+    return await EventSurveyService.get_results(db)
+
+@router.put("/admin/survey/open", dependencies=event_admin)
+async def set_survey_open(body: SurveyOpenRequest, db: AsyncSession = Depends(get_db)):
+    """Abre o cierra la encuesta durante el evento."""
+    return await EventSurveyService.set_open(db, body.is_open)
 
 # ==========================================
 # GESTIÓN DE DOMINIOS AUTORIZADOS (ECOSISTEMA GLOINT)

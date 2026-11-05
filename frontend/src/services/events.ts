@@ -178,3 +178,263 @@ export const sendAttendanceEmailToAttendee = async (attendeeId: number): Promise
   return await fetchApi(`/events/admin/attendees/${attendeeId}/attendance-email`, { method: 'POST' });
 };
 
+
+// ---------------------------------------------------------------------------
+// Sala en vivo (transmisión Mux incrustada, acceso por enlace personal)
+// ---------------------------------------------------------------------------
+
+export interface LiveStatus {
+  full_name: string;
+  event_title: string;
+  event_date?: string | null;
+  live_open: boolean;
+}
+
+export interface LiveJoin {
+  session_id: string;
+  playback_id: string;
+  playback_token: string | null;
+  heartbeat_seconds: number;
+}
+
+export interface LiveAttendeeRow {
+  attendee_id: number;
+  full_name: string;
+  email: string;
+  attendee_type: 'investor' | 'external';
+  invited_at?: string | null;
+  first_joined_at?: string | null;
+  last_seen_at?: string | null;
+  watch_minutes: number;
+  joins: number;
+  online: boolean;
+}
+
+export interface LiveOverview {
+  live_open: boolean;
+  live_playback_id: string | null;
+  signing_configured: boolean;
+  total_virtual: number;
+  invited: number;
+  joined: number;
+  online_now: number;
+  attendees: LiveAttendeeRow[];
+}
+
+export const getLiveStatus = async (token: string): Promise<LiveStatus> => {
+  return await fetchApi(`/events/live/${encodeURIComponent(token)}`);
+};
+
+export const joinLive = async (token: string): Promise<LiveJoin> => {
+  return await fetchApi(`/events/live/${encodeURIComponent(token)}/join`, { method: 'POST' });
+};
+
+export const liveHeartbeat = async (token: string, sessionId: string): Promise<{ live_open: boolean }> => {
+  return await fetchApi(`/events/live/${encodeURIComponent(token)}/heartbeat`, {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+};
+
+export const getLiveOverview = async (): Promise<LiveOverview> => {
+  return await fetchApi('/events/admin/live');
+};
+
+export const updateLiveConfig = async (payload: { live_playback_id?: string; live_open?: boolean }): Promise<LiveOverview> => {
+  return await fetchApi('/events/admin/live/config', { method: 'PUT', body: JSON.stringify(payload) });
+};
+
+// send=false solo devuelve la lista de destinatarios; send=true encola el envío real.
+export const sendLiveInvitations = async (send: boolean): Promise<AttendanceEmailsResult> => {
+  return await fetchApi('/events/admin/live/invitations', { method: 'POST', body: JSON.stringify({ send }) });
+};
+
+export const sendLiveInvitationToAttendee = async (attendeeId: number): Promise<{ sent: boolean; email: string }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/live-invitation`, { method: 'POST' });
+};
+
+// ---------------------------------------------------------------------------
+// Preguntas moderadas (presenciales y virtuales)
+// ---------------------------------------------------------------------------
+
+export type QuestionStatus = 'pending' | 'approved' | 'answered' | 'rejected';
+
+export interface AttendeeQuestion {
+  id: number;
+  text: string;
+  status: QuestionStatus;
+  author: string;
+  mine: boolean;
+  votes: number;
+  voted: boolean;
+  created_at?: string | null;
+}
+
+export interface AttendeeQuestions {
+  questions_open: boolean;
+  attendee_name: string;
+  questions: AttendeeQuestion[];
+}
+
+export interface AdminQuestion {
+  id: number;
+  text: string;
+  status: QuestionStatus;
+  votes: number;
+  author: string;
+  email?: string | null;
+  attendee_type?: 'investor' | 'external' | null;
+  attendance_mode?: 'in_person' | 'virtual' | null;
+  created_at?: string | null;
+}
+
+export interface AdminQuestions {
+  questions_open: boolean;
+  counts: Record<QuestionStatus, number>;
+  questions: AdminQuestion[];
+}
+
+export const getMyQuestions = async (token: string): Promise<AttendeeQuestions> => {
+  return await fetchApi(`/events/questions/${encodeURIComponent(token)}`);
+};
+
+export const submitQuestion = async (token: string, text: string): Promise<{ ok: boolean }> => {
+  return await fetchApi(`/events/questions/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify({ text }) });
+};
+
+export const voteQuestion = async (token: string, questionId: number): Promise<{ voted: boolean }> => {
+  return await fetchApi(`/events/questions/${encodeURIComponent(token)}/${questionId}/vote`, { method: 'POST' });
+};
+
+export const getAdminQuestions = async (): Promise<AdminQuestions> => {
+  return await fetchApi('/events/admin/questions');
+};
+
+export const setQuestionsOpen = async (isOpen: boolean): Promise<AdminQuestions> => {
+  return await fetchApi('/events/admin/questions/open', { method: 'PUT', body: JSON.stringify({ is_open: isOpen }) });
+};
+
+export const moderateQuestion = async (questionId: number, status: QuestionStatus): Promise<AdminQuestions> => {
+  return await fetchApi(`/events/admin/questions/${questionId}`, { method: 'PUT', body: JSON.stringify({ status }) });
+};
+
+// URL del WebSocket de eventos (mismo criterio que el chat: ws/wss según el origen de la API).
+export const getEventsWebSocketUrl = (path: string): string => {
+  let base = API_URL;
+  if (base.startsWith('/')) {
+    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+    base = `${protocol}//${host}${base}`;
+  } else {
+    base = base.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+  }
+  return `${base}/events${path}`;
+};
+
+// ---------------------------------------------------------------------------
+// Control de entrada presencial (QR) y lista unificada de asistencia
+// ---------------------------------------------------------------------------
+
+export interface CheckInEntry {
+  id: number;
+  full_name: string;
+  email: string;
+  attendee_type: 'investor' | 'external';
+  seats_reserved: number;
+  companion_name?: string | null;
+  checked_in_at?: string | null;
+}
+
+export interface CheckInResult {
+  result: 'checked_in' | 'already_checked_in';
+  attendee: CheckInEntry;
+}
+
+export interface UnifiedAttendeeRow {
+  id: number;
+  full_name: string;
+  email: string;
+  phone?: string | null;
+  attendee_type: 'investor' | 'external';
+  attendance_mode: 'in_person' | 'virtual';
+  seats_reserved: number;
+  attended: boolean;
+  checked_in_at?: string | null;
+  live_first_joined_at?: string | null;
+  live_watch_minutes: number;
+}
+
+export interface UnifiedAttendance {
+  groups: Record<string, { registered: number; attended: number }>;
+  in_person_registered: number;
+  in_person_checked_in: number;
+  seats_expected: number;
+  seats_checked_in: number;
+  attendees: UnifiedAttendeeRow[];
+}
+
+export const checkInByCode = async (code: string): Promise<CheckInResult> => {
+  return await fetchApi('/events/admin/checkin', { method: 'POST', body: JSON.stringify({ code }) });
+};
+
+export const checkInAttendee = async (attendeeId: number): Promise<CheckInResult> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/checkin`, { method: 'POST' });
+};
+
+export const undoCheckIn = async (attendeeId: number): Promise<{ ok: boolean }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/checkin`, { method: 'DELETE' });
+};
+
+export const getUnifiedAttendance = async (): Promise<UnifiedAttendance> => {
+  return await fetchApi('/events/admin/attendance');
+};
+
+// ---------------------------------------------------------------------------
+// Encuesta de satisfacción en vivo
+// ---------------------------------------------------------------------------
+
+export const RATING_FIELDS = ['overall_rating', 'content_rating', 'speakers_rating', 'organization_rating'] as const;
+export type RatingField = (typeof RATING_FIELDS)[number];
+
+export interface SurveyStatus {
+  full_name: string;
+  event_title: string;
+  survey_open: boolean;
+  already_answered: boolean;
+}
+
+export interface SurveyAnswers extends Record<RatingField, number> {
+  nps: number;
+  comment?: string;
+}
+
+export interface SurveyStats {
+  total: number;
+  averages: Record<RatingField, number | null>;
+  nps: { score: number | null; promoters: number; passives: number; detractors: number };
+}
+
+export interface SurveyResults {
+  survey_open: boolean;
+  eligible_attendees: number;
+  overall: SurveyStats;
+  groups: Record<string, SurveyStats>;
+  distributions: Record<RatingField, Record<string, number>>;
+  recent_comments: { comment: string; group: string; created_at?: string | null }[];
+}
+
+export const getSurveyStatus = async (token: string): Promise<SurveyStatus> => {
+  return await fetchApi(`/events/survey/${encodeURIComponent(token)}`);
+};
+
+export const submitSurvey = async (token: string, answers: SurveyAnswers): Promise<{ ok: boolean }> => {
+  return await fetchApi(`/events/survey/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify(answers) });
+};
+
+export const getSurveyResults = async (): Promise<SurveyResults> => {
+  return await fetchApi('/events/admin/survey/results');
+};
+
+export const setSurveyOpen = async (isOpen: boolean): Promise<SurveyResults> => {
+  return await fetchApi('/events/admin/survey/open', { method: 'PUT', body: JSON.stringify({ is_open: isOpen }) });
+};

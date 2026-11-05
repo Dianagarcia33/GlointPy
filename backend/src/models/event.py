@@ -1,5 +1,5 @@
 import secrets
-from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy import Column, Integer, BigInteger, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from src.core.database import Base
@@ -17,7 +17,14 @@ class Event(Base):
     capacity_in_person = Column(Integer, nullable=False, default=100)
     is_active = Column(Boolean, nullable=False, default=True)
     banner_active = Column(Boolean, nullable=False, default=True)
-    
+    # Transmisión en vivo (Mux): id de reproducción y si la sala está abierta a los asistentes virtuales
+    live_playback_id = Column(String(100), nullable=True)
+    live_open = Column(Boolean, nullable=False, default=False)
+    # Preguntas de los asistentes (moderadas): el administrador las abre/cierra durante el evento
+    questions_open = Column(Boolean, nullable=False, default=False)
+    # Encuesta de satisfacción en vivo: el administrador la abre/cierra durante el evento
+    survey_open = Column(Boolean, nullable=False, default=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -53,6 +60,9 @@ class EventAttendee(Base):
     access_token = Column(String(64), unique=True, index=True, nullable=True, default=lambda: secrets.token_urlsafe(32))
     attendance_confirmed_at = Column(DateTime(timezone=True), nullable=True)   # confirmó asistencia presencial
     attendance_email_sent_at = Column(DateTime(timezone=True), nullable=True)  # último correo de confirmación enviado
+    live_invite_sent_at = Column(DateTime(timezone=True), nullable=True)       # última invitación a la sala en vivo enviada
+    checked_in_at = Column(DateTime(timezone=True), nullable=True)             # entrada presencial registrada (QR escaneado)
+    checked_in_by = Column(BigInteger, nullable=True)                          # usuario del equipo que registró la entrada
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -79,3 +89,61 @@ class EventAuthorizedDomain(Base):
 
     event = relationship("Event", back_populates="authorized_domains")
 
+
+
+class EventLiveSession(Base):
+    """Conexión de un inscrito virtual a la sala en vivo: quién entró, cuándo y cuánto tiempo estuvo."""
+    __tablename__ = "event_live_sessions"
+    __table_args__ = (UniqueConstraint("event_id", "attendee_id", name="uq_live_event_attendee"),)
+
+    # with_variant: SQLite (solo en pruebas) no autoincrementa BIGINT; en MySQL sigue siendo BIGINT
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    attendee_id = Column(BigInteger, ForeignKey("event_attendees.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(String(64), nullable=False)  # sesión activa: solo un dispositivo a la vez por enlace
+    first_joined_at = Column(DateTime(timezone=True), nullable=False)
+    last_seen_at = Column(DateTime(timezone=True), nullable=False)
+    watch_seconds = Column(Integer, nullable=False, default=0)
+    join_count = Column(Integer, nullable=False, default=1)
+
+
+class EventQuestion(Base):
+    """Pregunta de un asistente (presencial o virtual). Solo se muestra a los demás cuando el equipo la aprueba."""
+    __tablename__ = "event_questions"
+
+    # with_variant: SQLite (solo en pruebas) no autoincrementa BIGINT; en MySQL sigue siendo BIGINT
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    attendee_id = Column(BigInteger, ForeignKey("event_attendees.id", ondelete="CASCADE"), nullable=False, index=True)
+    text = Column(String(500), nullable=False)
+    status = Column(String(20), nullable=False, default="pending")  # 'pending' | 'approved' | 'answered' | 'rejected'
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    moderated_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class EventQuestionVote(Base):
+    """Voto de un asistente a una pregunta aprobada (uno por asistente y pregunta)."""
+    __tablename__ = "event_question_votes"
+    __table_args__ = (UniqueConstraint("question_id", "attendee_id", name="uq_question_vote"),)
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    question_id = Column(BigInteger, ForeignKey("event_questions.id", ondelete="CASCADE"), nullable=False, index=True)
+    attendee_id = Column(BigInteger, ForeignKey("event_attendees.id", ondelete="CASCADE"), nullable=False, index=True)
+
+
+class EventSurveyResponse(Base):
+    """Respuesta a la encuesta de satisfacción (una por inscrito). En pantalla se muestra sin nombre, solo por grupo."""
+    __tablename__ = "event_survey_responses"
+    __table_args__ = (UniqueConstraint("event_id", "attendee_id", name="uq_survey_event_attendee"),)
+
+    # with_variant: SQLite (solo en pruebas) no autoincrementa BIGINT; en MySQL sigue siendo BIGINT
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    attendee_id = Column(BigInteger, ForeignKey("event_attendees.id", ondelete="CASCADE"), nullable=False, index=True)
+    overall_rating = Column(Integer, nullable=False)       # 1-5 experiencia general
+    content_rating = Column(Integer, nullable=False)       # 1-5 contenido
+    speakers_rating = Column(Integer, nullable=False)      # 1-5 presentadores
+    organization_rating = Column(Integer, nullable=False)  # 1-5 organización / calidad de la transmisión
+    nps = Column(Integer, nullable=False)                  # 0-10: ¿recomendaría el evento?
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
