@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Sparkles, 
   Calendar, 
@@ -24,7 +25,11 @@ import {
   Briefcase,
   Mail,
   Phone,
-  X
+  X,
+  Radio,
+  MessageCircleQuestion,
+  ScanLine,
+  ClipboardCheck
 } from 'lucide-react';
 import { 
   getAdminEventSummary, 
@@ -40,6 +45,16 @@ import { LiveRoomCard } from '../components/LiveRoomCard';
 import { QuestionsModerationCard } from '../components/QuestionsModerationCard';
 import { CheckInCard } from '../components/CheckInCard';
 import { SurveyResultsCard } from '../components/SurveyResultsCard';
+
+type EventTab = 'inscritos' | 'transmision' | 'preguntas' | 'entrada' | 'encuesta';
+
+const EVENT_TABS: { key: EventTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'inscritos', label: 'Inscritos', icon: Users },
+  { key: 'transmision', label: 'Transmisión en vivo', icon: Radio },
+  { key: 'preguntas', label: 'Preguntas', icon: MessageCircleQuestion },
+  { key: 'entrada', label: 'Entrada y asistencia', icon: ScanLine },
+  { key: 'encuesta', label: 'Encuesta', icon: ClipboardCheck },
+];
 
 const formatInterests = (interests?: string[] | string | null): string[] => {
   if (!interests) return [];
@@ -81,6 +96,11 @@ export const AdminEventsPage: React.FC = () => {
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  // La pestaña activa vive en la URL (?tab=) para poder recargar o compartir sin perderla
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const activeTab: EventTab = EVENT_TABS.some((t) => t.key === requestedTab) ? (requestedTab as EventTab) : 'inscritos';
+  const selectTab = (tab: EventTab) => setSearchParams(tab === 'inscritos' ? {} : { tab }, { replace: true });
 
   // Formulario de Configuración
   const [formData, setFormData] = useState<EventConfigPayload>({
@@ -394,15 +414,27 @@ export const AdminEventsPage: React.FC = () => {
         </div>
       </div>
 
-      <AttendanceEmailsCard onSent={loadSummary} />
-
-      <LiveRoomCard />
-
-      <QuestionsModerationCard />
-
-      <CheckInCard />
-
-      <SurveyResultsCard />
+      <div role="tablist" aria-label="Secciones del evento" className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {EVENT_TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            id={`event-tab-${key}`}
+            role="tab"
+            type="button"
+            aria-selected={activeTab === key}
+            aria-controls={`event-panel-${key}`}
+            onClick={() => selectTab(key)}
+            className={`inline-flex items-center gap-2 px-4 py-3 text-xs font-bold font-montserrat whitespace-nowrap border-b-2 -mb-px transition-colors cursor-pointer ${
+              activeTab === key
+                ? 'border-brand-600 text-brand-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
 
       {feedbackMsg && (
         <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in shadow-xs ${
@@ -414,6 +446,10 @@ export const AdminEventsPage: React.FC = () => {
           <span>{feedbackMsg.text}</span>
         </div>
       )}
+
+      {activeTab === 'inscritos' && (
+      <div role="tabpanel" id="event-panel-inscritos" aria-labelledby="event-tab-inscritos" className="space-y-6">
+      <AttendanceEmailsCard onSent={loadSummary} />
 
       {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -780,6 +816,22 @@ export const AdminEventsPage: React.FC = () => {
         </div>
 
       </div>
+
+      </div>
+      )}
+
+      {activeTab === 'transmision' && (
+        <div role="tabpanel" id="event-panel-transmision" aria-labelledby="event-tab-transmision"><LiveRoomCard /></div>
+      )}
+      {activeTab === 'preguntas' && (
+        <div role="tabpanel" id="event-panel-preguntas" aria-labelledby="event-tab-preguntas"><QuestionsModerationCard /></div>
+      )}
+      {activeTab === 'entrada' && (
+        <div role="tabpanel" id="event-panel-entrada" aria-labelledby="event-tab-entrada"><CheckInCard /></div>
+      )}
+      {activeTab === 'encuesta' && (
+        <div role="tabpanel" id="event-panel-encuesta" aria-labelledby="event-tab-encuesta"><SurveyResultsCard /></div>
+      )}
 
       {/* Modal Ficha Completa del Asistente */}
       {selectedAttendee && (
