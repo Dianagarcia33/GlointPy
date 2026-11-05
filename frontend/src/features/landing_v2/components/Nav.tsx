@@ -12,9 +12,12 @@ import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../../../store/authStore";
 export function Nav() {
   const location = useLocation();
   const navigate = useNavigate();
+  // Las páginas del evento son públicas pero las ven también usuarios con sesión: en ese caso no se les pide iniciar sesión
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const page = location.pathname === "/" ? "home" : location.pathname.substring(1);
 
   const [open, setOpen] = useState(false);
@@ -166,18 +169,30 @@ export function Nav() {
 
         {/* CTA */}
         <div className="hidden lg:flex items-center gap-3">
-          <button 
-            onClick={() => navigate('/login')}
-            className="px-4 py-2 rounded-lg text-sm font-medium" style={{ color: "#cbd5e1" }}>
-            Iniciar sesión
-          </button>
-          <button
-            onClick={() => navigate('/onboarding')}
-            className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all"
-            style={{ background: "linear-gradient(180deg, #F6CB62 0%, #E8A83E 100%)", color: "#140e02" }}
-          >
-            Crear Cuenta
-          </button>
+          {isAuthenticated ? (
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all"
+              style={{ background: "linear-gradient(180deg, #F6CB62 0%, #E8A83E 100%)", color: "#140e02" }}
+            >
+              Ir a mi cuenta
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => navigate('/login')}
+                className="px-4 py-2 rounded-lg text-sm font-medium" style={{ color: "#cbd5e1" }}>
+                Iniciar sesión
+              </button>
+              <button
+                onClick={() => navigate('/onboarding')}
+                className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all"
+                style={{ background: "linear-gradient(180deg, #F6CB62 0%, #E8A83E 100%)", color: "#140e02" }}
+              >
+                Crear Cuenta
+              </button>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -218,12 +233,20 @@ export function Nav() {
             </div>
           )}
           <button onClick={() => go("contact")} className="text-white text-sm font-medium py-2 text-left">Contacto</button>
-          <button onClick={() => navigate('/login')} className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold w-full border" style={{ borderColor: "rgba(255,255,255,0.2)", color: "#fff" }}>
-            Iniciar sesión
-          </button>
-          <button onClick={() => navigate('/onboarding')} className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: "linear-gradient(180deg, #F6CB62 0%, #E8A83E 100%)", color: "#140e02" }}>
-            Crear Cuenta
-          </button>
+          {isAuthenticated ? (
+            <button onClick={() => navigate('/dashboard')} className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: "linear-gradient(180deg, #F6CB62 0%, #E8A83E 100%)", color: "#140e02" }}>
+              Ir a mi cuenta
+            </button>
+          ) : (
+            <>
+              <button onClick={() => navigate('/login')} className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold w-full border" style={{ borderColor: "rgba(255,255,255,0.2)", color: "#fff" }}>
+                Iniciar sesión
+              </button>
+              <button onClick={() => navigate('/onboarding')} className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: "linear-gradient(180deg, #F6CB62 0%, #E8A83E 100%)", color: "#140e02" }}>
+                Crear Cuenta
+              </button>
+            </>
+          )}
         </div>
       )}
     </nav>
