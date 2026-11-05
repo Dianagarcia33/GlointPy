@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.event import Event, EventAttendee
+from src.schemas.event import MyRegistrationResponse
 from src.services.email_service import EmailService
 from src.services.event_service import EventService
 
@@ -123,6 +124,24 @@ class EventAttendanceService:
             await db.refresh(attendee)
             logger.info(f"[EventAttendance] Inscrito {attendee.id} cambió a modalidad virtual desde el enlace del correo.")
         return cls._public_view(attendee, event)
+
+    @classmethod
+    async def get_my_access(cls, db: AsyncSession, user) -> Optional[MyRegistrationResponse]:
+        """
+        Inscripción vigente del usuario con sesión iniciada, con su enlace personal y el estado de la sala
+        (transmisión, preguntas y encuesta). Así puede entrar al evento desde su dashboard sin buscar el correo.
+        """
+        event = await EventService.get_or_create_default_event(db)
+        attendee = await EventService.find_attendee_for_user(db, event.id, user, confirmed_only=True)
+        if not attendee:
+            return None
+        await cls._ensure_tokens(db, [attendee])
+        data = MyRegistrationResponse.model_validate(attendee, from_attributes=True)
+        data.access_token = attendee.access_token
+        data.live_open = bool(event.live_open)
+        data.questions_open = bool(event.questions_open)
+        data.survey_open = bool(event.survey_open)
+        return data
 
     # ------------------------------------------------------------------ admin: envío
     @staticmethod

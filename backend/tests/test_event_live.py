@@ -218,3 +218,30 @@ def test_plantilla_de_invitacion_lleva_enlace_personal():
         "Ana", "Gloint Power Tech", datetime(2026, 11, 20, 15, 0), "https://x.co/evento/en-vivo/tok-Ana")
     assert "transmisión en vivo" in subject.lower()
     assert "https://x.co/evento/en-vivo/tok-Ana" in html and "intransferible" in html
+
+
+def test_mi_acceso_entrega_enlace_y_estado_solo_de_la_propia_inscripcion():
+    """Un inversionista con sesión ve su enlace personal y si la sala/preguntas/encuesta están abiertas."""
+    from types import SimpleNamespace
+
+    async def scenario(db, event):
+        mine = _attendee(event, "Ana", attendee_type="investor", user_id=7)
+        other = _attendee(event, "Luis", attendee_type="investor", user_id=8)
+        db.add_all([mine, other])
+        await db.commit()
+        from src.services.event_attendance_service import EventAttendanceService
+        user = SimpleNamespace(id=7, email="ana@x.co", document_number=None, document_id=None)
+
+        closed = await EventAttendanceService.get_my_access(db, user)
+        assert closed.access_token == "tok-Ana" and closed.attendance_mode == "virtual"
+        assert (closed.live_open, closed.questions_open, closed.survey_open) == (False, False, False)
+
+        event_row = await db.get(Event, 1)
+        event_row.live_open, event_row.questions_open, event_row.survey_open = True, True, True
+        await db.commit()
+        opened = await EventAttendanceService.get_my_access(db, user)
+        assert (opened.live_open, opened.questions_open, opened.survey_open) == (True, True, True)
+
+        stranger = SimpleNamespace(id=99, email="nadie@x.co", document_number=None, document_id=None)
+        assert await EventAttendanceService.get_my_access(db, stranger) is None   # sin inscripción: nada
+    _run(scenario)

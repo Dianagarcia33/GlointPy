@@ -106,7 +106,15 @@ export const registerInvestorAttendee = async (payload: InvestorRsvpPayload): Pr
   });
 };
 
-export const getMyEventRegistration = async (): Promise<AttendeeData | null> => {
+// Inscripción del propio usuario + enlace personal y estado de la sala (para entrar al evento desde el dashboard).
+export interface MyEventRegistration extends AttendeeData {
+  access_token?: string | null;
+  live_open: boolean;
+  questions_open: boolean;
+  survey_open: boolean;
+}
+
+export const getMyEventRegistration = async (): Promise<MyEventRegistration | null> => {
   return await fetchApi('/events/my-registration');
 };
 

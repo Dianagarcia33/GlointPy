@@ -7,6 +7,7 @@ from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
 from src.schemas.event import (
     EventPublicResponse,
+    MyRegistrationResponse,
     EventConfigUpdate,
     InvestorRsvpRequest,
     PublicRsvpRequest,
@@ -62,15 +63,16 @@ async def register_investor_attendee(
     """
     return await EventService.register_investor(db, current_user, rsvp_data)
 
-@router.get("/my-registration", response_model=Optional[AttendeeResponse])
+@router.get("/my-registration", response_model=Optional[MyRegistrationResponse])
 async def get_my_event_registration(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Ruta autenticada para verificar si el usuario actual ya confirmó su asistencia.
+    Inscripción del usuario con sesión iniciada (incluida la del formulario externo, por email o documento),
+    con su enlace personal y el estado de la transmisión, las preguntas y la encuesta.
     """
-    return await EventService.get_my_registration(db, current_user)
+    return await EventAttendanceService.get_my_access(db, current_user)
 
 @router.get("/admin/summary", response_model=AdminEventSummaryResponse, dependencies=event_admin)
 async def get_admin_event_summary(
