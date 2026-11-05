@@ -105,11 +105,18 @@ export function LiveRoomCard() {
             <p className="text-xs text-slate-500">Transmisión Mux incrustada. Cada virtual entra con su enlace personal.</p>
           </div>
         </div>
-        <button onClick={toggleOpen} disabled={busy || !data}
-          className={`rounded-xl px-4 py-2 text-xs font-bold text-white disabled:opacity-50 ${data?.live_open ? 'bg-slate-800 hover:bg-slate-900' : 'bg-red-500 hover:bg-red-600'}`}>
+        <button onClick={toggleOpen} disabled={busy || !data || (!data.live_open && !data.live_playback_id)}
+          title={data && !data.live_open && !data.live_playback_id ? 'Guarda primero un Playback ID (o escribe «simulado» para probar)' : undefined}
+          className={`rounded-xl px-4 py-2 text-xs font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed ${data?.live_open ? 'bg-slate-800 hover:bg-slate-900' : 'bg-red-500 hover:bg-red-600'}`}>
           {data?.live_open ? 'Cerrar sala' : 'Abrir sala'}
         </button>
       </div>
+
+      {message && (
+        <p role="status" className={`text-xs rounded-lg p-2.5 border ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          {message.text}
+        </p>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-2">
         <input value={playbackId} onChange={(e) => setPlaybackId(e.target.value)} placeholder="Playback ID de Mux"
@@ -119,6 +126,11 @@ export function LiveRoomCard() {
           Guardar
         </button>
       </div>
+      {data && !data.live_open && !data.live_playback_id && (
+        <p className="text-xs rounded-lg bg-slate-50 border border-slate-200 text-slate-700 p-2.5">
+          Para abrir la sala primero escribe un Playback ID y pulsa <strong>Guardar</strong>.
+        </p>
+      )}
       <p className="text-xs text-slate-500">Para probar sin Mux escribe <code className="font-mono bg-slate-100 px-1 rounded">simulado</code> como Playback ID: la sala mostrará un reproductor de prueba.</p>
       {data && !data.signing_configured && data.live_playback_id !== 'simulado' && (
         <p className="text-xs rounded-lg bg-amber-50 border border-amber-200 text-amber-800 p-2.5">
@@ -160,12 +172,6 @@ export function LiveRoomCard() {
       </div>
       {preview && preview.recipients > 0 && (
         <p className="text-xs text-slate-500 break-words">Destinatarios: {preview.emails.join(', ')}</p>
-      )}
-
-      {message && (
-        <p role="status" className={`text-xs rounded-lg p-2.5 border ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
-          {message.text}
-        </p>
       )}
 
       {data && data.attendees.length > 0 && (
