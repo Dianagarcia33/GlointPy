@@ -27,7 +27,6 @@ import {
   Phone,
   X,
   Radio,
-  MessageCircleQuestion,
   ScanLine,
   ClipboardCheck,
   MessagesSquare
@@ -48,13 +47,12 @@ import { QuestionsModerationCard } from '../components/QuestionsModerationCard';
 import { CheckInCard } from '../components/CheckInCard';
 import { SurveyResultsCard } from '../components/SurveyResultsCard';
 
-type EventTab = 'inscritos' | 'transmision' | 'chat' | 'preguntas' | 'entrada' | 'encuesta';
+type EventTab = 'inscritos' | 'transmision' | 'participacion' | 'entrada' | 'encuesta';
 
 const EVENT_TABS: { key: EventTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'inscritos', label: 'Inscritos', icon: Users },
   { key: 'transmision', label: 'Transmisión en vivo', icon: Radio },
-  { key: 'chat', label: 'Chat en vivo', icon: MessagesSquare },
-  { key: 'preguntas', label: 'Preguntas', icon: MessageCircleQuestion },
+  { key: 'participacion', label: 'Participación', icon: MessagesSquare },
   { key: 'entrada', label: 'Entrada y asistencia', icon: ScanLine },
   { key: 'encuesta', label: 'Encuesta', icon: ClipboardCheck },
 ];
@@ -101,7 +99,9 @@ export const AdminEventsPage: React.FC = () => {
   const [configError, setConfigError] = useState<string | null>(null);
   // La pestaña activa vive en la URL (?tab=) para poder recargar o compartir sin perderla
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get('tab');
+  // Enlaces antiguos (?tab=chat / ?tab=preguntas) llevan a la pestaña unificada
+  const rawTab = searchParams.get('tab');
+  const requestedTab = rawTab === 'chat' || rawTab === 'preguntas' ? 'participacion' : rawTab;
   const activeTab: EventTab = EVENT_TABS.some((t) => t.key === requestedTab) ? (requestedTab as EventTab) : 'inscritos';
   const selectTab = (tab: EventTab) => setSearchParams(tab === 'inscritos' ? {} : { tab }, { replace: true });
 
@@ -826,11 +826,12 @@ export const AdminEventsPage: React.FC = () => {
       {activeTab === 'transmision' && (
         <div role="tabpanel" id="event-panel-transmision" aria-labelledby="event-tab-transmision"><LiveRoomCard /></div>
       )}
-      {activeTab === 'chat' && (
-        <div role="tabpanel" id="event-panel-chat" aria-labelledby="event-tab-chat"><ChatModerationCard /></div>
-      )}
-      {activeTab === 'preguntas' && (
-        <div role="tabpanel" id="event-panel-preguntas" aria-labelledby="event-tab-preguntas"><QuestionsModerationCard /></div>
+      {activeTab === 'participacion' && (
+        <div role="tabpanel" id="event-panel-participacion" aria-labelledby="event-tab-participacion"
+          className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          <ChatModerationCard />
+          <QuestionsModerationCard />
+        </div>
       )}
       {activeTab === 'entrada' && (
         <div role="tabpanel" id="event-panel-entrada" aria-labelledby="event-tab-entrada"><CheckInCard /></div>

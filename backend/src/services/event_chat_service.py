@@ -15,8 +15,9 @@ from fastapi import HTTPException, WebSocket
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models.event import EventAttendee, EventChatMessage
+from src.models.event import EventAttendee, EventChatMessage, EventQuestion
 from src.services.event_attendance_service import EventAttendanceService
+from src.services.event_question_service import questions_hub
 from src.services.event_service import EventService
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,11 @@ class ChatHub:
         for ws in list(self.admins):
             await self._send(ws, {"type": "message", "message": msg})
 
+    async def broadcast_state(self, chat_open: bool):
+        """Avisa a los asistentes que el equipo encendió o apagó el chat."""
+        for ws in list(self.attendees):
+            await self._send(ws, {"type": "chat_state", "chat_open": chat_open})
+
     async def broadcast_deleted(self, message_id: int):
         for ws in list(self.attendees) + list(self.admins):
             await self._send(ws, {"type": "deleted", "id": message_id})
@@ -86,6 +92,11 @@ class EventChatService:
         return attendee
 
     @staticmethod
+    def _available(event) -> bool:
+        """El chat funciona con la transmisión abierta y solo si el equipo lo encendió."""
+        return bool(event.live_open and event.chat_open)
+
+    @staticmethod
     def _view(m: EventChatMessage, author: str) -> dict:
         return {"id": m.id, "author": author, "text": m.text, "created_at": _iso(m.created_at), "attendee_id": m.attendee_id}
 
@@ -99,7 +110,7 @@ class EventChatService:
             .where(EventChatMessage.event_id == event.id, EventChatMessage.deleted_at.is_(None))
             .order_by(EventChatMessage.id.desc()).limit(HISTORY_LIMIT))).all()
         messages = [{**_public(cls._view(m, name)), "mine": m.attendee_id == attendee.id} for m, name in reversed(rows)]
-        return {"chat_open": bool(event.live_open), "muted": bool(attendee.chat_muted), "messages": messages}
+        return {"chat_open": cls._available(event), "muted": bool(attendee.chat_muted), "messages": messages}
 
     @classmethod
     async def send(cls, db: AsyncSession, token: str, text: str) -> dict:
@@ -107,6 +118,8 @@ class EventChatService:
         event = await EventService.get_or_create_default_event(db)
         if not event.live_open:
             raise HTTPException(status_code=400, detail="El chat solo está disponible mientras la transmisión está abierta.")
+        if not event.chat_open:
+            raise HTTPException(status_code=400, detail="El chat no está activado en este momento.")
         if attendee.chat_muted:
             raise HTTPException(status_code=403, detail="El equipo te silenció en el chat.")
         clean = " ".join((text or "").split())
@@ -137,10 +150,45 @@ class EventChatService:
             .join(EventAttendee, EventAttendee.id == EventChatMessage.attendee_id)
             .where(EventChatMessage.event_id == event.id, EventChatMessage.deleted_at.is_(None))
             .order_by(EventChatMessage.id.desc()).limit(300))).all()
+        promoted = set((await db.execute(select(EventQuestion.chat_message_id).where(
+            EventQuestion.event_id == event.id, EventQuestion.chat_message_id.isnot(None)))).scalars().all())
         return {
-            "chat_open": bool(event.live_open),
-            "messages": [{**cls._view(m, name), "muted": bool(muted)} for m, name, muted in reversed(rows)],
+            "chat_open": bool(event.chat_open),
+            "live_open": bool(event.live_open),
+            "messages": [{**cls._view(m, name), "muted": bool(muted), "is_question": m.id in promoted}
+                         for m, name, muted in reversed(rows)],
         }
+
+    @classmethod
+    async def set_open(cls, db: AsyncSession, is_open: bool) -> dict:
+        """Enciende o apaga el chat. Los asistentes conectados lo ven cambiar al instante."""
+        event = await EventService.get_or_create_default_event(db)
+        event.chat_open = bool(is_open)
+        await db.commit()
+        await chat_hub.broadcast_state(cls._available(event))
+        return await cls.admin_list(db)
+
+    @classmethod
+    async def promote_to_question(cls, db: AsyncSession, message_id: int) -> dict:
+        """
+        El equipo convierte un mensaje del chat en pregunta oficial para los presentadores. Queda aprobada
+        (ya pasó por el criterio del equipo), a nombre de quien la escribió, y el mensaje original se conserva.
+        """
+        message = (await db.execute(select(EventChatMessage).where(
+            EventChatMessage.id == message_id, EventChatMessage.deleted_at.is_(None)))).scalar_one_or_none()
+        if not message:
+            raise HTTPException(status_code=404, detail="Mensaje no encontrado.")
+        existing = (await db.execute(select(EventQuestion.id).where(
+            EventQuestion.chat_message_id == message_id))).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Este mensaje ya es una pregunta.")
+        question = EventQuestion(event_id=message.event_id, attendee_id=message.attendee_id, text=message.text[:500],
+                                 status="approved", moderated_at=datetime.now(timezone.utc), chat_message_id=message.id)
+        db.add(question)
+        await db.commit()
+        await db.refresh(question)
+        await questions_hub.notify()
+        return {"ok": True, "question_id": question.id}
 
     @classmethod
     async def delete_message(cls, db: AsyncSession, message_id: int, user_id: Optional[int]) -> dict:

@@ -404,6 +404,9 @@ class ChatMessageRequest(BaseModel):
 class ChatMuteRequest(BaseModel):
     muted: bool
 
+class ChatOpenRequest(BaseModel):
+    is_open: bool
+
 @router.get("/chat/{token}")
 async def get_chat_history(token: str, db: AsyncSession = Depends(get_db)):
     """Últimos mensajes del chat para el inscrito virtual identificado por su enlace personal."""
@@ -441,6 +444,16 @@ async def chat_attendee_ws(websocket: WebSocket, token: str):
 @router.get("/admin/chat", dependencies=event_admin)
 async def admin_list_chat(db: AsyncSession = Depends(get_db)):
     return await EventChatService.admin_list(db)
+
+@router.put("/admin/chat/open", dependencies=event_admin)
+async def admin_set_chat_open(body: ChatOpenRequest, db: AsyncSession = Depends(get_db)):
+    """Enciende o apaga el chat en vivo (apagado por defecto)."""
+    return await EventChatService.set_open(db, body.is_open)
+
+@router.post("/admin/chat/{message_id}/promote", dependencies=event_admin)
+async def admin_promote_chat_message(message_id: int, db: AsyncSession = Depends(get_db)):
+    """Convierte un mensaje del chat en pregunta oficial (aprobada) para los presentadores."""
+    return await EventChatService.promote_to_question(db, message_id)
 
 @router.delete("/admin/chat/{message_id}", dependencies=event_admin)
 async def admin_delete_chat_message(

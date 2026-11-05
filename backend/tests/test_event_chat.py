@@ -11,24 +11,25 @@ for _k, _v in {"DB_HOST": "x", "DB_USER": "x", "DB_PASSWORD": "x", "DB_NAME": "x
     os.environ.setdefault(_k, _v)
 
 from src.core.database import Base  # noqa: E402
-from src.models.event import Event, EventAttendee, EventChatMessage  # noqa: E402
+from src.models.event import Event, EventAttendee, EventChatMessage, EventQuestion, EventQuestionVote  # noqa: E402
 from src.services import event_chat_service as chat_mod  # noqa: E402
 from src.services.event_chat_service import EventChatService as Svc, chat_hub  # noqa: E402
+from src.services.event_question_service import EventQuestionService as Questions, questions_hub  # noqa: E402
 
 _ids = iter(range(1, 1000))
 
 
-def _run(coro_factory, live_open=True):
+def _run(coro_factory, live_open=True, chat_open=True):
     async def runner():
         chat_mod._last_sent.clear()
         engine = create_async_engine("sqlite+aiosqlite://")
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all, tables=[
-                Event.__table__, EventAttendee.__table__, EventChatMessage.__table__])
+                Event.__table__, EventAttendee.__table__, EventChatMessage.__table__, EventQuestion.__table__, EventQuestionVote.__table__])
         maker = async_sessionmaker(engine, expire_on_commit=False)
         async with maker() as db:
             event = Event(id=1, title="Gloint Power Tech", slug="gloint-power-tech", capacity_in_person=10,
-                          live_open=live_open, event_date=datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc))
+                          live_open=live_open, chat_open=chat_open, event_date=datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc))
             db.add(event)
             await db.commit()
             result = await coro_factory(db, event)
@@ -183,4 +184,97 @@ def test_difusion_en_vivo_marca_mine_y_el_equipo_ve_el_id():
         assert m_ana["mine"] is True and m_luis["mine"] is False
         assert "attendee_id" not in m_ana and "attendee_id" not in m_luis
         assert m_admin["attendee_id"] == ana.id and m_admin["author"] == "Ana Apellido"
+    _run(scenario)
+
+
+def test_chat_apagado_por_defecto_y_el_equipo_lo_enciende_en_vivo():
+    class FakeWS:
+        def __init__(self):
+            self.sent = []
+
+        async def send_json(self, payload):
+            self.sent.append(payload)
+
+    async def scenario(db, event):
+        db.add(_attendee(event, "Ana"))
+        await db.commit()
+        with pytest.raises(HTTPException) as exc:                    # sala abierta, chat apagado
+            await Svc.send(db, "tok-Ana", "hola")
+        assert exc.value.status_code == 400
+        assert (await Svc.history(db, "tok-Ana"))["chat_open"] is False
+
+        ws = FakeWS()
+        chat_hub.connect(ws, attendee_id=1)
+        try:
+            assert (await Svc.set_open(db, True))["chat_open"] is True
+            await Svc.send(db, "tok-Ana", "ya hay chat")
+            await Svc.set_open(db, False)
+        finally:
+            chat_hub.disconnect(ws)
+        states = [p for p in ws.sent if p["type"] == "chat_state"]
+        assert states == [{"type": "chat_state", "chat_open": True}, {"type": "chat_state", "chat_open": False}]
+    _run(scenario, chat_open=False)
+
+
+def test_chat_encendido_pero_sala_cerrada_no_esta_disponible():
+    async def scenario(db, event):
+        db.add(_attendee(event, "Ana"))
+        await db.commit()
+        assert (await Svc.history(db, "tok-Ana"))["chat_open"] is False
+        with pytest.raises(HTTPException) as exc:
+            await Svc.send(db, "tok-Ana", "hola")
+        assert exc.value.status_code == 400
+    _run(scenario, live_open=False, chat_open=True)
+
+
+def test_pasar_a_pregunta_crea_pregunta_aprobada_a_nombre_del_autor():
+    async def scenario(db, event):
+        db.add_all([_attendee(event, "Ana"), _attendee(event, "Luis")])
+        await db.commit()
+        await Questions.set_open(db, True)
+        sent = await Svc.send(db, "tok-Ana", "¿Habrá versión móvil?")
+        assert [m["is_question"] for m in (await Svc.admin_list(db))["messages"]] == [False]
+
+        result = await Svc.promote_to_question(db, sent["id"])
+        assert result["ok"] is True
+        assert [m["is_question"] for m in (await Svc.admin_list(db))["messages"]] == [True]
+        # Luis la ve como pregunta aprobada, a nombre de Ana, y puede votarla
+        seen = (await Questions.list_for_attendee(db, "tok-Luis"))["questions"]
+        assert [(q["text"], q["status"], q["author"]) for q in seen] == [("¿Habrá versión móvil?", "approved", "Ana")]
+        assert (await Questions.toggle_vote(db, "tok-Luis", seen[0]["id"]))["voted"] is True
+        # el mensaje original sigue en el chat
+        assert [m["text"] for m in (await Svc.history(db, "tok-Luis"))["messages"]] == ["¿Habrá versión móvil?"]
+        with pytest.raises(HTTPException) as exc:                    # no se duplica
+            await Svc.promote_to_question(db, sent["id"])
+        assert exc.value.status_code == 409
+    _run(scenario)
+
+
+def test_pasar_a_pregunta_avisa_en_vivo_y_rechaza_mensajes_borrados_o_inexistentes():
+    class FakeWS:
+        def __init__(self):
+            self.sent = []
+
+        async def send_json(self, payload):
+            self.sent.append(payload)
+
+    async def scenario(db, event):
+        db.add(_attendee(event, "Ana"))
+        await db.commit()
+        sent = await Svc.send(db, "tok-Ana", "mensaje")
+        ws = FakeWS()
+        questions_hub.connect(ws, admin=True)
+        try:
+            await Svc.promote_to_question(db, sent["id"])
+        finally:
+            questions_hub.disconnect(ws)
+        assert ws.sent == [{"type": "changed"}]
+
+        _free_rate_limit()
+        gone = await Svc.send(db, "tok-Ana", "este se borra")
+        await Svc.delete_message(db, gone["id"], user_id=1)
+        for bad in (gone["id"], 9999):
+            with pytest.raises(HTTPException) as exc:
+                await Svc.promote_to_question(db, bad)
+            assert exc.value.status_code == 404
     _run(scenario)

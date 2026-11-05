@@ -544,10 +544,12 @@ async def on_startup():
                     "ALTER TABLE event_attendees ADD COLUMN checked_in_at DATETIME NULL",
                     "ALTER TABLE event_attendees ADD COLUMN checked_in_by BIGINT NULL",
                     "ALTER TABLE event_attendees ADD COLUMN chat_muted TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE event_questions ADD COLUMN chat_message_id BIGINT NULL",
                     "ALTER TABLE events ADD COLUMN live_playback_id VARCHAR(100) NULL",
                     "ALTER TABLE events ADD COLUMN live_open TINYINT(1) NOT NULL DEFAULT 0",
                     "ALTER TABLE events ADD COLUMN questions_open TINYINT(1) NOT NULL DEFAULT 0",
-                    "ALTER TABLE events ADD COLUMN survey_open TINYINT(1) NOT NULL DEFAULT 0"
+                    "ALTER TABLE events ADD COLUMN survey_open TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN chat_open TINYINT(1) NOT NULL DEFAULT 0"
                 ]:
                     try:
                         await conn.execute(text(col_query))
@@ -598,6 +600,7 @@ async def on_startup():
                         status VARCHAR(20) NOT NULL DEFAULT 'pending',
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
                         moderated_at DATETIME NULL,
+                        chat_message_id BIGINT NULL,
                         INDEX idx_eq_event (event_id),
                         INDEX idx_eq_attendee (attendee_id),
                         INDEX idx_eq_status (status)

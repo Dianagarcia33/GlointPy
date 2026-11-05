@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import MuxPlayer from '@mux/mux-player-react';
-import { ChatPanel } from '../components/ChatPanel';
-import { QuestionsPanel } from '../components/QuestionsPanel';
+import { ParticipationPanel } from '../components/ParticipationPanel';
 import { SurveyPanel } from '../components/SurveyPanel';
 import { LiveJoin, LiveStatus, getLiveStatus, joinLive, liveHeartbeat } from '../../../services/events';
 
@@ -163,9 +162,8 @@ export function EventLivePage() {
           </div>
         )}
 
-        {phase === 'watching' && <ChatPanel token={token} />}
         {phase === 'watching' && <SurveyPanel token={token} />}
-        {phase === 'watching' && <QuestionsPanel token={token} />}
+        {phase === 'watching' && <ParticipationPanel token={token} />}
 
         {phase === 'replaced' && (
           <p role="alert" className="mt-6 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm p-4">

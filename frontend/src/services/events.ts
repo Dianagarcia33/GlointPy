@@ -460,10 +460,12 @@ export interface ChatHistory {
 export interface AdminChatMessage extends ChatMessage {
   attendee_id: number;
   muted?: boolean;
+  is_question?: boolean;
 }
 
 export interface AdminChat {
-  chat_open: boolean;
+  chat_open: boolean;   // interruptor del equipo
+  live_open: boolean;   // el chat solo funciona con la sala abierta
   messages: AdminChatMessage[];
 }
 
@@ -485,4 +487,13 @@ export const deleteChatMessage = async (messageId: number): Promise<{ ok: boolea
 
 export const muteChatAttendee = async (attendeeId: number, muted: boolean): Promise<{ ok: boolean; muted: boolean }> => {
   return await fetchApi(`/events/admin/attendees/${attendeeId}/chat-mute`, { method: 'PUT', body: JSON.stringify({ muted }) });
+};
+
+export const setChatOpen = async (isOpen: boolean): Promise<AdminChat> => {
+  return await fetchApi('/events/admin/chat/open', { method: 'PUT', body: JSON.stringify({ is_open: isOpen }) });
+};
+
+// Convierte un mensaje del chat en pregunta oficial (aprobada) para los presentadores.
+export const promoteChatMessage = async (messageId: number): Promise<{ ok: boolean; question_id: number }> => {
+  return await fetchApi(`/events/admin/chat/${messageId}/promote`, { method: 'POST' });
 };

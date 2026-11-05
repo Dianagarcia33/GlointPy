@@ -22,6 +22,8 @@ class Event(Base):
     live_open = Column(Boolean, nullable=False, default=False)
     # Preguntas de los asistentes (moderadas): el administrador las abre/cierra durante el evento
     questions_open = Column(Boolean, nullable=False, default=False)
+    # Chat en vivo de la sala: apagado por defecto; el equipo lo enciende cuando pueda moderarlo
+    chat_open = Column(Boolean, nullable=False, default=False)
     # Encuesta de satisfacción en vivo: el administrador la abre/cierra durante el evento
     survey_open = Column(Boolean, nullable=False, default=False)
 
@@ -120,6 +122,7 @@ class EventQuestion(Base):
     status = Column(String(20), nullable=False, default="pending")  # 'pending' | 'approved' | 'answered' | 'rejected'
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     moderated_at = Column(DateTime(timezone=True), nullable=True)
+    chat_message_id = Column(BigInteger, nullable=True, index=True)  # si nació de un mensaje del chat promovido por el equipo
 
 
 class EventQuestionVote(Base):

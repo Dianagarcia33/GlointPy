@@ -18,7 +18,11 @@ function hour(value?: string | null): string {
  * Chat en vivo de la sala (solo virtuales). Los mensajes llegan por WebSocket al instante, con nombre y apellido.
  * Al reconectar se vuelve a pedir el historial, así no se pierde nada si la red se cae.
  */
-export function ChatPanel({ token }: { token: string }) {
+export function ChatPanel({ token, embedded = false, onChatOpenChange }: {
+  token: string;
+  embedded?: boolean;                          // dentro del panel con pestañas: sin marco ni título propios
+  onChatOpenChange?: (open: boolean) => void;  // avisa si el equipo enciende o apaga el chat
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatOpen, setChatOpen] = useState(true);
   const [muted, setMuted] = useState(false);
@@ -27,12 +31,15 @@ export function ChatPanel({ token }: { token: string }) {
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const stickToBottom = useRef(true);
+  const openRef = useRef(onChatOpenChange);
+  openRef.current = onChatOpenChange;
 
   const loadHistory = useCallback(async () => {
     try {
       const h = await getChatHistory(token);
       setMessages(h.messages);
       setChatOpen(h.chat_open);
+      openRef.current?.(h.chat_open);
       setMuted(h.muted);
     } catch (e: any) {
       setError(e?.message || 'No se pudo cargar el chat.');
@@ -59,6 +66,9 @@ export function ChatPanel({ token }: { token: string }) {
             setMessages((prev) => (prev.some((m) => m.id === data.message.id) ? prev : [...prev, data.message].slice(-MAX_KEPT)));
           } else if (data.type === 'deleted') {
             setMessages((prev) => prev.filter((m) => m.id !== data.id));
+          } else if (data.type === 'chat_state') {
+            setChatOpen(!!data.chat_open);
+            openRef.current?.(!!data.chat_open);
           }
         } catch {
           // mensaje que no es JSON: se ignora
@@ -109,8 +119,8 @@ export function ChatPanel({ token }: { token: string }) {
   const disabled = busy || muted || !chatOpen;
 
   return (
-    <section className="mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
-      <h2 className="text-lg font-bold text-slate-900">Chat en vivo</h2>
+    <section className={embedded ? '' : 'mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6'}>
+      {!embedded && <h2 className="text-lg font-bold text-slate-900">Chat en vivo</h2>}
 
       <ul ref={listRef} onScroll={onScroll} aria-live="polite" aria-label="Mensajes del chat"
         className="mt-3 h-72 overflow-y-auto space-y-2 rounded-xl bg-slate-50 border border-slate-200 p-3">
@@ -126,7 +136,7 @@ export function ChatPanel({ token }: { token: string }) {
       </ul>
 
       {muted && <p className="mt-3 text-xs rounded-lg p-2.5 border bg-amber-50 border-amber-200 text-amber-800">El equipo te silenció en el chat. Puedes seguir viendo los mensajes.</p>}
-      {!chatOpen && !muted && <p className="mt-3 text-xs text-slate-500">El chat está disponible mientras la transmisión esté abierta.</p>}
+      {!chatOpen && !muted && <p className="mt-3 text-xs text-slate-500">El chat no está activado en este momento.</p>}
       {error && !muted && <p role="alert" className="mt-3 text-xs rounded-lg p-2.5 border bg-red-50 border-red-200 text-red-700">{error}</p>}
 
       <form onSubmit={send} className="mt-3 flex gap-2">

@@ -22,7 +22,7 @@ const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
  * Preguntas moderadas para presenciales y virtuales. Las preguntas nuevas solo las ve su autor hasta que
  * el equipo las aprueba; las aprobadas se pueden votar. Se actualiza en vivo por WebSocket.
  */
-export function QuestionsPanel({ token }: { token: string }) {
+export function QuestionsPanel({ token, embedded = false }: { token: string; embedded?: boolean }) {
   const [data, setData] = useState<AttendeeQuestions | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,8 +65,8 @@ export function QuestionsPanel({ token }: { token: string }) {
   };
 
   return (
-    <section className="mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6">
-      <h2 className="text-lg font-bold text-slate-900">Preguntas</h2>
+    <section className={embedded ? '' : 'mt-6 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6'}>
+      {!embedded && <h2 className="text-lg font-bold text-slate-900">Preguntas</h2>}
 
       {data && !data.questions_open && (
         <p className="mt-2 text-sm text-slate-600">Las preguntas no están abiertas en este momento. Cuando se habiliten aparecerán aquí.</p>
