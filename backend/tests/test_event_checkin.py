@@ -12,7 +12,8 @@ for _k, _v in {"DB_HOST": "x", "DB_USER": "x", "DB_PASSWORD": "x", "DB_NAME": "x
 
 from src.core.database import Base  # noqa: E402
 from src.models.event import Event, EventAttendee, EventLiveSession  # noqa: E402
-from src.services.event_attendance_service import QR_PREFIX, build_qr_png  # noqa: E402,F401
+from src.services.event_attendance_service import QR_PREFIX, build_qr_png, qr_content  # noqa: E402,F401
+from src.services.event_checkin_service import _normalize_code  # noqa: E402
 from src.services.event_checkin_service import EventCheckinService as Svc  # noqa: E402
 
 _ids = iter(range(1, 1000))
@@ -128,4 +129,27 @@ def test_lista_unificada_de_los_cuatro_grupos():
         assert (r["seats_expected"], r["seats_checked_in"]) == (3, 2)
         virt = next(x for x in r["attendees"] if x["full_name"] == "InvVirt")
         assert virt["attended"] is True and virt["live_watch_minutes"] == 10.0
+    _run(scenario)
+
+
+def test_el_qr_lleva_un_enlace_y_la_puerta_extrae_el_codigo_de_el(monkeypatch):
+    """El QR ya no es texto suelto: abre la página del inscrito, y el escáner de entrada sigue leyendo el código."""
+    from src.services import event_attendance_service as svc
+    monkeypatch.setattr(svc.settings, "FRONTEND_URL", "https://pruebas.gloint.com.co/")
+    content = qr_content("AbC-123_xyz")
+    assert content == "https://pruebas.gloint.com.co/evento/asistencia/AbC-123_xyz"      # sin doble barra
+    assert _normalize_code(content) == "AbC-123_xyz"                                       # formato nuevo
+    assert _normalize_code(f"{QR_PREFIX}AbC-123_xyz") == "AbC-123_xyz"                     # QR viejos ya enviados
+    assert _normalize_code("AbC-123_xyz") == "AbC-123_xyz"                                 # código suelto (lector USB)
+
+
+def test_escanear_el_qr_nuevo_registra_la_entrada(monkeypatch):
+    from src.services import event_attendance_service as svc
+    monkeypatch.setattr(svc.settings, "FRONTEND_URL", "https://pruebas.gloint.com.co")
+
+    async def scenario(db, event):
+        db.add(_attendee(event, "Ana"))
+        await db.commit()
+        result = await Svc.check_in_by_code(db, qr_content("tok-Ana"), user_id=3)
+        assert result["result"] == "checked_in" and result["attendee"]["full_name"] == "Ana"
     _run(scenario)

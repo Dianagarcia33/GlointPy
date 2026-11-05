@@ -18,6 +18,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.config import settings
 from src.models.event import Event, EventAttendee
 from src.schemas.event import MyRegistrationResponse
 from src.services.event_coupon_rules import coupon_is_live
@@ -26,7 +27,8 @@ from src.services.event_service import EventService
 
 logger = logging.getLogger(__name__)
 
-# Prefijo del contenido del QR: permite al lector de la entrada distinguir el código del evento.
+# Prefijo de los QR antiguos (solo texto, sin enlace). Ya no se genera, pero el control de entrada lo sigue
+# aceptando para que los QR enviados antes de que el QR llevara un enlace sigan funcionando en la puerta.
 QR_PREFIX = "GLT-PT:"
 # Resend limita ~2 envíos por segundo por cuenta: se envía en serie con una pausa corta.
 SEND_PAUSE_SECONDS = 0.6
@@ -34,11 +36,19 @@ SEND_PAUSE_SECONDS = 0.6
 _send_in_progress = False
 
 
+def qr_content(access_token: str) -> str:
+    """
+    Contenido del QR del inscrito: su enlace personal. Con la cámara del celular abre su página de asistencia
+    (donde ve su QR y puede confirmar); el escáner de la puerta extrae de ese enlace el código y registra la entrada.
+    """
+    return f"{settings.FRONTEND_URL.rstrip('/')}/evento/asistencia/{access_token}"
+
+
 def build_qr_png(access_token: str) -> bytes:
-    """PNG del QR único del inscrito (el contenido es QR_PREFIX + token)."""
+    """PNG del QR único del inscrito (su enlace personal, ver qr_content)."""
     import segno
     buffer = io.BytesIO()
-    segno.make(f"{QR_PREFIX}{access_token}", error="m").save(buffer, kind="png", scale=8, border=2)
+    segno.make(qr_content(access_token), error="m").save(buffer, kind="png", scale=8, border=2)
     return buffer.getvalue()
 
 
