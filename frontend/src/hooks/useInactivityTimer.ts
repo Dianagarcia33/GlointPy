@@ -4,6 +4,13 @@ import { useAuthStore } from '../store/authStore';
 const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutos de inactividad
 const STORAGE_KEY = 'gloint_last_activity_time';
 
+// Páginas donde la persona está viendo contenido en vivo: mirar una transmisión no genera clics ni movimientos,
+// así que no se cierra la sesión por inactividad mientras esté ahí (se reinicia el conteo al salir).
+const PASSIVE_VIEWING_PATHS = ['/evento/en-vivo/'];
+
+const isWatchingLive = (): boolean =>
+    typeof window !== 'undefined' && PASSIVE_VIEWING_PATHS.some((p) => window.location.pathname.startsWith(p));
+
 export const useInactivityTimer = () => {
     const logout = useAuthStore((state) => state.logout);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -21,7 +28,13 @@ export const useInactivityTimer = () => {
 
     const checkInactivity = useCallback((): boolean => {
         if (!isAuthenticated) return false;
-        
+
+        // Viendo la transmisión en vivo: cuenta como actividad (no se cierra la sesión por no mover el mouse)
+        if (isWatchingLive()) {
+            localStorage.setItem(STORAGE_KEY, Date.now().toString());
+            return false;
+        }
+
         const lastActiveStr = localStorage.getItem(STORAGE_KEY);
         if (!lastActiveStr) {
             localStorage.setItem(STORAGE_KEY, Date.now().toString());
