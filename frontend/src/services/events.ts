@@ -438,3 +438,51 @@ export const getSurveyResults = async (): Promise<SurveyResults> => {
 export const setSurveyOpen = async (isOpen: boolean): Promise<SurveyResults> => {
   return await fetchApi('/events/admin/survey/open', { method: 'PUT', body: JSON.stringify({ is_open: isOpen }) });
 };
+
+// ---------------------------------------------------------------------------
+// Chat en vivo de la sala (solo virtuales; moderación posterior)
+// ---------------------------------------------------------------------------
+
+export interface ChatMessage {
+  id: number;
+  author: string;
+  text: string;
+  created_at?: string | null;
+  mine?: boolean;
+}
+
+export interface ChatHistory {
+  chat_open: boolean;
+  muted: boolean;
+  messages: ChatMessage[];
+}
+
+export interface AdminChatMessage extends ChatMessage {
+  attendee_id: number;
+  muted?: boolean;
+}
+
+export interface AdminChat {
+  chat_open: boolean;
+  messages: AdminChatMessage[];
+}
+
+export const getChatHistory = async (token: string): Promise<ChatHistory> => {
+  return await fetchApi(`/events/chat/${encodeURIComponent(token)}`);
+};
+
+export const sendChatMessage = async (token: string, text: string): Promise<{ ok: boolean; id: number }> => {
+  return await fetchApi(`/events/chat/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify({ text }) });
+};
+
+export const getAdminChat = async (): Promise<AdminChat> => {
+  return await fetchApi('/events/admin/chat');
+};
+
+export const deleteChatMessage = async (messageId: number): Promise<{ ok: boolean }> => {
+  return await fetchApi(`/events/admin/chat/${messageId}`, { method: 'DELETE' });
+};
+
+export const muteChatAttendee = async (attendeeId: number, muted: boolean): Promise<{ ok: boolean; muted: boolean }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/chat-mute`, { method: 'PUT', body: JSON.stringify({ muted }) });
+};

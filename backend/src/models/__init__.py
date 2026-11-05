@@ -29,7 +29,7 @@ from src.models.investment_rank import InvestmentRank
 from src.models.external_app import ExternalApp, ExternalPaymentOrder
 from src.models.share_market import SharePriceHistory, ShareIssuance, ShareListing, ShareTradeOrder
 from src.models.wallet_recharge import WalletRecharge
-from src.models.event import Event, EventAttendee, EventAuthorizedDomain, EventLiveSession, EventQuestion, EventQuestionVote, EventSurveyResponse
+from src.models.event import Event, EventAttendee, EventAuthorizedDomain, EventLiveSession, EventQuestion, EventQuestionVote, EventSurveyResponse, EventChatMessage
 from src.models.room import MeetingRoom, RoomReservation
 from src.models.yoint_dispersion import YointDispersion
 from src.models.yoint_payin import YointPayin

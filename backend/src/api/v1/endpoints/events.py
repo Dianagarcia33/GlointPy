@@ -20,6 +20,7 @@ from src.schemas.event import (
 from src.services.event_service import EventService
 from src.services.event_attendance_service import EventAttendanceService
 from src.services.event_live_service import EventLiveService
+from src.services.event_chat_service import EventChatService, chat_hub
 from src.services.event_survey_service import EventSurveyService
 from src.services.event_checkin_service import EventCheckinService
 from src.services.event_question_service import EventQuestionService, questions_hub
@@ -267,9 +268,11 @@ async def questions_attendee_ws(websocket: WebSocket, token: str):
     finally:
         questions_hub.disconnect(websocket)
 
-@router.websocket("/admin/questions/ws")
-async def questions_admin_ws(websocket: WebSocket):
-    """Aviso en vivo para el panel de moderación (misma autenticación que el chat + permiso de eventos)."""
+async def authenticate_event_admin_ws(websocket: WebSocket) -> bool:
+    """
+    Acepta el WebSocket y valida que sea un administrador de eventos (misma autenticación que el chat:
+    cookie/token JWT, usuario activo, sesión vigente y permiso de eventos). Si no, lo cierra y devuelve False.
+    """
     from jose import jwt, JWTError
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
@@ -281,7 +284,11 @@ async def questions_admin_ws(websocket: WebSocket):
     from src.api.v1.endpoints.chat import ws_origin_ok
 
     await websocket.accept()
-    deny = lambda reason: websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=reason)
+
+    async def deny(reason: str) -> bool:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=reason)
+        return False
+
     if not ws_origin_ok(websocket):
         return await deny("Origen no permitido")
     auth_token = websocket.cookies.get("access_token") or websocket.query_params.get("token")
@@ -301,7 +308,13 @@ async def questions_admin_ws(websocket: WebSocket):
             return await deny("Acceso denegado")
         if not await is_session_current(db, payload, user):
             return await deny("Sesión revocada o expirada")
+    return True
 
+@router.websocket("/admin/questions/ws")
+async def questions_admin_ws(websocket: WebSocket):
+    """Aviso en vivo para el panel de moderación de preguntas y la encuesta."""
+    if not await authenticate_event_admin_ws(websocket):
+        return
     questions_hub.connect(websocket, admin=True)
     try:
         while True:
@@ -380,6 +393,82 @@ async def get_survey_results(db: AsyncSession = Depends(get_db)):
 async def set_survey_open(body: SurveyOpenRequest, db: AsyncSession = Depends(get_db)):
     """Abre o cierra la encuesta durante el evento."""
     return await EventSurveyService.set_open(db, body.is_open)
+
+# ==========================================
+# CHAT EN VIVO (solo inscritos virtuales; moderación posterior)
+# ==========================================
+
+class ChatMessageRequest(BaseModel):
+    text: str
+
+class ChatMuteRequest(BaseModel):
+    muted: bool
+
+@router.get("/chat/{token}")
+async def get_chat_history(token: str, db: AsyncSession = Depends(get_db)):
+    """Últimos mensajes del chat para el inscrito virtual identificado por su enlace personal."""
+    return await EventChatService.history(db, token)
+
+@router.post("/chat/{token}")
+async def send_chat_message(token: str, body: ChatMessageRequest, db: AsyncSession = Depends(get_db)):
+    """Envía un mensaje al chat (sale al instante, con límite de ritmo)."""
+    return await EventChatService.send(db, token, body.text)
+
+@router.websocket("/chat/{token}/ws")
+async def chat_attendee_ws(websocket: WebSocket, token: str):
+    """Mensajes del chat en vivo para un inscrito virtual (el token del enlace lo identifica)."""
+    from src.core.database import async_session_maker
+    from src.api.v1.endpoints.chat import ws_origin_ok
+
+    await websocket.accept()
+    if not ws_origin_ok(websocket):
+        return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+    async with async_session_maker() as db:
+        try:
+            attendee = await EventChatService._virtual_attendee(db, token)
+        except HTTPException:
+            return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Enlace no válido")
+        attendee_id = attendee.id
+    chat_hub.connect(websocket, attendee_id=attendee_id)
+    try:
+        while True:
+            await websocket.receive_text()  # mantiene la conexión; los mensajes se envían por POST
+    except WebSocketDisconnect:
+        pass
+    finally:
+        chat_hub.disconnect(websocket)
+
+@router.get("/admin/chat", dependencies=event_admin)
+async def admin_list_chat(db: AsyncSession = Depends(get_db)):
+    return await EventChatService.admin_list(db)
+
+@router.delete("/admin/chat/{message_id}", dependencies=event_admin)
+async def admin_delete_chat_message(
+    message_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Borra un mensaje del chat (desaparece en vivo para todos)."""
+    return await EventChatService.delete_message(db, message_id, current_user.id)
+
+@router.put("/admin/attendees/{attendee_id}/chat-mute", dependencies=event_admin)
+async def admin_mute_chat_attendee(attendee_id: int, body: ChatMuteRequest, db: AsyncSession = Depends(get_db)):
+    """Silencia o devuelve la palabra a un asistente en el chat."""
+    return await EventChatService.set_muted(db, attendee_id, body.muted)
+
+@router.websocket("/admin/chat/ws")
+async def chat_admin_ws(websocket: WebSocket):
+    """Mensajes del chat en vivo para el panel de moderación."""
+    if not await authenticate_event_admin_ws(websocket):
+        return
+    chat_hub.connect(websocket, admin=True)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        chat_hub.disconnect(websocket)
 
 # ==========================================
 # GESTIÓN DE DOMINIOS AUTORIZADOS (ECOSISTEMA GLOINT)

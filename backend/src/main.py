@@ -543,6 +543,7 @@ async def on_startup():
                     "ALTER TABLE event_attendees ADD COLUMN live_invite_sent_at DATETIME NULL",
                     "ALTER TABLE event_attendees ADD COLUMN checked_in_at DATETIME NULL",
                     "ALTER TABLE event_attendees ADD COLUMN checked_in_by BIGINT NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN chat_muted TINYINT(1) NOT NULL DEFAULT 0",
                     "ALTER TABLE events ADD COLUMN live_playback_id VARCHAR(100) NULL",
                     "ALTER TABLE events ADD COLUMN live_open TINYINT(1) NOT NULL DEFAULT 0",
                     "ALTER TABLE events ADD COLUMN questions_open TINYINT(1) NOT NULL DEFAULT 0",
@@ -626,6 +627,20 @@ async def on_startup():
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
                         UNIQUE KEY uq_survey_event_attendee (event_id, attendee_id),
                         INDEX idx_esr_event (event_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_chat_messages (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        text VARCHAR(500) NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        deleted_at DATETIME NULL,
+                        deleted_by BIGINT NULL,
+                        INDEX idx_ecm_event (event_id),
+                        INDEX idx_ecm_attendee (attendee_id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
             except Exception as e:

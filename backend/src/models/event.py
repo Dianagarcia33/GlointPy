@@ -63,6 +63,7 @@ class EventAttendee(Base):
     live_invite_sent_at = Column(DateTime(timezone=True), nullable=True)       # última invitación a la sala en vivo enviada
     checked_in_at = Column(DateTime(timezone=True), nullable=True)             # entrada presencial registrada (QR escaneado)
     checked_in_by = Column(BigInteger, nullable=True)                          # usuario del equipo que registró la entrada
+    chat_muted = Column(Boolean, nullable=False, default=False)                # silenciado en el chat en vivo por el equipo
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -147,3 +148,17 @@ class EventSurveyResponse(Base):
     nps = Column(Integer, nullable=False)                  # 0-10: ¿recomendaría el evento?
     comment = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class EventChatMessage(Base):
+    """Mensaje del chat en vivo de la sala. El borrado por moderación es lógico (deleted_at)."""
+    __tablename__ = "event_chat_messages"
+
+    # with_variant: SQLite (solo en pruebas) no autoincrementa BIGINT; en MySQL sigue siendo BIGINT
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True, index=True)
+    event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    attendee_id = Column(BigInteger, ForeignKey("event_attendees.id", ondelete="CASCADE"), nullable=False, index=True)
+    text = Column(String(500), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by = Column(BigInteger, nullable=True)  # usuario del equipo que lo borró
