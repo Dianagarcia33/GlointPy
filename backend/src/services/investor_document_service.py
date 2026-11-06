@@ -612,6 +612,8 @@ class InvestorDocumentService:
         else:
             if version_count > 1:
                 title = f"{template.name} (v{version_count} - Actualización) - {investor.assigned_code or investor.id}"
+            else:
+                title = f"{template.name} - {investor.assigned_code or investor.id}"
         # Background image resolution:
         if data.background_image == "":
             bg_img = None
@@ -669,6 +671,74 @@ class InvestorDocumentService:
         await db.commit()
         await db.refresh(doc)
         return doc
+
+    # Tipo de plantilla que se genera sola al aprobar una solicitud (el tipo es texto libre en el editor de plantillas)
+    AUTO_CONTRACT_TYPE = "contract"
+
+    @staticmethod
+    async def auto_generate_contracts(db: AsyncSession, investor_id: int, is_upgrade: bool = False) -> List[int]:
+        """
+        Genera los contratos del inversionista al aprobar su solicitud: una copia por cada plantilla de tipo «contract».
+        - Contrato nuevo: se genera una vez; si ya existe el de esa plantilla no se duplica (reintento seguro).
+        - Aumento de capital: se genera una nueva versión («vN - Actualización») con los datos ya actualizados y las
+          versiones anteriores se conservan. No toca el historial del contrato: eso ya lo registra la aprobación.
+        Devuelve los ids de los documentos creados.
+        """
+        from sqlalchemy import func
+
+        await InvestorDocumentService.ensure_table_exists(db)
+        templates = (await db.execute(
+            select(Template)
+            .where(func.lower(func.trim(Template.type)) == InvestorDocumentService.AUTO_CONTRACT_TYPE)
+            .order_by(Template.id)
+        )).scalars().all()
+        templates = [t for t in templates if t.html_content and t.html_content.strip()]
+        if not templates:
+            return []
+
+        investor = await InvestorDocumentService.get_investor_with_relations(db, investor_id)
+        label = investor.assigned_code or investor.id
+        created: List[InvestorDocument] = []
+        for template in templates:
+            existing = (await db.execute(
+                select(func.count(InvestorDocument.id))
+                .where(InvestorDocument.investor_id == investor.id)
+                .where(InvestorDocument.template_id == template.id)
+            )).scalar() or 0
+            if existing and not is_upgrade:
+                continue
+            version = existing + 1
+            title = (f"{template.name} (v{version} - Actualización) - {label}" if version > 1
+                     else f"{template.name} - {label}")
+            doc = InvestorDocument(
+                investor_id=investor.id,
+                user_id=investor.user_id,
+                template_id=template.id,
+                title=title,
+                document_type=template.type or "contract",
+                html_content=InvestorDocumentService.render_html(template.html_content, investor),
+                background_image=(template.background_image or "").strip() or None,
+            )
+            db.add(doc)
+            created.append(doc)
+        await db.commit()
+        return [d.id for d in created]
+
+    @staticmethod
+    async def auto_generate_contracts_safely(investor_id: int, is_upgrade: bool = False) -> List[int]:
+        """
+        Lo que llama la aprobación: usa su propia sesión y nunca lanza error. Si algo falla, la solicitud ya quedó
+        aprobada y el equipo puede generar el contrato a mano desde Documentos.
+        """
+        import logging
+        from src.core.database import async_session_maker
+        try:
+            async with async_session_maker() as session:
+                return await InvestorDocumentService.auto_generate_contracts(session, investor_id, is_upgrade)
+        except Exception as e:
+            logging.getLogger(__name__).error(
+                f"No se pudo generar el contrato automático del inversionista #{investor_id}: {e}", exc_info=True)
+            return []
 
     @staticmethod
     async def _patch_docs(db: AsyncSession, docs: List[InvestorDocument]) -> List[InvestorDocument]:

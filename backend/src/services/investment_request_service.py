@@ -18,6 +18,7 @@ from src.models.investor import Investor
 from src.models.package import Package
 from src.models.period import Period
 from src.services.audit_trail_service import audit_in_tx
+from src.services.investor_document_service import InvestorDocumentService
 
 # Los bonos por referido (aceleración de contratos) están desactivados por decisión de negocio (H-140)
 REFERRAL_ACCELERATION_ENABLED = False
@@ -580,6 +581,12 @@ class InvestmentRequestService:
         )
         await db.commit()
         await db.refresh(req)
+
+        # Contratos automáticos: una inversión nueva genera su contrato y un aumento de capital genera la nueva versión.
+        # Va después del commit y en otra sesión: si falla, la aprobación ya quedó hecha y no se ve afectada.
+        if req.investor_id:
+            await InvestorDocumentService.auto_generate_contracts_safely(
+                req.investor_id, is_upgrade=bool(is_upgrade and existing_investor is not None))
 
         # Enviar correo corporativo de Inversión / Aumento de Capital Activada
         try:
