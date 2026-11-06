@@ -135,6 +135,7 @@ class UserResponse(BaseModel):
     email: str
     document_id: Optional[str] = None
     phone_number: Optional[str] = None
+    city: Optional[str] = None
     is_active: bool
     is_superuser: bool
     must_change_password: bool

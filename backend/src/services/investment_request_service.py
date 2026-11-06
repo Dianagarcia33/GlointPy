@@ -18,6 +18,7 @@ from src.models.investor import Investor
 from src.models.package import Package
 from src.models.period import Period
 from src.services.audit_trail_service import audit_in_tx
+from src.services.investor_document_service import InvestorDocumentService
 
 # Los bonos por referido (aceleración de contratos) están desactivados por decisión de negocio (H-140)
 REFERRAL_ACCELERATION_ENABLED = False
@@ -169,6 +170,14 @@ class InvestmentRequestService:
         contract_start_date = req.created_at or datetime.utcnow()
         if hasattr(contract_start_date, 'tzinfo') and contract_start_date.tzinfo is not None:
             contract_start_date = contract_start_date.replace(tzinfo=None)
+
+        # La ciudad capturada al registrarse es la del contrato ({ciudad}): se guarda en el usuario si aún no la tiene
+        extra_city = ((req.extra_data or {}).get("ciudad") if isinstance(req.extra_data, dict) else None)
+        extra_city = str(extra_city).strip() if extra_city else ""
+        if extra_city and req.user_id:
+            target_user = (await db.execute(select(User).where(User.id == req.user_id))).scalars().first()
+            if target_user and not (target_user.city or "").strip():
+                target_user.city = extra_city[:100]
 
         # Extraer código de referido si viene en extra_data
         referred_code = None
@@ -572,6 +581,12 @@ class InvestmentRequestService:
         )
         await db.commit()
         await db.refresh(req)
+
+        # Contratos automáticos: una inversión nueva genera su contrato y un aumento de capital genera la nueva versión.
+        # Va después del commit y en otra sesión: si falla, la aprobación ya quedó hecha y no se ve afectada.
+        if req.investor_id:
+            await InvestorDocumentService.auto_generate_contracts_safely(
+                req.investor_id, is_upgrade=bool(is_upgrade and existing_investor is not None))
 
         # Enviar correo corporativo de Inversión / Aumento de Capital Activada
         try:

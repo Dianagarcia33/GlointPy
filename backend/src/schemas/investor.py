@@ -56,6 +56,7 @@ class InvestorUpdate(BaseModel):
     start_date: Optional[datetime] = None
     start_date_reason: Optional[str] = None  # H-142: motivo si la nueva fecha de ingreso es retroactiva
     observations: Optional[str] = None
+    city: Optional[str] = None  # ciudad de domicilio del titular (va al usuario; la leen los contratos)
 
     @field_validator("referred_by", mode="before")
     @classmethod
