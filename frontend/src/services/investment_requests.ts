@@ -19,6 +19,9 @@ export interface InvestmentRequest {
   package?: any;
   investor?: any;
   reviewer?: any;
+  // Verificación SARLAFT del solicitante, calculada por el servidor
+  sarlaft_status?: 'none' | 'pending' | 'rejected' | 'approved';
+  sarlaft_risk_level?: string | null;
 }
 
 export interface PaginatedInvestmentRequests {
