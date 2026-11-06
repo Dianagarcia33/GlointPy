@@ -3,20 +3,25 @@ import { MessageSquare, UserPlus, Search, Circle, Users } from 'lucide-react';
 import { ChatRoom, ChatUser } from '../../../services/chatService';
 import { getMediaUrl } from '../../../services/api';
 import { formatConversationDate } from '../../../utils/format';
+import { Skeleton, SkeletonRegion } from '../../../components/common/Skeleton';
 
 interface ConversationListProps {
   rooms: ChatRoom[];
   selectedRoomId: number | null;
   onSelectRoom: (roomId: number) => void;
   onStartNewChat: () => void;
+  canStartNewChat?: boolean;
   currentUserId?: number;
+  loading?: boolean;
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
   rooms,
   selectedRoomId,
   onSelectRoom,
-  onStartNewChat
+  onStartNewChat,
+  canStartNewChat = true,
+  loading = false
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -34,13 +39,20 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         </div>
         <button
           onClick={onStartNewChat}
-          className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold shadow-sm shadow-brand-500/20 active:scale-95"
-          title="Iniciar nuevo chat o grupo"
+          disabled={!canStartNewChat}
+          className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold shadow-sm shadow-brand-500/20 active:scale-95"
+          title={canStartNewChat ? 'Iniciar nuevo chat o grupo' : 'Tu rol solo permite leer conversaciones'}
         >
           <UserPlus className="w-4 h-4" />
           <span>Nuevo</span>
         </button>
       </div>
+
+      {!canStartNewChat && (
+        <p className="px-4 py-2 text-[11px] text-slate-500 bg-slate-100/70 border-b border-slate-200/60">
+          Tu rol solo permite leer conversaciones; no puedes iniciar chats ni enviar mensajes.
+        </p>
+      )}
 
       {/* Buscador */}
       <div className="p-3 bg-white/50 border-b border-slate-200/60">
@@ -58,7 +70,19 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
       {/* Lista de salas */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {filteredRooms.length === 0 ? (
+        {loading && rooms.length === 0 ? (
+          <SkeletonRegion label="Cargando conversaciones…" className="space-y-1">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="p-3 rounded-xl flex items-center gap-3">
+                <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className={`h-3.5 ${i % 2 ? 'w-2/3' : 'w-1/2'}`} />
+                  <Skeleton className="h-3 w-1/3 bg-slate-100" />
+                </div>
+              </div>
+            ))}
+          </SkeletonRegion>
+        ) : filteredRooms.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-xs leading-relaxed">
             No tienes chats activos.<br />¡Haz clic en <span className="font-semibold text-brand-600 font-outfit">"Nuevo"</span> para iniciar uno!
           </div>

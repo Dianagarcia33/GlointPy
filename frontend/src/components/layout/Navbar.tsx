@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon, ShieldAlert, ArrowLeft, Users, Loader2 } from 'lucide-react';
+import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon, ShieldAlert, ArrowLeft, Users, Loader2, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
 import { usersService } from '../../services/users';
@@ -22,13 +22,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const serviciosMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const { isAuthenticated, user, accessToken, logout, login, parentBackup, setParentBackup } = useAuthStore();
+  const { isAuthenticated, user, logout, login, parentBackup, setParentBackup } = useAuthStore();
 
   const { data: balanceData } = useQuery({
     queryKey: ['my_balance', user?.id],
@@ -36,7 +37,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
     enabled: isAuthenticated && !!user?.id,
     staleTime: 30000,
   });
-  const balance = balanceData?.balance ?? null;
+  // H-197: sin billetera (has_wallet false) el widget de saldo no se muestra
+  const balance = balanceData && balanceData.has_wallet !== false ? (balanceData.balance ?? null) : null;
 
   const { data: myChildren = [] } = useQuery<any[]>({
     queryKey: ['my_children', user?.id],
@@ -50,17 +52,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
   const handleSwitchToChild = async (childId: number) => {
     setIsSwitching(true);
+    setSwitchError(null);
+    // H-213: la sesión del tutor se guarda como respaldo solo cuando el cambio fue exitoso;
+    // antes se guardaba antes de la petición y un 400 dejaba activo el aviso de supervisión
+    const tutorSession = user ? { user } : null;
     try {
-      if (user && accessToken) {
-        setParentBackup({ user, token: accessToken });
-      }
       const res = await usersService.switchToChild(childId);
-      login(res.user as any, res.access_token);
+      login(res.user as any);
+      if (tutorSession && !parentBackup) {
+        setParentBackup(tutorSession);
+      }
       queryClient.clear();
       setUserMenuOpen(false);
       navigate('/dashboard');
     } catch (err: any) {
-      alert(err.message || 'Error al cambiar a la cuenta del menor');
+      setSwitchError(err.message || 'No se pudo cambiar a la cuenta del menor.');
     } finally {
       setIsSwitching(false);
     }
@@ -68,23 +74,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
   const handleReturnToParent = async () => {
     setIsSwitching(true);
+    setSwitchError(null);
     try {
       const res = await usersService.switchBackToParent();
-      login(res.user as any, res.access_token);
+      login(res.user as any);
       setParentBackup(null);
       queryClient.clear();
       setUserMenuOpen(false);
       navigate('/dashboard');
     } catch (err: any) {
-      if (parentBackup && parentBackup.token) {
-        login(parentBackup.user, parentBackup.token);
-        setParentBackup(null);
-        queryClient.clear();
-        setUserMenuOpen(false);
-        navigate('/dashboard');
-        return;
-      }
-      alert(err.message || 'Error al retornar a la cuenta del tutor');
+      // H-214: sin confirmación del servidor la sesión sigue siendo la del menor; no se simula el regreso
+      setSwitchError('No fue posible volver a tu cuenta de tutor. Sigues dentro de la cuenta del menor; cierra sesión e ingresa de nuevo.');
     } finally {
       setIsSwitching(false);
     }
@@ -126,14 +126,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   return (
     <nav className={`fixed top-0 left-0 right-0 w-full z-30 transition-all duration-300 ${
       isDashboard
-        ? 'py-3 bg-slate-900/95 shadow-sm'
+        ? 'py-2.5 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/90 shadow-sm'
         : isSolid 
-            ? 'py-3 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm' 
+            ? 'py-2.5 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-sm' 
             : 'py-5 bg-transparent'
     }`}>
       {isDashboard && (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 border-b border-slate-800">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-brand-500/8 to-transparent"></div>
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+          {/* Sutil halo ambiental de marca */}
+          <div className="absolute top-0 left-1/4 w-1/2 h-full bg-gradient-to-r from-transparent via-brand-500/[0.04] to-transparent"></div>
+          {/* Micro-línea de luz superior */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
         </div>
       )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 font-inter relative z-10">
@@ -218,26 +221,32 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
           ) : null}
 
           {/* Actions */}
-          <div className="hidden md:flex items-center space-x-4 z-20">
+          <div className="hidden md:flex items-center space-x-3 z-20">
             {isAuthenticated ? (
-              <div className="flex items-center gap-4">
-                {/* Balance */}
+              <div className="flex items-center gap-3">
+                {/* Balance Widget: Estilo Fintech de Alta Gama */}
                 {balance !== null && (
-                  <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all duration-300 ${
-                    !isDashboard && isSolid
-                      ? 'bg-slate-800 border-slate-700 text-white shadow-sm hover:bg-slate-900' 
-                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md'
-                  }`}>
-                    <div className={`p-1.5 rounded-full ${!isDashboard && isSolid ? 'bg-brand-500/20 text-brand-400' : 'bg-brand-500/30 text-brand-300'}`}>
+                  <Link
+                    to="/dashboard/wallet"
+                    className={`group flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      !isDashboard && isSolid
+                        ? 'bg-slate-900 border-slate-700 text-white shadow-xs hover:border-brand-500/50'
+                        : 'bg-slate-900/90 border-slate-700/80 hover:border-brand-500/50 text-white shadow-inner shadow-black/20 hover:bg-slate-800/90'
+                    }`}
+                    title="Ver mi Billetera Digital"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500/20 to-amber-500/10 border border-brand-500/30 flex items-center justify-center text-brand-400 group-hover:scale-105 transition-transform">
                       <Wallet className="w-3.5 h-3.5" />
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase tracking-wider font-bold text-slate-400/80 leading-none -mb-0.5">Saldo Disponible</span>
-                      <span className="font-bold text-[13px] tracking-tight">
+                    <div className="flex flex-col text-left">
+                      <span className="text-[8.5px] uppercase tracking-wider font-extrabold text-slate-400 font-montserrat leading-tight">
+                        Saldo Disponible
+                      </span>
+                      <span className="font-extrabold text-[13px] tracking-tight font-montserrat text-white group-hover:text-brand-300 transition-colors">
                         {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(balance)}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 )}
 
                 {/* Campana de Notificaciones Push */}
@@ -248,32 +257,48 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                   <ChatQuickAccess isDark={isDashboard || !isSolid} />
                 </Can>
                 
-                {/* User Dropdown */}
+                {/* Separador sutil */}
+                <div className="h-5 w-px bg-slate-800 hidden sm:block" />
+
+                {/* User Dropdown Capsule */}
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-200 ${
-                      !isDashboard && isSolid ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/10 text-white'
+                    className={`flex items-center gap-2.5 pl-1.5 pr-2.5 py-1 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      !isDashboard && isSolid 
+                        ? 'hover:bg-slate-100 text-slate-800 border-slate-200' 
+                        : 'bg-slate-900/80 hover:bg-slate-800/90 border-slate-700/80 text-white hover:border-slate-600'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      !isDashboard && isSolid ? 'bg-brand-500 text-white' : 'bg-brand-500 text-white'
-                    }`}>
-                      {user?.name.charAt(0).toUpperCase()}
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-amber-600 text-white flex items-center justify-center font-extrabold text-xs shadow-xs font-montserrat">
+                        {user?.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900 absolute -bottom-0.5 -right-0.5" />
                     </div>
-                    <span className="font-semibold text-sm max-w-[120px] truncate">{user?.name}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                    <div className="flex flex-col text-left max-w-[110px] sm:max-w-[140px]">
+                      <span className="font-bold text-xs truncate leading-tight">{user?.name}</span>
+                      <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">
+                        {user?.is_superuser ? 'Super Admin' : (user?.roles?.[0]?.name || 'Inversionista')}
+                      </span>
+                    </div>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180 text-brand-400' : ''}`} />
                   </button>
 
                   {userMenuOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="p-3 border-b border-slate-100 bg-slate-50/50">
-                        <p className="text-xs font-bold text-slate-900 truncate">{user?.name}</p>
-                        <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+                    <div className="absolute top-full right-0 mt-2.5 w-76 bg-white border border-slate-200/90 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="p-3.5 border-b border-slate-100 bg-slate-50/80 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-amber-600 text-white flex items-center justify-center font-extrabold text-sm shadow-xs font-montserrat shrink-0">
+                          {user?.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-extrabold text-slate-900 truncate font-montserrat">{user?.name}</p>
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">{user?.email}</p>
+                        </div>
                       </div>
 
                       {/* Modo Supervisión Parental Activo */}
-                      {(parentBackup || user?.parent_user_id) && (
+                      {parentBackup && (
                         <div className="p-2.5 bg-amber-50 border-b border-amber-200/70">
                           <div className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1 flex items-center gap-1.5 font-montserrat">
                             <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
@@ -288,6 +313,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                             <ArrowLeft className="w-3.5 h-3.5" />
                             <span>Volver a mi cuenta de tutor</span>
                           </button>
+                          {switchError && (
+                            <p role="alert" className="mt-1.5 px-2 py-1.5 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
+                              {switchError}
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -298,6 +328,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                             <Users className="w-3.5 h-3.5 text-brand-600" />
                             <span>Cuentas de Hijos ({myChildren.length})</span>
                           </div>
+                          {switchError && (
+                            <p role="alert" className="mb-1.5 px-2 py-1.5 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
+                              {switchError}
+                            </p>
+                          )}
                           <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                             {myChildren.map((child) => (
                               <button
@@ -324,11 +359,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                         </div>
                       )}
 
-                      <div className="p-1.5 space-y-1">
+                      <div className="p-2 space-y-1">
                         {!isDashboard && (
                           <Link
                             to="/dashboard"
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
                             onClick={() => setUserMenuOpen(false)}
                           >
                             <Activity className="w-4 h-4 text-brand-500" />
@@ -337,7 +372,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                         )}
                         <Link
                           to="/dashboard/profile"
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
                           onClick={() => setUserMenuOpen(false)}
                         >
                           <UserIcon className="w-4 h-4 text-brand-500" />
@@ -348,7 +383,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                             setUserMenuOpen(false);
                             logout();
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-semibold text-xs transition-colors text-left cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-semibold text-xs transition-colors text-left cursor-pointer"
                         >
                           <LogOut className="w-4 h-4" />
                           Cerrar sesión
@@ -386,19 +421,27 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
               <button
                 type="button"
                 onClick={onToggleMobileSidebar}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-600 text-white font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-500 via-brand-500 to-amber-500 text-white font-extrabold text-[11px] font-montserrat tracking-tight shadow-sm shadow-brand-500/25 border border-white/20 active:scale-95 transition-all cursor-pointer"
+                title="Abrir Menú de Navegación"
               >
-                <Activity className="w-4 h-4" />
-                <span>Menú Principal</span>
+                <div className="w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center shrink-0 border border-white/20">
+                  <LayoutDashboard className="w-3 h-3 text-white" />
+                </div>
+                <span>Menú</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={() => setIsOpen(!isOpen)}
-              className={`p-2 rounded-lg transition-colors ${isSolid ? 'text-slate-900 hover:bg-slate-100' : 'text-white hover:bg-white/10'}`}
+              className={`p-2 rounded-xl border transition-all active:scale-95 cursor-pointer ${
+                isSolid 
+                  ? 'bg-slate-900/80 border-slate-700/80 text-white hover:bg-slate-800' 
+                  : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+              }`}
+              aria-label="Menú de opciones"
             >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -406,8 +449,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
       {/* Mobile Menu Dropdown */}
       {isOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden animate-slideInDown">
-          <div className="px-4 py-6 space-y-4">
+        <div className="md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-2xl overflow-hidden animate-slideInDown">
+          <div className="px-4 py-5 space-y-4">
             {!isDashboard ? (
               <>
                 <Link to="/" className="block text-slate-900 font-bold text-lg border-b border-slate-100 pb-3" onClick={() => setIsOpen(false)}>Inicio</Link>
@@ -435,10 +478,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
               </>
             ) : (
               <div className="space-y-3">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-xs text-slate-500 font-semibold">Usuario Conectado</p>
-                  <p className="text-base font-bold text-slate-900">{user?.name}</p>
-                  <p className="text-xs text-slate-400">{user?.email}</p>
+                <div className="p-3.5 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-amber-600 text-white flex items-center justify-center font-extrabold text-sm shadow-xs font-montserrat shrink-0">
+                    {user?.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white truncate font-montserrat">{user?.name}</p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{user?.email}</p>
+                  </div>
                 </div>
 
                 {onToggleMobileSidebar && (
@@ -448,9 +495,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                       setIsOpen(false);
                       onToggleMobileSidebar();
                     }}
-                    className="w-full py-3 px-4 bg-brand-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                    className="w-full py-2.5 px-4 bg-gradient-to-r from-brand-500 via-brand-500 to-amber-500 text-white font-extrabold text-xs font-montserrat rounded-xl flex items-center justify-center gap-2.5 shadow-md shadow-brand-500/20 border border-white/15 active:scale-[0.98] transition-all cursor-pointer"
                   >
-                    <Activity className="w-5 h-5" />
+                    <div className="w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                      <LayoutDashboard className="w-3 h-3 text-white" />
+                    </div>
                     <span>Ver Opciones de Gestión (Sidebar)</span>
                   </button>
                 )}
@@ -461,7 +510,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                     setIsOpen(false);
                     logout();
                   }}
-                  className="w-full py-3 text-center text-red-600 font-bold bg-red-50 hover:bg-red-100 rounded-xl border border-red-200 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2.5 px-4 text-center text-rose-500 font-bold text-xs font-montserrat bg-rose-500/10 hover:bg-rose-500/20 rounded-xl border border-rose-500/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Cerrar sesión</span>

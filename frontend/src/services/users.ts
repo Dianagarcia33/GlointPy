@@ -1,4 +1,5 @@
 import { fetchApi } from './api';
+import { useAuthStore } from '../store/authStore';
 import { Role } from './roles';
 
 export interface BankAccount {
@@ -81,6 +82,11 @@ export interface UserUpdate {
 export interface UserStatementSummary {
   opening_balance: number;
   total_credits: number;
+  // Desglose de total_credits (H-129)
+  total_yields?: number;
+  total_refunds?: number;
+  total_adjustments?: number;
+  total_other_credits?: number;
   total_debits: number;
   closing_balance: number;
   total_withdrawn_paid: number;
@@ -202,7 +208,7 @@ export interface GlobalStatementWithdrawal {
   account_number: string;
   account_type: string;
   amount: number;
-  gmf_tax: number;
+  retencion: number;
   net_amount: number;
   status: string;
   rejection_reason?: string | null;
@@ -234,7 +240,7 @@ export interface GlobalAccountStatement {
     total_debits: number;
     total_withdrawn_paid: number;
     total_withdrawn_pending: number;
-    total_gmf_tax: number;
+    total_retencion: number;
     total_capital_active: number;
     total_capital_finished: number;
     active_investors_count: number;
@@ -260,7 +266,7 @@ export const usersService = {
     return await fetchApi(url);
   },
 
-  createUser: async (data: UserCreate): Promise<User> => {
+  createUser: async (data: UserCreate): Promise<User & { temp_password?: string }> => {
     return await fetchApi('/users', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -274,16 +280,7 @@ export const usersService = {
     });
   },
 
-  uploadBulkUsers: async (file: File): Promise<{ success: number; errors: string[] }> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return await fetchApi('/users/bulk-upload', {
-      method: 'POST',
-      body: formData,
-    });
-  },
-
-  resetPassword: async (id: number): Promise<{ message: string; user_id: number }> => {
+  resetPassword: async (id: number): Promise<{ message: string; user_id: number; temp_password?: string }> => {
     return await fetchApi(`/users/${id}/reset-password`, {
       method: 'POST',
     });
@@ -340,11 +337,24 @@ export const usersService = {
     });
   },
 
-  changeMyPassword: async (data: UserPasswordChangeData): Promise<{ message: string }> => {
-    return await fetchApi('/users/me/change-password', {
+  /** Cierra todas las sesiones del usuario actual en todos sus dispositivos (incluida esta). */
+  logoutAllMySessions: async (): Promise<{ message: string }> => {
+    return await fetchApi('/auth/logout-all', { method: 'POST' });
+  },
+
+  /** Administrador: cierra todas las sesiones abiertas de un usuario. */
+  revokeUserSessions: async (id: number): Promise<{ message: string; user_id: number }> => {
+    return await fetchApi(`/users/${id}/revoke-sessions`, { method: 'POST' });
+  },
+
+  changeMyPassword: async (data: UserPasswordChangeData): Promise<{ message: string; access_token?: string }> => {
+    const res = await fetchApi('/users/me/change-password', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    // Al cambiar la clave el servidor cierra las demás sesiones y reemite la cookie HttpOnly de esta
+    // (el navegador la reemplaza solo); no se guarda ningún token en el cliente.
+    return res;
   },
 
   forceProfileUpdate: async (userIds?: number[], forceAll = false): Promise<{ message: string; affected_count: number }> => {

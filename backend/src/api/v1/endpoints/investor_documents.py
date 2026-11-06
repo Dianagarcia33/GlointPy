@@ -14,6 +14,8 @@ from src.schemas.investor_document import (
 from src.services.investor_document_service import InvestorDocumentService
 
 router = APIRouter(prefix="/investor-documents", tags=["investor-documents"])
+# H-189: ver documentos es parte de admin.investors.manage; generarlos (individual o masivo) requiere
+# admin.investors.generate_documents, para que un rol de consulta contable no emita documentos legales
 
 @router.post("/preview")
 async def preview_document(
@@ -27,7 +29,7 @@ async def preview_document(
 async def generate_document(
     data: InvestorDocumentGenerateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage"]))
+    current_user: User = Depends(RequirePermission(["admin.investors.generate_documents", "admin.roles.manage"]))
 ):
     return await InvestorDocumentService.generate_and_save(db, data)
 
@@ -35,7 +37,7 @@ async def generate_document(
 async def bulk_generate_documents(
     data: InvestorDocumentBulkGenerateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage"]))
+    current_user: User = Depends(RequirePermission(["admin.investors.generate_documents", "admin.roles.manage"]))
 ):
     return await InvestorDocumentService.bulk_generate(db, data)
 

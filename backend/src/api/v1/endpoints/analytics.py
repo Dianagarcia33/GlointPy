@@ -1,8 +1,12 @@
-from typing import List, Dict, Any
+from types import SimpleNamespace
+from src.services.contract_terms import contract_end, contract_start, is_contract_active
+from src.core.timezone import get_colombia_today
+from src.models.acceleration import Acceleration
+from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import extract, func, desc
@@ -22,7 +26,12 @@ from src.models.wallet_recharge import WalletRecharge
 
 router = APIRouter()
 
-@router.get("/admin-dashboard", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+# H-235: "admin.audits.manage" lo tiene también el rol contabilidad, por lo que ya no abre las analíticas de
+# gestión. Estas son las llaves de nivel administrativo (las mismas que ya aceptaba director-dashboard).
+ADMIN_ANALYTICS_PERMISSIONS = ["admin.users.manage", "admin.roles.manage"]
+
+
+@router.get("/admin-dashboard", dependencies=[Depends(RequirePermission(ADMIN_ANALYTICS_PERMISSIONS))])
 async def get_admin_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -34,7 +43,7 @@ async def get_admin_analytics_dashboard(
     - Balance de liquidez (Inversiones vs Billeteras vs Retiros)
     - Proporción por Tipo de Venta (Contrato Nuevo, Reinversión, Referidos)
     """
-    today = date.today()
+    today = get_colombia_today()  # H-180: misma fecha (Colombia) que el resto del sistema
     start_cutoff = today.replace(day=1) - relativedelta(months=5)
 
     # 1. Crecimiento mensual de captación (Últimos 6 meses) optimizado en solo 2 queries agrupadas
@@ -90,6 +99,16 @@ async def get_admin_analytics_dashboard(
     )
     rows = (await db.execute(stmt_invs)).all()
 
+    # Aceleraciones aplicadas por contrato: acortan la vigencia (H-180), igual que en Inversionistas
+    acc_res = await db.execute(
+        select(Acceleration.investor_id, Acceleration.days_to_reduce).where(Acceleration.applied == True)  # noqa: E712
+    )
+    accelerations_by_investor: Dict[int, list] = {}
+    for inv_id, days_to_reduce in acc_res.all():
+        accelerations_by_investor.setdefault(inv_id, []).append(
+            SimpleNamespace(applied=True, days_to_reduce=days_to_reduce)
+        )
+
     active_count = 0
     finished_count = 0
     total_invertido = 0.0
@@ -98,13 +117,13 @@ async def get_admin_analytics_dashboard(
 
     for r in rows:
         pkg_val = float(r.package_value or 0)
-        is_active = True
-        if r.start_date and (r.period_days or r.period_months):
-            inv_start = r.start_date.date() if isinstance(r.start_date, datetime) else r.start_date
-            dias_base = r.period_days or ((r.period_months or 0) * 30)
-            fecha_fin = inv_start + timedelta(days=dias_base)
-            if fecha_fin <= today:
-                is_active = False
+        # Misma regla única que el resto del sistema (contract_terms), sin cargar objetos ORM completos
+        contract = SimpleNamespace(
+            start_date=r.start_date,
+            period=SimpleNamespace(days=r.period_days or ((r.period_months or 0) * 30)),
+            accelerations=accelerations_by_investor.get(r.id, []),
+        )
+        is_active = is_contract_active(contract, today)
 
         if is_active:
             active_count += 1
@@ -169,7 +188,7 @@ async def get_admin_analytics_dashboard(
 
 
 
-@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage", "admin.commercial.manage", "commercial:view"]))])
+@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage", "admin.commercial.manage", "commercial:view"]))])
 async def get_director_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -184,7 +203,7 @@ async def get_director_analytics_dashboard(
     - Desglose por tipo de venta (Contratos nuevos, reinversiones, referidos)
     - Evolución mensual de captación del equipo
     """
-    today = date.today()
+    today = get_colombia_today()  # H-180: misma fecha (Colombia) que el resto del sistema
     year = today.year
     month = today.month
 
@@ -322,7 +341,8 @@ async def get_director_analytics_dashboard(
             .options(
                 selectinload(Investor.user),
                 selectinload(Investor.package),
-                selectinload(Investor.period)
+                selectinload(Investor.period),
+                selectinload(Investor.accelerations)
             )
         )
         all_invs = invs_res.scalars().all()
@@ -331,9 +351,8 @@ async def get_director_analytics_dashboard(
             doc = inv.user.document_id.strip() if inv.user and inv.user.document_id else ""
             # SOLO INCLUIR SI EL CONTRATO FUE ADJUDICADO Y ESTÁ EN EL MAPA DE VENTAS DE ESTE ASESOR
             if doc in my_sales_map:
-                if inv.start_date and inv.period and inv.period.months:
-                    start_d = inv.start_date.date() if isinstance(inv.start_date, datetime) else inv.start_date
-                    end_d = start_d + relativedelta(months=inv.period.months)
+                if inv.start_date and inv.period and inv.period.days:
+                    end_d = contract_end(inv)  # regla única de vigencia (H-140)
                     days_left = (end_d - today).days
 
                     if -30 <= days_left <= 90:
@@ -344,7 +363,7 @@ async def get_director_analytics_dashboard(
                             "cliente_documento": doc,
                             "asesor_adjudicado": my_sales_map[doc],
                             "monto": float(inv.package.value or 0) if inv.package else 0.0,
-                            "fecha_ingreso": start_d.isoformat(),
+                            "fecha_ingreso": contract_start(inv).isoformat(),
                             "fecha_vencimiento": end_d.isoformat(),
                             "dias_restantes": days_left
                         })
@@ -398,7 +417,7 @@ async def get_accounting_analytics_dashboard(
             "user_name": r.user.name if r.user else "Usuario",
             "user_email": r.user.email if r.user else "",
             "user_document": getattr(r.user, "document_id", None) if r.user else None,
-            "package_name": r.package.name if r.package else "Paquete Inversión",
+            "package_name": f"Paquete ${float(r.package.value or 0):,.0f}" if r.package else "Paquete Inversión",  # H-181: Package no tiene 'name'; el 500 venía de aquí
             "monto": float(r.monto or 0),
             "comprobante_path": r.comprobante_path,
             "created_at": r.created_at.isoformat() if r.created_at else None
@@ -406,14 +425,81 @@ async def get_accounting_analytics_dashboard(
         for r in pending_investments
     ]
 
-    # 2. Recargas de Billetera Pendientes
+    # 2. Recargas de Billetera Pendientes (auto-sanando aquellas que ya fueron procesadas por Yoint o ya acreditaron saldo)
+    from src.models.yoint_payin import YointPayin
+    from src.models.wallet import WalletTransaction
+    from sqlalchemy import or_, and_
+
     recharges_res = await db.execute(
         select(WalletRecharge)
         .options(selectinload(WalletRecharge.user))
         .where(WalletRecharge.status == "pending")
         .order_by(WalletRecharge.created_at.desc())
     )
-    pending_recharges = recharges_res.scalars().all()
+    raw_pending_recharges = recharges_res.scalars().all()
+    pending_recharges = []
+    has_analytics_healed = False
+
+    for r in raw_pending_recharges:
+        # Verificar si tiene payin SUCCESS
+        p_res = await db.execute(
+            select(YointPayin).where(
+                or_(
+                    YointPayin.wallet_recharge_id == r.id,
+                    and_(
+                        YointPayin.user_id == r.user_id,
+                        YointPayin.status == "SUCCESS",
+                        or_(
+                            YointPayin.order_id == r.reference_number,
+                            YointPayin.payment_reference == r.reference_number,
+                            and_(
+                                YointPayin.amount == r.amount,
+                                YointPayin.payin_type == "WALLET_TOPUP"
+                            )
+                        )
+                    )
+                )
+            ).order_by(YointPayin.id.desc())
+        )
+        matched_p = p_res.scalars().first()
+        if matched_p and matched_p.status == "SUCCESS":
+            r.status = "approved"
+            r.reviewed_at = matched_p.updated_at or datetime.utcnow()
+            r.reference_number = matched_p.order_id or matched_p.payment_reference or r.reference_number
+            r.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({matched_p.order_id or matched_p.payment_reference})"
+            if not matched_p.wallet_recharge_id:
+                matched_p.wallet_recharge_id = r.id
+                db.add(matched_p)
+            db.add(r)
+            has_analytics_healed = True
+            continue
+
+        # Verificar si ya existe transacción de saldo
+        tx_res = await db.execute(
+            select(WalletTransaction).where(
+                WalletTransaction.wallet_id == r.wallet_id,
+                WalletTransaction.amount == r.amount,
+                WalletTransaction.type.in_(["wallet_recharge", "recarga", "recharge"]),
+                WalletTransaction.created_at >= r.created_at
+            )
+        )
+        matched_tx = tx_res.scalars().first()
+        if matched_tx:
+            r.status = "approved"
+            r.reviewed_at = matched_tx.created_at or datetime.utcnow()
+            r.admin_notes = "Aprobada automáticamente (Saldo acreditado en billetera)"
+            db.add(r)
+            has_analytics_healed = True
+            continue
+
+        pending_recharges.append(r)
+
+    if has_analytics_healed:
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+
     pending_recharges_count = len(pending_recharges)
     pending_recharges_amount = sum(float(r.amount or 0) for r in pending_recharges)
 
@@ -482,4 +568,19 @@ async def get_accounting_analytics_dashboard(
         "pending_recharges": pending_recharges_list,
         "pending_withdrawals": pending_withdrawals_list
     }
+
+
+@router.get("/statement", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage", "admin.payments.manage", "admin.audits.manage", "admin.roles.manage"]))])
+async def get_analytics_statement(
+    start_date: Optional[str] = Query(None, description="Fecha inicial formato YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="Fecha final formato YYYY-MM-DD"),
+    user_id: Optional[int] = Query(None, description="Filtrar por usuario específico"),
+    tx_type: Optional[str] = Query(None, description="Filtrar por tipo de transacción"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Alias documentado en Módulo 14 para obtener el estado de cuenta financiero global consolidado.
+    """
+    from src.services.user_service import UserService
+    return await UserService.get_global_account_statement(db, start_date, end_date, user_id, tx_type)
 

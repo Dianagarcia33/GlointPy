@@ -41,7 +41,7 @@ export function NosotrosAcerca() {
             </h1>
 
             <div className="text-xs font-semibold tracking-widest uppercase mb-8" style={{ color: "#94a3b8" }}>
-              GLOINT INTERNATIONAL PARTNERS S.A.S.
+              GLOINT GROUP
             </div>
 
             <p className="text-slate-600 leading-relaxed mb-4">
@@ -103,7 +103,7 @@ export function NosotrosAcerca() {
             {/* AÑO */}
             <motion.div
               className="rounded-3xl p-8 md:p-10 relative overflow-hidden"
-              style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
+              style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}
               whileHover={{ y: -4 }}
               transition={{ duration: 0.25 }}
             >

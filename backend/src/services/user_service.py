@@ -1,15 +1,60 @@
+from src.services.audit_trail_service import audit_in_tx
+from src.services.contract_terms import is_contract_active
+from src.core.timezone import get_colombia_today
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import List
+from typing import List, Optional
 
 from src.models.user import User
 from src.models.security import Role
-from src.core.security import get_password_hash, verify_password
+from src.core.security import aget_password_hash, averify_password
+from src.core.session_revocation import revoke_user_sessions, close_live_connections
+from src.core.password_policy import ensure_valid_password
 from fastapi import HTTPException
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
+
+def parse_statement_range(start_date_str: Optional[str], end_date_str: Optional[str]):
+    """
+    Valida el periodo de un estado de cuenta y lo devuelve como rango UTC (H-129/H-161).
+
+    Las fechas 'AAAA-MM-DD' son días de Colombia: el rango va de las 00:00 del día inicial a las
+    23:59:59 del día final en hora Colombia, convertido a UTC porque así se guardan created_at.
+    Antes una fecha mal escrita o imposible (2026-02-31) se ignoraba y se devolvía todo el historial.
+    """
+    from datetime import date as _date, time as _time, timedelta as _timedelta
+    from src.core.timezone import BOGOTA_TZ
+    from datetime import timezone as _tz
+
+    def parse(value: Optional[str], label: str) -> Optional[_date]:
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"La fecha '{label}' no es válida ('{value}'). Usa el formato AAAA-MM-DD con una fecha real.")
+
+    start_d, end_d = parse(start_date_str, "Desde"), parse(end_date_str, "Hasta")
+    if start_d and end_d and start_d > end_d:
+        raise HTTPException(status_code=422, detail="Rango de fechas inválido: la fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
+
+    def to_utc(d: _date, t: _time) -> datetime:
+        return datetime.combine(d, t, tzinfo=BOGOTA_TZ).astimezone(_tz.utc).replace(tzinfo=None)
+
+    start_dt = to_utc(start_d, _time.min) if start_d else None
+    end_dt = to_utc(end_d, _time.max) if end_d else None
+    return start_d, end_d, start_dt, end_dt
+
+
+def _mask_email(email):
+    """Correo enmascarado para auditoría: j***@dominio.com"""
+    if not email or "@" not in str(email):
+        return None
+    local, _, domain = str(email).partition("@")
+    return f"{local[:1]}***@{domain}"
+
 
 class UserService:
     @staticmethod
@@ -28,12 +73,12 @@ class UserService:
         query = select(User)
         
         if search:
-            search_term = f"%{search}%"
+            # autoescape: '%' y '_' se buscan como texto literal, no como comodines de LIKE (H-130)
             query = query.where(
                 or_(
-                    User.name.ilike(search_term),
-                    User.email.ilike(search_term),
-                    User.document_id.ilike(search_term)
+                    User.name.icontains(search, autoescape=True),
+                    User.email.icontains(search, autoescape=True),
+                    User.document_id.icontains(search, autoescape=True)
                 )
             )
             
@@ -92,7 +137,7 @@ class UserService:
         return user
 
     @staticmethod
-    async def create_wallet_for_user(db: AsyncSession, user_id: int) -> dict:
+    async def create_wallet_for_user(db: AsyncSession, user_id: int, actor=None) -> dict:
         from src.models.wallet import Wallet, WalletStatus
         user = await UserService.get_user_by_id(db, user_id)
         if user.wallet:
@@ -105,6 +150,12 @@ class UserService:
             status=WalletStatus.ACTIVE
         )
         db.add(new_wallet)
+        await db.flush()
+        await audit_in_tx(
+            db, "WALLET_CREATE", "wallets", actor, "Wallet", new_wallet.id,
+            f"Creación de la billetera #{new_wallet.id} del usuario #{user.id}",
+            {"wallet_id": new_wallet.id, "usuario_id": user.id},
+        )
         await db.commit()
         await db.refresh(new_wallet)
         return {
@@ -114,7 +165,7 @@ class UserService:
         }
 
     @staticmethod
-    async def create_user_admin(db: AsyncSession, user_data: dict) -> User:
+    async def create_user_admin(db: AsyncSession, user_data: dict, actor=None) -> User:
         # Check if email exists
         result = await db.execute(select(User).where(User.email == user_data["email"]))
         if result.scalars().first():
@@ -126,7 +177,9 @@ class UserService:
             if not parent_res.scalars().first():
                 raise HTTPException(status_code=400, detail="El usuario tutor especificado no existe")
 
-        # Create user with default password
+        # Create user with a secure random temporary password (H-76)
+        from src.core.security import generate_secure_temp_password
+        temp_password = generate_secure_temp_password(12)
         user = User(
             name=user_data["name"],
             email=user_data["email"],
@@ -134,7 +187,7 @@ class UserService:
             phone_number=user_data.get("phone_number"),
             date_of_birth=user_data.get("date_of_birth"),
             parent_user_id=parent_user_id,
-            password_hash=get_password_hash("Temp123!"),
+            password_hash=await aget_password_hash(temp_password),
             must_change_password=True,
             is_active=user_data.get("is_active", True)
         )
@@ -145,32 +198,96 @@ class UserService:
             user.roles = roles_result.scalars().all()
         
         db.add(user)
+        await db.flush()
+        await audit_in_tx(
+            db, "USER_CREATE", "users", actor, "User", user.id,
+            f"Creación del usuario #{user.id}",
+            {"usuario_id": user.id, "email": _mask_email(user.email), "roles": [r.id for r in (user.roles or [])],
+             "activo": bool(user.is_active), "tutor_id": parent_user_id, "contrasena_temporal": True},
+        )
         await db.commit()
         await db.refresh(user)
         # Fetch again to eagerly load roles for response
-        return await UserService.get_user_by_id(db, user.id)
+        created_user = await UserService.get_user_by_id(db, user.id)
+        created_user.temp_password = temp_password
+        return created_user
 
     @staticmethod
-    async def reset_user_password(db: AsyncSession, user_id: int) -> dict:
-        result = await db.execute(select(User).where(User.id == user_id))
+    async def reset_user_password(db: AsyncSession, user_id: int, current_user: Optional[User] = None) -> dict:
+        result = await db.execute(
+            select(User).options(selectinload(User.roles)).where(User.id == user_id)
+        )
         user = result.scalars().first()
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-        user.password_hash = get_password_hash("123456789")
+        # Blindaje contra escalada de privilegios (H-150 / H-35):
+        # Impedir que un administrador de menor rango resetee la contraseña de un SuperAdmin
+        target_is_super = getattr(user, 'is_superuser', False) or any(
+            r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (user.roles or [])
+        )
+        if target_is_super:
+            caller_is_super = current_user and (
+                getattr(current_user, 'is_superuser', False) or any(
+                    r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (current_user.roles or [])
+                )
+            )
+            if not caller_is_super:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tienes autorización para restablecer la contraseña de un SuperAdministrador del sistema."
+                )
+
+        from src.core.security import generate_secure_temp_password
+        temp_password = generate_secure_temp_password(12)
+        user.password_hash = await aget_password_hash(temp_password)
         user.must_change_password = True
         user.failed_login_attempts = 0
         user.locked_until = None
+        # Cierra las sesiones abiertas de esa cuenta: quien tuviera la clave anterior ya no sigue dentro
+        await revoke_user_sessions(db, user)
 
         await db.commit()
         await db.refresh(user)
+        await close_live_connections(user.id)
         return {
-            "message": "Contraseña restablecida exitosamente a la clave temporal '123456789'",
-            "user_id": user.id
+            "message": "Contraseña temporal aleatoria generada exitosamente",
+            "user_id": user.id,
+            "temp_password": temp_password
         }
 
     @staticmethod
-    async def update_user_admin(db: AsyncSession, user_id: int, user_data: dict) -> User:
+    async def revoke_sessions(db: AsyncSession, user_id: int, current_user: Optional[User] = None) -> dict:
+        """Cierra todas las sesiones abiertas de un usuario (todos sus dispositivos). Mismo blindaje que el reseteo de clave."""
+        result = await db.execute(
+            select(User).options(selectinload(User.roles)).where(User.id == user_id)
+        )
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        target_is_super = getattr(user, 'is_superuser', False) or any(
+            r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (user.roles or [])
+        )
+        if target_is_super:
+            caller_is_super = current_user and (
+                getattr(current_user, 'is_superuser', False) or any(
+                    r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (current_user.roles or [])
+                )
+            )
+            if not caller_is_super:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tienes autorización para cerrar las sesiones de un SuperAdministrador del sistema."
+                )
+
+        await revoke_user_sessions(db, user)
+        await db.commit()
+        await close_live_connections(user.id)
+        return {"message": "Se cerraron todas las sesiones del usuario.", "user_id": user.id}
+
+    @staticmethod
+    async def update_user_admin(db: AsyncSession, user_id: int, user_data: dict, actor=None) -> User:
         user = await UserService.get_user_by_id(db, user_id)
         
         # If email changed, check uniqueness
@@ -188,9 +305,18 @@ class UserService:
                 if not p_res.scalars().first():
                     raise HTTPException(status_code=400, detail="El usuario tutor especificado no existe")
 
+        audit_before = {
+            "email": _mask_email(user.email), "is_active": bool(user.is_active),
+            "parent_user_id": user.parent_user_id, "roles": sorted(r.id for r in (user.roles or [])),
+        }
         for key, value in user_data.items():
             if key != "role_ids":
                 setattr(user, key, value)
+
+        # Desactivar una cuenta cierra sus sesiones: si se reactiva más tarde, los tokens viejos no reviven
+        deactivated = user_data.get("is_active") is False
+        if deactivated:
+            await revoke_user_sessions(db, user)
 
         # Update roles if provided
         if "role_ids" in user_data:
@@ -200,13 +326,50 @@ class UserService:
             else:
                 user.roles = []
 
+        await audit_in_tx(
+            db, "USER_UPDATE", "users", actor, "User", user.id,
+            f"Edición del usuario #{user.id}: {', '.join(sorted(user_data)) or 'sin cambios'}",
+            {"usuario_id": user.id, "campos": sorted(user_data), "antes": audit_before,
+             "despues": {"email": _mask_email(user.email), "is_active": bool(user.is_active),
+                         "parent_user_id": user.parent_user_id, "roles": sorted(r.id for r in (user.roles or []))}},
+        )
         await db.commit()
         await db.refresh(user)
+        if deactivated:
+            await close_live_connections(user.id)
         return await UserService.get_user_by_id(db, user.id)
 
     @staticmethod
     async def update_profile(db: AsyncSession, user_id: int, profile_data: dict) -> User:
         user = await UserService.get_user_by_id(db, user_id)
+
+        # H-198: formato de documento, teléfono y fecha de nacimiento. Solo se valida lo que cambia, para no
+        # bloquear a usuarios antiguos cuyos datos históricos no cumplen el formato y solo editan otro campo.
+        from src.core.identity import normalize_document_id, normalize_phone_number, validate_birth_date
+        try:
+            if profile_data.get("document_id") and profile_data["document_id"].strip() != (user.document_id or ""):
+                profile_data["document_id"] = normalize_document_id(profile_data["document_id"])
+            if profile_data.get("phone_number") and profile_data["phone_number"].strip() != (user.phone_number or ""):
+                profile_data["phone_number"] = normalize_phone_number(profile_data["phone_number"])
+            new_dob = profile_data.get("date_of_birth")
+            if new_dob:
+                dob_date = new_dob.date() if hasattr(new_dob, "date") else new_dob
+                current_dob = user.date_of_birth.date() if hasattr(user.date_of_birth, "date") else user.date_of_birth
+                if dob_date != current_dob:
+                    validate_birth_date(dob_date)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+
+        # La actualización obligatoria solo se da por cumplida con los tres datos presentes
+        if user.must_update_profile:
+            final_doc = profile_data.get("document_id") if "document_id" in profile_data else user.document_id
+            final_phone = profile_data.get("phone_number") if "phone_number" in profile_data else user.phone_number
+            final_dob = profile_data.get("date_of_birth") if "date_of_birth" in profile_data else user.date_of_birth
+            if not (final_doc and final_phone and final_dob):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Para completar la actualización obligatoria indica tu documento de identidad, teléfono y fecha de nacimiento."
+                )
 
         # Validate unique email if changing
         if "email" in profile_data and profile_data["email"] and profile_data["email"].lower() != user.email.lower():
@@ -241,30 +404,45 @@ class UserService:
         return await UserService.get_user_by_id(db, user.id)
 
     @staticmethod
-    async def change_password(db: AsyncSession, user_id: int, current_password: str, new_password: str) -> dict:
+    async def change_password(db: AsyncSession, user_id: int, current_password: str, new_password: str, actor=None) -> dict:
         result = await db.execute(select(User).where(User.id == user_id))
         user = result.scalars().first()
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-        if not verify_password(current_password, user.password_hash):
+        if not await averify_password(current_password, user.password_hash):
             raise HTTPException(status_code=400, detail="La contraseña actual no es correcta.")
 
-        user.password_hash = get_password_hash(new_password)
+        ensure_valid_password(new_password)
+
+        user.password_hash = await aget_password_hash(new_password)
         user.must_change_password = False
         user.failed_login_attempts = 0
         user.locked_until = None
+        # Cierra las demás sesiones; el endpoint emite un token nuevo con esta versión para la sesión actual
+        new_version = await revoke_user_sessions(db, user)
 
+        await audit_in_tx(
+            db, "USER_PASSWORD_CHANGE", "users", actor or user, "User", user.id,
+            "El usuario cambió su contraseña (se cerraron las demás sesiones)",
+            {"usuario_id": user.id, "sesiones_revocadas": True},
+        )
         await db.commit()
-        return {"message": "Contraseña actualizada exitosamente"}
+        await close_live_connections(user.id)
+        return {"message": "Contraseña actualizada exitosamente", "token_version": new_version}
 
     @staticmethod
-    async def force_profile_update(db: AsyncSession, user_ids: list = None, force_all: bool = False) -> dict:
+    async def force_profile_update(db: AsyncSession, user_ids: list = None, force_all: bool = False, actor=None) -> dict:
         from sqlalchemy import update
         if force_all:
             # Force all non-superuser users
             stmt = update(User).where(User.is_superuser == False).values(must_update_profile=True)
             result = await db.execute(stmt)
+            await audit_in_tx(
+                db, "USER_FORCE_PROFILE_UPDATE", "users", actor, "User", "bulk",
+                f"Actualización de perfil obligatoria para todos los usuarios ({result.rowcount})",
+                {"alcance": "todos", "afectados": result.rowcount},
+            )
             await db.commit()
             return {
                 "message": f"Se activó la actualización obligatoria para {result.rowcount} usuarios.",
@@ -273,6 +451,11 @@ class UserService:
         elif user_ids and len(user_ids) > 0:
             stmt = update(User).where(User.id.in_(user_ids)).values(must_update_profile=True)
             result = await db.execute(stmt)
+            await audit_in_tx(
+                db, "USER_FORCE_PROFILE_UPDATE", "users", actor, "User", "bulk",
+                f"Actualización de perfil obligatoria para {result.rowcount} usuarios seleccionados",
+                {"alcance": "seleccion", "user_ids": list(user_ids)[:200], "afectados": result.rowcount},
+            )
             await db.commit()
             return {
                 "message": f"Se activó la actualización obligatoria para {result.rowcount} usuarios seleccionados.",
@@ -281,124 +464,22 @@ class UserService:
         return {"message": "No se especificaron usuarios para la actualización.", "affected_count": 0}
 
     @staticmethod
-    async def toggle_force_profile_update(db: AsyncSession, user_id: int, force_value: bool = None) -> User:
+    async def toggle_force_profile_update(db: AsyncSession, user_id: int, force_value: bool = None, actor=None) -> User:
         user = await UserService.get_user_by_id(db, user_id)
+        before_value = bool(user.must_update_profile)
         if force_value is not None:
             user.must_update_profile = force_value
         else:
             user.must_update_profile = not user.must_update_profile
 
+        await audit_in_tx(
+            db, "USER_FORCE_PROFILE_TOGGLE", "users", actor, "User", user.id,
+            f"Actualización de perfil obligatoria del usuario #{user.id}: {before_value} → {bool(user.must_update_profile)}",
+            {"usuario_id": user.id, "antes": before_value, "despues": bool(user.must_update_profile)},
+        )
         await db.commit()
         await db.refresh(user)
         return await UserService.get_user_by_id(db, user.id)
-
-    @staticmethod
-    async def bulk_create_users(db: AsyncSession, csv_content: str) -> dict:
-        try:
-            dialect = csv.Sniffer().sniff(csv_content[:1024])
-            reader = csv.DictReader(io.StringIO(csv_content), dialect=dialect)
-        except Exception:
-            reader = csv.DictReader(io.StringIO(csv_content))
-            
-        success_count = 0
-        errors = []
-        
-        # Load all roles to map names to objects
-        roles_result = await db.execute(select(Role))
-        all_roles = {r.name.lower(): r for r in roles_result.scalars().all()}
-        
-        print(f"--- Iniciando Carga Masiva de Usuarios ---", flush=True)
-
-        for row_number, row in enumerate(reader, start=2):
-            try:
-                name = row.get("name", "").strip()
-                email = row.get("email", "").strip()
-                
-                print(f"Procesando fila {row_number}: email={email}", flush=True)
-                
-                if not name or not email:
-                    errors.append(f"Fila {row_number}: Nombre o Correo electrónico faltante.")
-                    continue
-
-                # Check if email exists
-                existing = await db.execute(select(User).where(User.email == email))
-                if existing.scalars().first():
-                    errors.append(f"Fila {row_number}: El correo {email} ya existe en base de datos.")
-                    continue
-                
-                user_id_str = row.get("id", "").strip()
-                user_id = None
-                if user_id_str and user_id_str.isdigit():
-                    user_id = int(user_id_str)
-                    existing_id = await db.execute(select(User).where(User.id == user_id))
-                    if existing_id.scalars().first():
-                        errors.append(f"Fila {row_number}: El ID {user_id} ya está en uso.")
-                        continue
-                
-                doc_id = row.get("document_id", "").strip()
-                if not doc_id:
-                    errors.append(f"Fila {row_number}: Documento de identidad faltante (requerido para contraseña inicial).")
-                    continue
-                
-                # Prevenir duplicados de documento en base de datos
-                existing_doc = await db.execute(select(User).where(User.document_id == doc_id))
-                if existing_doc.scalars().first():
-                    errors.append(f"Fila {row_number}: El documento {doc_id} ya existe en base de datos.")
-                    continue
-                
-                raw_dob = row.get("date_of_birth", "").strip()
-                date_of_birth = None
-                if raw_dob:
-                    if "/" in raw_dob:
-                        try:
-                            date_of_birth = datetime.strptime(raw_dob, "%d/%m/%Y").strftime("%Y-%m-%d")
-                        except ValueError:
-                            try:
-                                date_of_birth = datetime.strptime(raw_dob, "%Y/%m/%d").strftime("%Y-%m-%d")
-                            except ValueError:
-                                date_of_birth = raw_dob
-                    else:
-                        date_of_birth = raw_dob
-
-                user = User(
-                    name=name,
-                    email=email,
-                    document_id=doc_id,
-                    phone_number=row.get("phone_number", "").strip() or None,
-                    date_of_birth=date_of_birth,
-                    password_hash=get_password_hash(doc_id),
-                    must_change_password=True,
-                    is_active=True
-                )
-                
-                if user_id:
-                    user.id = user_id
-
-                roles_str = row.get("roles", "").strip()
-                if roles_str:
-                    role_names = [r.strip().lower() for r in roles_str.split(",")]
-                    assigned_roles = []
-                    for r_name in role_names:
-                        if r_name in all_roles:
-                            assigned_roles.append(all_roles[r_name])
-                    user.roles = assigned_roles
-
-                db.add(user)
-                # Commit here to save each user individually
-                await db.commit()
-                success_count += 1
-                print(f"-> Fila {row_number} guardada con éxito.", flush=True)
-                
-            except Exception as e:
-                await db.rollback() # Limpiar la transacción en caso de error
-                print(f"-> Error en fila {row_number}: {str(e)}", flush=True)
-                errors.append(f"Fila {row_number}: Error inesperado - {str(e)}")
-
-        print(f"--- Fin Carga Masiva. Exitosos: {success_count}, Errores: {len(errors)} ---", flush=True)
-        return {
-            "success": success_count,
-            "errors": errors
-        }
 
     @staticmethod
     async def get_user_account_statement(
@@ -430,19 +511,8 @@ class UserService:
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-        # 2. Parse dates if provided
-        start_dt = None
-        end_dt = None
-        if start_date_str:
-            try:
-                start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
-            except Exception:
-                pass
-        if end_date_str:
-            try:
-                end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
-            except Exception:
-                pass
+        # 2. Validar el periodo (días de Colombia -> rango UTC)
+        _, _, start_dt, end_dt = parse_statement_range(start_date_str, end_date_str)
 
         # 3. Fetch Wallet Transactions
         wallet = user.wallet
@@ -451,6 +521,20 @@ class UserService:
         closing_balance = float(wallet.balance) if wallet else 0.0
         total_credits = 0.0
         total_debits = 0.0
+        # Desglose de abonos (H-129): los ajustes y reembolsos no son rendimientos
+        total_yields = 0.0
+        total_refunds = 0.0
+        total_adjustments = 0.0
+        total_other_credits = 0.0
+
+        def classify_credit(tx_type: str, ref_type: str) -> str:
+            if tx_type in ("yield", "yield_payout", "yield payout", "bonus_payout", "bonus payout") or ref_type in ("rendimiento_inversion", "bono_aceleracion"):
+                return "yield"
+            if "refund" in tx_type or "rejection" in tx_type or "reembolso" in tx_type:
+                return "refund"
+            if "adjustment" in tx_type or ref_type == "admin":
+                return "adjustment"
+            return "other"
 
         if wallet:
             # Query all transactions
@@ -474,6 +558,15 @@ class UserService:
 
                 if t_amount >= 0:
                     total_credits += t_amount
+                    credit_kind = classify_credit((t.type or "").strip().lower(), (t.reference_type or "").strip().lower())
+                    if credit_kind == "yield":
+                        total_yields += t_amount
+                    elif credit_kind == "refund":
+                        total_refunds += t_amount
+                    elif credit_kind == "adjustment":
+                        total_adjustments += t_amount
+                    else:
+                        total_other_credits += t_amount
                 else:
                     total_debits += abs(t_amount)
 
@@ -508,6 +601,9 @@ class UserService:
                     "admin_adjustment": "Ajuste Administrativo",
                     "admin adjustment": "Ajuste Administrativo",
                     "adjustment": "Ajuste de Saldo",
+                    "refund": "Reembolso",
+                    "share_hold_refund": "Reembolso de Reserva de Acciones",
+                    "wallet_recharge": "Recarga de Billetera",
                     "ingreso": "Abono / Rendimiento",
                     "egreso": "Débito de Fondos",
                     "capital_increase": "Aumento de Capital",
@@ -577,7 +673,7 @@ class UserService:
 
         inv_res = await db.execute(
             select(Investor)
-            .options(selectinload(Investor.package), selectinload(Investor.period))
+            .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
             .where(Investor.user_id == user_id)
             .order_by(desc(Investor.created_at))
         )
@@ -585,20 +681,14 @@ class UserService:
 
         investments_list = []
         total_capital_invested = 0.0
-        today_date = date.today()
+        today_date = get_colombia_today()  # H-156
 
         for inv in investors:
             pkg_val = float(inv.package.value) if inv.package else 0.0
             pct = float(inv.period.percentage) if inv.period else 0.0
             months = int(inv.period.months) if inv.period else 12
 
-            inv_start = inv.start_date or inv.created_at
-            is_active = True
-            if inv_start:
-                start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
-                end_d = start_d + relativedelta(months=months)
-                if end_d <= today_date:
-                    is_active = False
+            is_active = is_contract_active(inv, today_date)  # regla única (H-140, H-180)
 
             estado = "Activo" if is_active else "Finalizado"
             if is_active:
@@ -640,6 +730,8 @@ class UserService:
 
         share_type_labels = {
             "package_grant": "Acreditación por Paquete",
+            "package_grant_reverted": "Acreditación por Paquete (revertida)",
+            "package_revoke": "Reversión por Contrato Eliminado",
             "market_buy": "Compra en Mercado",
             "market_sell": "Venta en Mercado",
             "listing_lock": "Bloqueo para Venta",
@@ -685,7 +777,7 @@ class UserService:
             "statement_date": datetime.now().isoformat(),
             "period": {
                 "start_date": start_date_str or "Inicio de Operaciones",
-                "end_date": end_date_str or datetime.now().strftime("%Y-%m-%d")
+                "end_date": end_date_str or get_colombia_today().strftime("%Y-%m-%d")
             },
             "user": {
                 "id": user.id,
@@ -706,6 +798,10 @@ class UserService:
             "summary": {
                 "opening_balance": opening_balance,
                 "total_credits": total_credits,
+                "total_yields": total_yields,
+                "total_refunds": total_refunds,
+                "total_adjustments": total_adjustments,
+                "total_other_credits": total_other_credits,
                 "total_debits": total_debits,
                 "closing_balance": float(wallet.balance) if wallet else 0.0,
                 "total_withdrawn_paid": total_withdrawn_paid,
@@ -745,19 +841,12 @@ class UserService:
         from sqlalchemy import desc, asc, and_, func
         from dateutil.relativedelta import relativedelta
 
-        # 1. Parse dates if provided
-        start_dt = None
-        end_dt = None
-        if start_date_str:
-            try:
-                start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
-            except Exception:
-                pass
-        if end_date_str:
-            try:
-                end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
-            except Exception:
-                pass
+        # 1. Validar el periodo (días de Colombia -> rango UTC), igual que el extracto individual (H-161)
+        _, _, start_dt, end_dt = parse_statement_range(start_date_str, end_date_str)
+        if user_id:
+            exists = await db.execute(select(User.id).where(User.id == user_id))
+            if not exists.scalar_one_or_none():
+                raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
         # 2. Fetch all wallets total current balance
         total_wallets_balance_res = await db.execute(select(func.sum(Wallet.balance)))
@@ -851,9 +940,10 @@ class UserService:
             })
 
         # 4. Fetch Withdrawals with User and Bank info
-        w_query = select(Withdrawal, User).join(User, Withdrawal.user_id == User.id)
+        # LEFT JOIN (H-170): un retiro cuyo usuario ya no existe sigue contando, igual que en Gestión de Pagos
+        w_query = select(Withdrawal, User).outerjoin(User, Withdrawal.user_id == User.id)
         if user_id:
-            w_query = w_query.where(User.id == user_id)
+            w_query = w_query.where(Withdrawal.user_id == user_id)
         if start_dt:
             w_query = w_query.where(Withdrawal.created_at >= start_dt)
         if end_dt:
@@ -865,31 +955,32 @@ class UserService:
         withdrawals_list = []
         total_withdrawn_paid = 0.0
         total_withdrawn_pending = 0.0
-        total_gmf_tax = 0.0
+        total_retencion = 0.0
 
         for w, u in all_w_records:
             w_status = w.estado.value if hasattr(w.estado, 'value') else str(w.estado or "pendiente")
             monto_bruto = float(w.monto or 0)
             monto_neto = float(w.monto_neto or w.monto or 0)
-            gmf = float(w.impuesto if hasattr(w, 'impuesto') and w.impuesto is not None else max(0.0, monto_bruto - monto_neto))
+            retencion_w = float(w.impuesto if hasattr(w, 'impuesto') and w.impuesto is not None else max(0.0, monto_bruto - monto_neto))
 
             if w_status.lower() in ["aprobado", "approved", "pagado", "paid", "procesado", "processed", "completado"]:
                 total_withdrawn_paid += monto_neto
-                total_gmf_tax += gmf
+                total_retencion += retencion_w
             elif w_status.lower() in ["pendiente", "pending"]:
                 total_withdrawn_pending += monto_neto
 
             withdrawals_list.append({
                 "id": w.id,
                 "created_at": w.created_at.isoformat() if w.created_at else None,
-                "user_id": u.id,
-                "user_name": u.name,
-                "user_document": u.document_id or "N/A",
+                "user_id": w.user_id,
+                "user_name": u.name if u else f"Usuario inexistente (#{w.user_id})",
+                "user_document": (u.document_id if u else None) or "N/A",
+                "orphan": u is None,
                 "bank_name": w.banco or "N/A",
                 "account_number": w.numero_cuenta or "N/A",
                 "account_type": w.tipo_cuenta or "Ahorros",
                 "amount": monto_bruto,
-                "gmf_tax": gmf,
+                "retencion": retencion_w,
                 "net_amount": monto_neto,
                 "status": w_status,
                 "rejection_reason": w.motivo_rechazo if hasattr(w, 'motivo_rechazo') else None
@@ -899,7 +990,7 @@ class UserService:
         inv_query = (
             select(Investor, User)
             .join(User, Investor.user_id == User.id)
-            .options(selectinload(Investor.package), selectinload(Investor.period))
+            .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
         )
         if user_id:
             inv_query = inv_query.where(User.id == user_id)
@@ -910,7 +1001,7 @@ class UserService:
         investments_list = []
         total_capital_active = 0.0
         total_capital_finished = 0.0
-        today_date = date.today()
+        today_date = get_colombia_today()  # H-156
         active_users_set = set()
 
         for inv, u in all_inv_records:
@@ -918,13 +1009,7 @@ class UserService:
             pct = float(inv.period.percentage) if inv.period else 0.0
             months = int(inv.period.months) if inv.period else 12
 
-            inv_start = inv.start_date or inv.created_at
-            is_active = True
-            if inv_start:
-                start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
-                end_d = start_d + relativedelta(months=months)
-                if end_d <= today_date:
-                    is_active = False
+            is_active = is_contract_active(inv, today_date)  # regla única (H-140, H-180)
 
             if is_active:
                 total_capital_active += pkg_val
@@ -950,7 +1035,7 @@ class UserService:
             "statement_date": datetime.now().isoformat(),
             "period": {
                 "start_date": start_date_str or "Inicio de Operaciones",
-                "end_date": end_date_str or datetime.now().strftime("%Y-%m-%d")
+                "end_date": end_date_str or get_colombia_today().strftime("%Y-%m-%d")
             },
             "summary": {
                 "total_wallets_balance": total_wallets_balance,
@@ -958,7 +1043,7 @@ class UserService:
                 "total_debits": total_debits,
                 "total_withdrawn_paid": total_withdrawn_paid,
                 "total_withdrawn_pending": total_withdrawn_pending,
-                "total_gmf_tax": total_gmf_tax,
+                "total_retencion": total_retencion,
                 "total_capital_active": total_capital_active,
                 "total_capital_finished": total_capital_finished,
                 "active_investors_count": len(active_users_set)

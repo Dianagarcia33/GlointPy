@@ -29,7 +29,7 @@ export const SharesMarketPage: React.FC = () => {
     const [myOrders, setMyOrders] = useState<ShareTradeOrder[]>([]);
     const [priceHistory, setPriceHistory] = useState<SharePriceHistory[]>([]);
     const [movements, setMovements] = useState<ShareMovement[]>([]);
-    const [walletBalance, setWalletBalance] = useState<number>(0);
+    const [walletBalance, setWalletBalance] = useState<number | null>(0);
     const [loading, setLoading] = useState(true);
 
     const [activeTab, setActiveTab] = useState<'market' | 'my_listings' | 'orders' | 'movements' | 'history'>('market');
@@ -44,7 +44,7 @@ export const SharesMarketPage: React.FC = () => {
                 shareMarketService.getListings(),
                 shareMarketService.getMyOrders(),
                 shareMarketService.getPriceHistory(),
-                getMyWallet().catch(() => ({ balance: 0 })),
+                getMyWallet().catch(() => ({ balance: null, balance_visible: false })),
                 shareMarketService.getMyMovements().catch(() => [])
             ]);
             setPortfolio(pData);
@@ -52,7 +52,12 @@ export const SharesMarketPage: React.FC = () => {
             setMyOrders(oData);
             setPriceHistory(hData);
             setMovements(mData || []);
-            setWalletBalance(typeof wData.balance === 'number' ? wData.balance : parseFloat(wData.balance || '0'));
+            // H-239: si el saldo está oculto por permiso (balance null / balance_visible false) o no se pudo
+            // leer, es "desconocido" (null) y NO $0.
+            const rawBalance: any = (wData as any).balance;
+            const balanceHidden = (wData as any).balance_visible === false || rawBalance === null || rawBalance === undefined;
+            const parsedBalance = typeof rawBalance === 'number' ? rawBalance : parseFloat(rawBalance);
+            setWalletBalance(balanceHidden || Number.isNaN(parsedBalance) ? null : parsedBalance);
         } catch (error) {
             console.error("Error fetching share market data:", error);
         } finally {
@@ -80,48 +85,50 @@ export const SharesMarketPage: React.FC = () => {
     return (
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* 🏛️ 1. Encabezado de Página (Estándar Soporte en Tickets) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
-                            Mercado de Acciones Gloint
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+                        <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
+                            <TrendingUp className="w-6 h-6" />
                         </span>
-                        {portfolio?.sales_window_open ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Ventana de Venta Abierta
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                                <Calendar className="w-3 h-3 text-slate-500" />
-                                Ventana de Venta Cerrada
-                            </span>
-                        )}
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-montserrat tracking-tight mt-1">
-                        Compra y Venta de Acciones
+                        Mercado de Acciones
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-                        Negocia tus títulos accionarios en tiempo real y gestiona tu custodia en Gloint
+                    <p className="text-xs text-slate-500 mt-1">
+                        Negocia títulos accionarios en tiempo real y gestiona tu custodia en Gloint
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                {/* Badges y Acciones del Header */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* Badge de Ventana de Venta */}
+                    {portfolio?.sales_window_open ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-2xl border border-emerald-200 font-montserrat">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Ventana Abierta
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-2xl border border-slate-200 font-montserrat">
+                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                            Ventana Cerrada
+                        </span>
+                    )}
+
+                    <button
+                        onClick={() => setIsSellModalOpen(true)}
+                        disabled={!portfolio?.sales_window_open || (portfolio?.shares_available_for_sale || 0) <= 0}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 transition-all cursor-pointer font-montserrat disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Poner Acciones a la Venta</span>
+                    </button>
+
                     <button
                         onClick={fetchData}
                         className="p-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
                         title="Actualizar datos"
                     >
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
-                    <button
-                        onClick={() => setIsSellModalOpen(true)}
-                        disabled={!portfolio?.sales_window_open || (portfolio?.shares_available_for_sale || 0) <= 0}
-                        className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-sm shadow-brand-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-montserrat"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Poner Acciones a la Venta</span>
                     </button>
                 </div>
             </div>
@@ -553,6 +560,16 @@ export const SharesMarketPage: React.FC = () => {
                                                         {m.movement_type === 'admin_adjustment' && (
                                                             <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                                                                 Ajuste de Auditoría
+                                                            </span>
+                                                        )}
+                                                        {m.movement_type === 'package_grant_reverted' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                                                Paquete (revertido)
+                                                            </span>
+                                                        )}
+                                                        {m.movement_type === 'package_revoke' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                                                Contrato Eliminado
                                                             </span>
                                                         )}
                                                     </td>

@@ -153,7 +153,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
                 <span className="text-slate-400 font-medium block text-[11px]">Nombre Completo:</span>
-                <span className="font-bold text-slate-800">{withdrawal.user?.name || 'N/A'}</span>
+                <span className="font-bold text-slate-800">{withdrawal.user?.name || `Usuario inexistente (#${withdrawal.user_id})`}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-medium block text-[11px]">Documento Identidad:</span>
@@ -307,7 +307,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
             {isRejecting ? (
               <button
                 onClick={handleReject}
-                disabled={isProcessing || !rejectionReason.trim()}
+                disabled={isProcessing || rejectionReason.trim().length < 10}
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-rose-600/20 cursor-pointer"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}

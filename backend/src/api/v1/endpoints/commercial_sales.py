@@ -1,7 +1,8 @@
+from src.services.audit_trail_service import audit_in_tx
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import extract, func, desc, or_
@@ -36,14 +37,16 @@ router = APIRouter()
 
 @router.get("/search-clients", dependencies=[Depends(RequirePermission("commercial:view"))])
 async def search_clients(
-    q: str,
+    q: Optional[str] = None,
+    term: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Busca clientes a medida que el comercial escribe por Nombre, Cédula o Código IG1974.
     """
-    return await search_clients_service(db, q)
+    query = (q or term or "").strip()
+    return await search_clients_service(db, query)
 
 @router.post("/check-client", response_model=CommercialClientCheckResponse, dependencies=[Depends(RequirePermission("commercial:view"))])
 async def check_client(
@@ -57,29 +60,62 @@ async def check_client(
     res = await check_client_classification(db, req.client_document)
     return res
 
+async def _audit_custom_commission(db: AsyncSession, sale: CommercialSale, sale_data: CommercialSaleCreate, user: User, request: Request):
+    """Deja traza en auditoría cuando la comisión se fijó a mano (H-154)."""
+    if sale_data.custom_commission_rate is None and sale_data.custom_commission_amount is None:
+        return
+    from src.services.audit_trail_service import log_audit_trail
+    await log_audit_trail(
+        db=db,
+        action="COMMISSION_MANUAL_RATE",
+        module="commercial",
+        user=user,
+        entity_type="CommercialSale",
+        entity_id=sale.id,
+        description=f"Comisión manual en la venta #{sale.id}: {float(sale.commission_rate) * 100:.2f}% (${float(sale.commission_amount):,.0f}). Motivo: {sale_data.custom_rate_reason}",
+        details={
+            "sale_id": sale.id,
+            "commercial_id": sale.commercial_id,
+            "amount": float(sale.amount),
+            "commission_rate": float(sale.commission_rate),
+            "commission_amount": float(sale.commission_amount),
+            "reason": sale_data.custom_rate_reason,
+        },
+        request=request,
+    )
+
+
 @router.post("/sales", response_model=CommercialSaleResponse, dependencies=[Depends(RequirePermission("commercial:view"))])
 async def create_sale(
     sale_data: CommercialSaleCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Registra una nueva venta comercial adjudicada al usuario comercial en sesión.
     """
-    sale = await register_commercial_sale(db, current_user.id, sale_data)
+    is_admin = (
+        getattr(current_user, 'is_superuser', False) or 
+        any(r.name.lower() in ['superadmin', 'super admin', 'administrador', 'admin'] for r in (current_user.roles or []))
+    )
+    sale = await register_commercial_sale(db, current_user.id, sale_data, is_admin=is_admin)
+    await _audit_custom_commission(db, sale, sale_data, current_user, request)
     return sale
 
 @router.post("/admin-sales", response_model=CommercialSaleResponse, dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def create_admin_sale(
     target_commercial_id: int,
     sale_data: CommercialSaleCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Permite a un Administrador adjudicar una venta comercial a cualquier asesor del equipo.
     """
-    sale = await register_commercial_sale(db, target_commercial_id, sale_data)
+    sale = await register_commercial_sale(db, target_commercial_id, sale_data, is_admin=True, audit_actor=current_user)
+    await _audit_custom_commission(db, sale, sale_data, current_user, request)
     return sale
 
 async def build_commercial_summary_data(commercial_id: int, db: AsyncSession, month: Optional[int] = None, year: Optional[int] = None) -> Dict[str, Any]:
@@ -183,24 +219,42 @@ async def build_commercial_summary_data(commercial_id: int, db: AsyncSession, mo
 async def get_my_commercial_summary(
     month: Optional[int] = Query(None, ge=1, le=12),
     year: Optional[int] = Query(None, ge=2020, le=2050),
+    target_date: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Resumen en tiempo real para el comercial en sesión con filtro opcional de mes y año.
+    Resumen en tiempo real para el comercial en sesión con filtro opcional de mes y año o fecha específica.
     """
+    if target_date:
+        try:
+            from datetime import datetime as dt
+            d = dt.strptime(target_date.split("T")[0], "%Y-%m-%d").date()
+            year = d.year
+            month = d.month
+        except Exception:
+            pass
     return await build_commercial_summary_data(current_user.id, db, month=month, year=year)
 
-@router.get("/advisor-summary/{commercial_id}", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
+@router.get("/advisor-summary/{commercial_id}", dependencies=[Depends(RequirePermission(["admin.commercial.manage", "admin:commercial:manage", "commercial:view"]))])
 async def get_advisor_commercial_summary(
     commercial_id: int,
     month: Optional[int] = Query(None, ge=1, le=12),
     year: Optional[int] = Query(None, ge=2020, le=2050),
+    target_date: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Resumen comercial y progreso de metas de un asesor específico para supervisión de administradores.
     """
+    if target_date:
+        try:
+            from datetime import datetime as dt
+            d = dt.strptime(target_date.split("T")[0], "%Y-%m-%d").date()
+            year = d.year
+            month = d.month
+        except Exception:
+            pass
     return await build_commercial_summary_data(commercial_id, db, month=month, year=year)
 
 @router.get("/my-assigned-investments", dependencies=[Depends(RequirePermission(["director.dashboard.view", "commercial:view"]))])
@@ -299,6 +353,7 @@ async def get_my_assigned_investments(
     }
 
 @router.get("/admin-summary", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
+@router.get("/admin/summary", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_admin_commercial_summary(
     month: Optional[int] = Query(None, ge=1, le=12),
     year: Optional[int] = Query(None, ge=2020, le=2050),
@@ -415,7 +470,10 @@ async def get_all_commercial_sales(
             "tramo_a_amount": float(s.tramo_a_amount or 0),
             "tramo_b_amount": float(s.tramo_b_amount or 0),
             "sale_date": s.sale_date.isoformat(),
-            "created_at": s.created_at.isoformat() if s.created_at else None
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            # H-205: sin el estado la pantalla mostraba todas las ventas como pendientes
+            "status": s.status.value if hasattr(s.status, "value") else str(s.status),
+            "settlement_id": s.settlement_id,
         }
         for s in sales
     ]
@@ -441,6 +499,13 @@ async def delete_commercial_sale(
         )
 
     comm_id = sale.commercial_id
+    await audit_in_tx(
+        db, "COMMERCIAL_SALE_DELETE", "commercial", current_user, "CommercialSale", sale_id,
+        f"Anulación de la venta #{sale_id} del asesor #{comm_id}",
+        {"sale_id": sale_id, "commercial_id": comm_id, "monto": float(sale.amount),
+         "comision_monto": float(sale.commission_amount), "estado_antes": str(getattr(sale.status, "value", sale.status)),
+         "investor_id": sale.investor_id, "fecha_venta": str(sale.sale_date)},
+    )
     await db.delete(sale)
     await db.commit()
 
@@ -448,12 +513,35 @@ async def delete_commercial_sale(
     await purge_ghost_bonuses(db, comm_id)
     return None
 
+_PUBLIC_ADVISOR_KEYWORDS = ("directiv", "comercial", "asesor", "lider", "director", "gerente")
+
+
+def _public_advisor_entry(user: User) -> Optional[Dict[str, Any]]:
+    """Entrada del selector público de asesores, o None si la cuenta no debe listarse (H-108).
+
+    Por requerimiento explícito del cliente el nombre y el correo COMPLETO de los asesores comerciales deben verse
+    en el selector, para que el inversionista confirme con exactitud a su asesor. Nunca se listan SuperAdmin ni
+    roles de administración, y no se devuelve cédula, teléfono ni ningún otro dato personal.
+    """
+    role_names = [(r.name or "").lower() for r in (user.roles or [])]
+    if user.is_superuser or any("admin" in r for r in role_names):
+        return None
+    if not any(kw in r for r in role_names for kw in _PUBLIC_ADVISOR_KEYWORDS):
+        return None
+    return {
+        "id": user.id,
+        "name": user.name or "Asesor",
+        "email": user.email or "",
+    }
+
+
 @router.get("/public-advisors")
 async def get_public_commercial_advisors(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint público para listar los Directivos de Inversión y Administradores.
+    Endpoint público para el selector de asesor del registro de inversionistas.
+    Solo expone id, nombre y correo de directivos/asesores (requerimiento del cliente); sin cédula, teléfono ni cuentas de administración (H-108).
     """
     stmt = (
         select(User)
@@ -462,28 +550,7 @@ async def get_public_commercial_advisors(
         .order_by(User.name.asc())
     )
     res = await db.execute(stmt)
-    users = res.scalars().all()
-    
-    commercial_users = []
-    for u in users:
-        role_names = [r.name.lower() for r in (u.roles or [])]
-        is_commercial_or_admin = (
-            u.is_superuser or 
-            any(
-                any(kw in r_name for kw in ["admin", "directiv", "comercial", "asesor", "lider", "director", "gerente"])
-                for r_name in role_names
-            )
-        )
-        if is_commercial_or_admin:
-            commercial_users.append({
-                "id": u.id,
-                "name": u.name or u.email,
-                "email": u.email,
-                "document_id": u.document_id,
-                "phone_number": u.phone_number
-            })
-            
-    return commercial_users
+    return [e for e in (_public_advisor_entry(u) for u in res.scalars().all()) if e]
 
 @router.get("/commercial-users", dependencies=[Depends(RequirePermission(["admin.commercial.manage", "commercial:view"]))])
 async def get_commercial_users_list(
@@ -929,6 +996,7 @@ async def settle_commissions(
     Liquida todas las comisiones y bonos pendientes de un comercial/directivo.
     - Cambia status de ventas y bonos a 'liquidado'
     - Genera el registro de comprobante en CommissionSettlement
+    - Con credit_to_wallet, acredita el total a la billetera del asesor (H-205)
     """
     sales_query = select(CommercialSale).where(
         CommercialSale.commercial_id == req.commercial_id,
@@ -984,6 +1052,39 @@ async def settle_commissions(
         b.status = CommercialBonusStatus.liquidado
         b.settlement_id = settlement.id
 
+    # H-205: acreditar el total en la billetera del asesor, en la misma transacción de la liquidación
+    wallet_balance_after = None
+    if req.credit_to_wallet and total_amount > 0:
+        from src.models.wallet import Wallet, WalletTransaction
+        wallet_res = await db.execute(
+            select(Wallet).where(Wallet.user_id == req.commercial_id).with_for_update()
+        )
+        wallet = wallet_res.scalars().first()
+        if not wallet:
+            wallet = Wallet(user_id=req.commercial_id, balance=Decimal("0.00"), currency="COP")
+            db.add(wallet)
+            await db.flush()
+        wallet.balance = Decimal(str(wallet.balance or 0)) + total_amount
+        db.add(WalletTransaction(
+            wallet_id=wallet.id,
+            amount=total_amount,
+            type="commission_settlement",
+            reference_type="commission_settlement",
+            reference_id=settlement.id,
+            description=f"Liquidación de comisiones y bonos #{settlement.id} ({sales_count} venta(s))",
+            balance_after=wallet.balance,
+        ))
+        wallet_balance_after = float(wallet.balance)
+
+    await audit_in_tx(
+        db, "COMMISSION_SETTLE", "commercial", current_user, "CommissionSettlement", settlement.id,
+        f"Liquidación #{settlement.id} de comisiones y bonos del asesor #{req.commercial_id} por ${float(total_amount):,.0f}",
+        {"settlement_id": settlement.id, "commercial_id": req.commercial_id, "monto_total": float(total_amount),
+         "monto_ventas": float(sales_total), "monto_bonos": float(bonuses_total), "ventas": sales_count,
+         "bonos": len(pending_bonuses), "mes": req.month, "anio": req.year,
+         "acredita_billetera": wallet_balance_after is not None, "saldo_billetera_despues": wallet_balance_after,
+         "referencia": settlement.reference_code},
+    )
     await db.commit()
     await db.refresh(settlement)
 
@@ -992,7 +1093,9 @@ async def settle_commissions(
         "settlement_id": settlement.id,
         "total_amount": float(settlement.total_amount),
         "sales_count": sales_count,
-        "reference_code": settlement.reference_code
+        "reference_code": settlement.reference_code,
+        "credited_to_wallet": wallet_balance_after is not None,
+        "wallet_balance_after": wallet_balance_after,
     }
 
 @router.get("/settlements", response_model=List[SettlementResponse], dependencies=[Depends(RequirePermission("commercial:view"))])

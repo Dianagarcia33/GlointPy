@@ -44,8 +44,10 @@ export const compressImage = async (file: File, maxWidth = 1200, maxHeight = 120
                         if (!blob) {
                             return resolve(file); // Fallback
                         }
-                        // Crear nuevo archivo comprimido
-                        const compressedFile = new File([blob], file.name, {
+                        // El resultado siempre es JPEG: el nombre debe terminar en .jpg. Con la extensión original
+                        // (.png, .webp, .heic) el servidor rechaza el archivo porque su contenido no coincide.
+                        const baseName = file.name.replace(/\.[^./\\]+$/, '') || 'imagen';
+                        const compressedFile = new File([blob], `${baseName}.jpg`, {
                             type: 'image/jpeg',
                             lastModified: Date.now(),
                         });

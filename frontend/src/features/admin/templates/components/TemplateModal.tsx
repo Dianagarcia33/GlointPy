@@ -12,6 +12,9 @@ interface TemplateModalProps {
     template?: DocumentTemplate | null;
 }
 
+// Formatos de membrete que admite el backend (POST /templates/upload-asset)
+const ALLOWED_BG_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.svg'];
+
 const TEMPLATE_VARIABLES = [
     { label: 'Nombre Completo', tag: '{nombre_completo}' },
     { label: 'Documento / Cédula', tag: '{documento}' },
@@ -45,6 +48,8 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingBg, setIsUploadingBg] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Variables no reconocidas detectadas al guardar; si el usuario vuelve a pulsar Guardar, se guarda igual
+    const [unknownVariables, setUnknownVariables] = useState<string[]>([]);
     
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -63,15 +68,23 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
             setRoleId('');
             setFilePath('');
             setBackgroundImage('');
-            setHtmlContent('<div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">\n  <h2 style="color: #0f172a; text-align: center; margin-bottom: 25px;">CONTRATO DE INVERSIÓN</h2>\n  <p>Por medio del presente documento, se certifica la adquisición de <strong>{acciones_otorgadas}</strong> acciones realizada por <strong>{nombre} {apellido}</strong>, identificado con cédula de ciudadanía No. <strong>{documento}</strong>, domiciliado en la ciudad de <strong>{ciudad}</strong>.</p>\n  <p>Valor total de la operación: <strong>{valor_total_acciones_formato}</strong>.</p>\n  <p>Fecha de inicio del contrato: <strong>{fecha_ingreso}</strong>.</p>\n  <br/>\n  {FIRMA_DIGITAL}\n</div>');
+            setHtmlContent('<div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">\n  <h2 style="color: #0f172a; text-align: center; margin-bottom: 25px;">CONTRATO DE INVERSIÓN</h2>\n  <p>Por medio del presente documento, se certifica la adquisición de <strong>{acciones_otorgadas}</strong> acciones realizada por <strong>{nombre_completo}</strong>, identificado con cédula de ciudadanía No. <strong>{documento}</strong>, domiciliado en la ciudad de <strong>{ciudad}</strong>.</p>\n  <p>Valor total de la operación: <strong>{valor_total_acciones_formato}</strong>.</p>\n  <p>Fecha de inicio del contrato: <strong>{fecha_ingreso}</strong>.</p>\n  <br/>\n  {firma_digital}\n</div>');
         }
         setError(null);
+        setUnknownVariables([]);
         setActiveTab('editor');
     }, [template, isOpen]);
 
     const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')).toLowerCase() : '';
+        if (!ALLOWED_BG_EXTENSIONS.includes(ext)) {
+            setError(`Formato de archivo no permitido (${ext || 'sin extensión'}). Formatos admitidos para el membrete: PNG, JPG, WEBP o SVG.`);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
 
         setIsUploadingBg(true);
         setError(null);
@@ -80,7 +93,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
             setBackgroundImage(res.url);
         } catch (err: any) {
             console.error("Error subiendo membrete", err);
-            setError(err.response?.data?.detail || "Error al subir la imagen de fondo/membrete");
+            setError(err.message || "Error al subir la imagen de fondo/membrete");
         } finally {
             setIsUploadingBg(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -117,6 +130,14 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
         setError(null);
 
         try {
+            // Avisar una vez de variables que el generador no reconoce: saldrían tal cual en el documento
+            const { unknown_variables } = await templatesService.checkVariables(htmlContent);
+            const isNewWarning = unknown_variables.some(v => !unknownVariables.includes(v));
+            if (unknown_variables.length > 0 && isNewWarning) {
+                setUnknownVariables(unknown_variables);
+                return;
+            }
+
             const payload = {
                 name: name.trim(),
                 type: type.trim(),
@@ -134,7 +155,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
             onSaved();
             onClose();
         } catch (err: any) {
-            setError(err.response?.data?.detail || err.message || 'Error al guardar la plantilla');
+            setError(err.message || 'Error al guardar la plantilla');
         } finally {
             setIsSaving(false);
         }
@@ -171,6 +192,13 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
                     {error && (
                         <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-600">
                             {error}
+                        </div>
+                    )}
+
+                    {unknownVariables.length > 0 && (
+                        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-800">
+                            Variables no reconocidas: {unknownVariables.map(v => `{${v}}`).join(', ')}. Aparecerán tal cual en los documentos generados.
+                            Corrígelas usando los botones de variables, o pulsa "Guardar de todas formas".
                         </div>
                     )}
 
@@ -258,7 +286,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
                                     <>
                                         <UploadCloud className="w-6 h-6 text-brand-500" />
                                         <span className="text-xs font-bold text-slate-700">Haz clic aquí para subir la Hoja Membretada (Fondo oficial)</span>
-                                        <span className="text-[11px] text-slate-400">PNG, JPG, WEBP (se mostrará de fondo en todas las hojas)</span>
+                                        <span className="text-[11px] text-slate-400">PNG, JPG, WEBP o SVG (se mostrará de fondo en todas las hojas)</span>
                                     </>
                                 )}
                             </div>
@@ -266,7 +294,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
                         <input 
                             ref={fileInputRef} 
                             type="file" 
-                            accept="image/*" 
+                            accept={ALLOWED_BG_EXTENSIONS.join(',')} 
                             onChange={handleBgUpload} 
                             className="hidden" 
                         />
@@ -359,7 +387,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
                         className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 cursor-pointer"
                     >
                         {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                        Guardar Plantilla
+                        {unknownVariables.length > 0 ? 'Guardar de todas formas' : 'Guardar Plantilla'}
                     </button>
                 </div>
             </div>

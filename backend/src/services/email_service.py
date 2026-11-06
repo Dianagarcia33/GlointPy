@@ -1,67 +1,19 @@
+import logging
 from typing import Optional, List
 import resend
 from src.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 class EmailService:
-    @staticmethod
-    def send_password_reset_email(to_email: str, reset_token: str):
-        if not settings.RESEND_API_KEY:
-            print("WARNING: RESEND_API_KEY is not set. Skipping email send.")
-            print(f"Mock Reset Token for {to_email}: {reset_token}")
-            return False
-
-        resend.api_key = settings.RESEND_API_KEY
-        
-        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
-        
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
-            <div style="text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #0f172a; margin: 0;">Recuperación de Contraseña</h2>
-                <p style="color: #64748b; font-size: 14px;">GLOINT International Partners</p>
-            </div>
-            
-            <p style="color: #334155; line-height: 1.6;">
-                Hola,
-            </p>
-            <p style="color: #334155; line-height: 1.6;">
-                Recibimos una solicitud para restablecer tu contraseña. Si fuiste tú, haz clic en el siguiente botón para crear una nueva contraseña. 
-                Este enlace expirará en 15 minutos por seguridad.
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="{reset_link}" style="background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                    Restablecer mi Contraseña
-                </a>
-            </div>
-            
-            <p style="color: #334155; line-height: 1.6;">
-                Si el botón no funciona, copia y pega este enlace en tu navegador:
-                <br>
-                <a href="{reset_link}" style="color: #3b82f6; word-break: break-all;">{reset_link}</a>
-            </p>
-            
-            <p style="color: #334155; line-height: 1.6; margin-top: 30px;">
-                Si no solicitaste un cambio de contraseña, puedes ignorar este correo de forma segura.
-            </p>
-            
-            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
-                © 2026 GLOINT. Todos los derechos reservados.
-            </div>
-        </div>
+    @classmethod
+    def send_password_reset_email(cls, to_email: str, reset_token: str) -> bool:
         """
-
-        try:
-            r = resend.Emails.send({
-                "from": f"GLOINT <{settings.SENDER_EMAIL}>",
-                "to": to_email,
-                "subject": "Recuperación de Contraseña - GLOINT",
-                "html": html_content
-            })
-            return True
-        except Exception as e:
-            print(f"Error sending email via Resend: {e}")
-            return False
+        Envía el correo corporativo para recuperación y cambio de contraseña.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_password_reset_template(reset_token)
+        return cls.send_html_email(to_email, subject, html)
 
     @staticmethod
     def send_crm_custom_email(
@@ -70,11 +22,12 @@ class EmailService:
         html_content: str, 
         from_name: str = "GLOINT Comercial",
         reply_to_email: str = None,
-        attachments: Optional[List[dict]] = None
+        attachments: Optional[List[dict]] = None,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None
     ) -> bool:
         if not settings.RESEND_API_KEY:
-            print("WARNING: RESEND_API_KEY is not set. Skipping CRM email dispatch.")
-            print(f"Mock Email to {to_email} | Subject: {subject} | Attachments: {len(attachments or [])}")
+            logger.warning(f"RESEND_API_KEY is not set. Skipping CRM email dispatch to {to_email}.")
             return True
 
         resend.api_key = settings.RESEND_API_KEY
@@ -87,6 +40,10 @@ class EmailService:
         }
         if reply_to_email:
             email_payload["reply_to"] = reply_to_email
+        if cc and len(cc) > 0:
+            email_payload["cc"] = cc
+        if bcc and len(bcc) > 0:
+            email_payload["bcc"] = bcc
 
         if attachments:
             import os
@@ -114,263 +71,308 @@ class EmailService:
 
         try:
             resend.Emails.send(email_payload)
+            logger.info(f"CRM email successfully sent to {to_email}. Subject: {subject}")
             return True
         except Exception as e:
-            print(f"Error al enviar correo CRM vía Resend: {e}")
+            logger.error(f"Error al enviar correo CRM vía Resend a {to_email}: {e}")
             return False
 
-    @staticmethod
-    def send_withdrawal_verification_code(to_email: str, code: str):
-        if not settings.RESEND_API_KEY:
-            print("WARNING: RESEND_API_KEY is not set. Skipping email send.")
-            print(f"Mock Withdrawal Code for {to_email}: {code}")
-            return False
-
-        resend.api_key = settings.RESEND_API_KEY
-        
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
-            <div style="text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #0f172a; margin: 0;">Verificación de Retiro</h2>
-                <p style="color: #64748b; font-size: 14px;">GLOINT International Partners</p>
-            </div>
-            
-            <p style="color: #334155; line-height: 1.6;">
-                Hola,
-            </p>
-            <p style="color: #334155; line-height: 1.6;">
-                Recibimos una solicitud para retirar fondos de tu billetera. Para autorizar esta transacción, utiliza el siguiente código de seguridad:
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; padding: 20px; border-radius: 8px; display: inline-block;">
-                    <span style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #0f172a;">{code}</span>
-                </div>
-                <p style="color: #64748b; font-size: 12px; margin-top: 10px;">
-                    Este código expirará en 10 minutos.
-                </p>
-            </div>
-            
-            <p style="color: #334155; line-height: 1.6;">
-                <strong>Nota:</strong> Nunca compartas este código con nadie. El equipo de GLOINT nunca te pedirá tu código de verificación.
-            </p>
-            
-            <p style="color: #334155; line-height: 1.6; margin-top: 30px;">
-                Si no solicitaste este retiro, por favor ignora este correo y asegúrate de que tu cuenta esté protegida.
-            </p>
-            
-            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
-                © 2026 GLOINT. Todos los derechos reservados.
-            </div>
-        </div>
+    @classmethod
+    def send_withdrawal_verification_code(cls, to_email: str, code: str) -> bool:
         """
-
-        try:
-            r = resend.Emails.send({
-                "from": f"GLOINT <{settings.SENDER_EMAIL}>",
-                "to": to_email,
-                "subject": "Código de Verificación para Retiro - GLOINT",
-                "html": html_content
-            })
-            return True
-        except Exception as e:
-            print(f"Error sending email via Resend: {e}")
-            return False
+        Envía el código OTP para autorización de retiro de saldo en billetera digital.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_otp_verification_template(
+            user_name="Inversionista",
+            code=code,
+            purpose="Retiro de Fondos de Billetera",
+            action_details="Has solicitado retirar saldo disponible de tu billetera digital a tu cuenta bancaria registrada.",
+            expires_minutes=10
+        )
+        return cls.send_html_email(to_email, subject, html)
 
     @staticmethod
-    def send_html_email(to_email: str, subject: str, html_content: str):
+    def send_html_email(to_email: str, subject: str, html_content: str, attachments: Optional[List[dict]] = None) -> bool:
         if not settings.RESEND_API_KEY:
-            print("WARNING: RESEND_API_KEY is not set. Skipping email send.")
+            logger.warning(f"[EmailService] RESEND_API_KEY no configurada. Omitiendo envío a {to_email}.")
             return False
 
         resend.api_key = settings.RESEND_API_KEY
         try:
-            resend.Emails.send({
+            payload = {
                 "from": f"GLOINT <{settings.SENDER_EMAIL}>",
                 "to": to_email,
                 "subject": subject,
                 "html": html_content
-            })
+            }
+            if attachments:
+                payload["attachments"] = attachments
+            resend.Emails.send(payload)
+            logger.info(f"[EmailService] Correo enviado exitosamente a {to_email} | Asunto: {subject}")
             return True
         except Exception as e:
-            print(f"Error sending email via Resend: {e}")
+            logger.error(f"[EmailService] Error enviando correo vía Resend a {to_email}: {e}")
             return False
 
-    @staticmethod
-    def send_withdrawal_approval_email(to_email: str, user_name: str, amount: float, method: str, bank: str, account_number: str):
-        subject = "¡Tu retiro ha sido aprobado y enviado! - GLOINT"
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #4f46e5;">¡Hola {user_name}!</h2>
-                <p>Nos complace informarte que tu solicitud de retiro ha sido <strong>aprobada y procesada</strong> exitosamente.</p>
-                <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 15px; margin: 20px 0;">
-                    <h3 style="margin-top: 0; color: #1e293b;">Detalles del Retiro</h3>
-                    <ul style="list-style-type: none; padding-left: 0;">
-                        <li style="margin-bottom: 8px;"><strong>Monto Procesado:</strong> ${amount:,.2f} COP</li>
-                        <li style="margin-bottom: 8px;"><strong>Método de Pago:</strong> {method}</li>
-                        <li style="margin-bottom: 8px;"><strong>Banco Destino:</strong> {bank}</li>
-                        <li style="margin-bottom: 8px;"><strong>Cuenta Destino:</strong> {account_number}</li>
-                    </ul>
-                </div>
-                <p>Ten en cuenta que dependiendo de tu entidad bancaria, los fondos pueden tardar algunas horas en verse reflejados en tu cuenta.</p>
-                <p>Si tienes alguna pregunta, no dudes en contactar a nuestro equipo de soporte.</p>
-                <br>
-                <p>Atentamente,<br><strong>El Equipo de GLOINT</strong></p>
-            </body>
-        </html>
+    @classmethod
+    def send_withdrawal_request_pending_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        amount: float,
+        tax: float,
+        net_amount: float,
+        bank: str,
+        account_type: str,
+        account_number: str,
+        withdrawal_id: Optional[int] = None
+    ) -> bool:
         """
-        return EmailService.send_html_email(to_email, subject, html_content)
+        Envía notificación corporativa cuando el usuario solicita un retiro de fondos (en estado pendiente).
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_withdrawal_request_pending_template(
+            user_name=user_name,
+            amount=amount,
+            tax=tax,
+            net_amount=net_amount,
+            bank=bank,
+            account_type=account_type,
+            account_number=account_number,
+            withdrawal_id=withdrawal_id
+        )
+        return cls.send_html_email(to_email, subject, html)
 
-    @staticmethod
+    @classmethod
+    def send_withdrawal_approval_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        amount: float,
+        method: str,
+        bank: str,
+        account_number: str,
+        tax: Optional[float] = None,
+        gross_amount: Optional[float] = None,
+        account_type: Optional[str] = None,
+        withdrawal_id: Optional[int] = None
+    ) -> bool:
+        """
+        Envía notificación corporativa cuando un retiro de fondos ha sido aprobado y transferido.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_withdrawal_approval_template(
+            user_name=user_name,
+            amount=amount,
+            method=method,
+            bank=bank,
+            account_number=account_number,
+            tax=tax,
+            gross_amount=gross_amount,
+            account_type=account_type,
+            withdrawal_id=withdrawal_id
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+    @classmethod
     def send_chatbot_lead_investor_confirmation(
+        cls,
         to_email: str,
         investor_name: str,
         director_name: str,
         package_name: str,
         preferred_time: str = None
     ) -> bool:
-        subject = "Solicitud de Asesoría de Inversión Recibida - GLOINT Investment"
-        time_text = f"<p style='color: #475569; margin: 4px 0; font-size: 13px;'><strong>Horario preferido de llamada:</strong> {preferred_time}</p>" if preferred_time else ""
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-            <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px;">
-                <h2 style="color: #0f172a; margin: 0; font-size: 22px;">GLOINT Investment</h2>
-                <p style="color: #d97706; font-size: 13px; font-weight: bold; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;">Gestión Estratégica de Capital</p>
-            </div>
-            
-            <p style="color: #1e293b; font-size: 15px; line-height: 1.6;">
-                Estimado/a <strong>{investor_name}</strong>,
-            </p>
-            <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Agradecemos tu interés en formar parte de nuestro fondo de inversión. Hemos recibido satisfactoriamente tu solicitud de asesoría personalizada para el paquete <strong>{package_name}</strong>.
-            </p>
-            
-            <div style="background-color: #f8fafc; border-left: 4px solid #d97706; padding: 16px; border-radius: 6px; margin: 20px 0;">
-                <h4 style="margin: 0 0 10px 0; color: #0f172a; font-size: 14px;">Asignación a Mesa Directiva</h4>
-                <p style="color: #475569; margin: 4px 0; font-size: 13px;"><strong>Directivo de Inversión Asignado:</strong> {director_name}</p>
-                <p style="color: #475569; margin: 4px 0; font-size: 13px;"><strong>Paquete de Interés:</strong> {package_name}</p>
-                {time_text}
-            </div>
-            
-            <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Tu directivo asignado se comunicará contigo vía telefónica o por este medio para presentarte los indicadores de rendimiento, contratos de garantía y resolver cualquier inquietud de forma personalizada.
-            </p>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
-                <p style="margin: 0;">GLOINT International Partners • Bogotá, Colombia</p>
-                <p style="margin: 4px 0 0 0;">Este es un mensaje automático de confirmación de solicitud.</p>
-            </div>
-        </div>
         """
-        return EmailService.send_html_email(to_email, subject, html_content)
+        Envía confirmación al prospecto tras solicitar asesoría en el Chatbot.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_chatbot_lead_investor_template(
+            investor_name=investor_name,
+            director_name=director_name,
+            package_name=package_name,
+            preferred_time=preferred_time
+        )
+        return cls.send_html_email(to_email, subject, html)
 
-    @staticmethod
+    @classmethod
     def send_chatbot_lead_director_notification(
+        cls,
         to_email: str,
         director_name: str,
         lead_data: dict
     ) -> bool:
-        investor_name = lead_data.get("name", "Prospecto")
-        subject = f"🎯 Nuevo Prospecto Asignado: {investor_name} - GLOINT CRM"
-        pkg_name = lead_data.get("package_name") or f"${lead_data.get('package_value', 0):,.0f} COP"
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-            <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px;">
-                <h2 style="color: #0f172a; margin: 0; font-size: 22px;">Asignación de Lead Calificado</h2>
-                <p style="color: #059669; font-size: 13px; font-weight: bold; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;">Chatbot Landing Web • CRM Gloint</p>
-            </div>
-            
-            <p style="color: #1e293b; font-size: 15px; line-height: 1.6;">
-                Hola <strong>{director_name}</strong>,
-            </p>
-            <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Se te ha asignado un nuevo prospecto de inversión de manera equitativa a través del Chatbot de la Landing Page. A continuación los detalles para tu contacto y cierre:
-            </p>
-            
-            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 18px; border-radius: 8px; margin: 20px 0;">
-                <table style="width: 100%; font-size: 13px; color: #334155; line-height: 1.8;">
-                    <tr><td style="font-weight: bold; width: 150px;">Inversionista:</td><td>{lead_data.get('name')}</td></tr>
-                    <tr><td style="font-weight: bold;">Teléfono / WhatsApp:</td><td><a href="tel:{lead_data.get('phone')}" style="color: #2563eb; text-decoration: none;">{lead_data.get('phone')}</a></td></tr>
-                    <tr><td style="font-weight: bold;">Correo:</td><td><a href="mailto:{lead_data.get('email')}" style="color: #2563eb; text-decoration: none;">{lead_data.get('email')}</a></td></tr>
-                    <tr><td style="font-weight: bold;">Ciudad / Dpto:</td><td>{lead_data.get('city', 'N/A')} ({lead_data.get('department', '')})</td></tr>
-                    <tr><td style="font-weight: bold;">Paquete de Interés:</td><td style="color: #d97706; font-weight: bold;">{pkg_name}</td></tr>
-                    <tr><td style="font-weight: bold;">Objetivo:</td><td>{lead_data.get('investment_goal', 'Inversión')}</td></tr>
-                    <tr><td style="font-weight: bold;">Horario de contacto:</td><td>{lead_data.get('preferred_contact_time', 'Indiferente')}</td></tr>
-                </table>
-            </div>
-            
-            <p style="color: #334155; font-size: 13px; line-height: 1.6;">
-                El prospecto ya está registrado en tu tablero de <strong>CRM Leads</strong> en la etapa <em>Lead Entrante</em>.
-            </p>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
-                © 2026 GLOINT International Partners. Sistema de Asignación Comercial.
-            </div>
-        </div>
         """
-        return EmailService.send_html_email(to_email, subject, html_content)
+        Notifica al Director de Inversiones sobre la asignación de un lead desde el Chatbot.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_chatbot_lead_director_template(
+            director_name=director_name,
+            lead_data=lead_data
+        )
+        return cls.send_html_email(to_email, subject, html)
 
-    @staticmethod
+    @classmethod
     def send_external_form_director_notification(
+        cls,
         to_email: str,
         director_name: str,
         platform_name: str,
         lead_data: dict
     ) -> bool:
-        contact_name = lead_data.get("name", "Prospecto")
-        subject = f"🔔 Nuevo Prospecto desde {platform_name}: {contact_name} - GLOINT CRM"
-        message_txt = lead_data.get("message") or "Sin mensaje adicional"
-        company_txt = lead_data.get("company") or "No especificada"
-        city_txt = lead_data.get("city") or "No especificada"
-        phone_val = lead_data.get("phone")
-        if phone_val and phone_val != "No especificado":
-            phone_row = f'<a href="tel:{phone_val}" style="color: #2563eb; text-decoration: none;">{phone_val}</a>'
-        else:
-            phone_row = '<span style="color: #94a3b8;">No especificado</span>'
-
-        email_val = lead_data.get("email")
-        if email_val and email_val != "No especificado":
-            email_row = f'<a href="mailto:{email_val}" style="color: #2563eb; text-decoration: none;">{email_val}</a>'
-        else:
-            email_row = '<span style="color: #94a3b8;">No especificado</span>'
-
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-            <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px;">
-                <h2 style="color: #0f172a; margin: 0; font-size: 22px;">Nuevo Contacto de Formulario Externo</h2>
-                <p style="color: #2563eb; font-size: 13px; font-weight: bold; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;">Plataforma: {platform_name} • CRM Gloint</p>
-            </div>
-            
-            <p style="color: #1e293b; font-size: 15px; line-height: 1.6;">
-                Hola <strong>{director_name}</strong>,
-            </p>
-            <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Se te ha asignado un nuevo prospecto de manera equitativa proveniente del formulario de <strong>{platform_name}</strong>. A continuación los detalles registrados:
-            </p>
-            
-            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 18px; border-radius: 8px; margin: 20px 0;">
-                <table style="width: 100%; font-size: 13px; color: #334155; line-height: 1.8;">
-                    <tr><td style="font-weight: bold; width: 140px;">Origen:</td><td style="color: #2563eb; font-weight: bold;">{platform_name}</td></tr>
-                    <tr><td style="font-weight: bold;">Nombre:</td><td>{contact_name}</td></tr>
-                    <tr><td style="font-weight: bold;">Teléfono:</td><td>{phone_row}</td></tr>
-                    <tr><td style="font-weight: bold;">Correo:</td><td>{email_row}</td></tr>
-                    <tr><td style="font-weight: bold;">Empresa:</td><td>{company_txt}</td></tr>
-                    <tr><td style="font-weight: bold;">Ciudad:</td><td>{city_txt}</td></tr>
-                    <tr><td style="font-weight: bold; vertical-align: top;">Mensaje:</td><td style="white-space: pre-line;">{message_txt}</td></tr>
-                </table>
-            </div>
-            
-            <p style="color: #334155; font-size: 13px; line-height: 1.6;">
-                Este contacto ha quedado registrado en tu tablero de <strong>CRM Leads</strong> en la etapa <em>Lead Entrante</em> listo para gestión inmediata.
-            </p>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
-                © 2026 GLOINT International Partners. Asignación Centralizada de Formularios.
-            </div>
-        </div>
         """
-        return EmailService.send_html_email(to_email, subject, html_content)
+        Notifica al Director de Inversiones sobre la recepción de un contacto desde formularios externos.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_external_form_director_template(
+            director_name=director_name,
+            platform_name=platform_name,
+            lead_data=lead_data
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+    @classmethod
+    async def send_welcome_and_review_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        document_id: str,
+        document_type: str = "CC"
+    ) -> bool:
+        """
+        Envía el correo corporativo de bienvenida al registrarse notificando sobre la revisión SARLAFT preventiva.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        import asyncio
+        subject, html = EmailTemplateService.get_welcome_and_review_template(
+            user_name=user_name,
+            document_id=document_id,
+            document_type=document_type
+        )
+        return await asyncio.to_thread(cls.send_html_email, to_email, subject, html)
+
+    @classmethod
+    async def send_sarlaft_result_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        document_id: str,
+        document_type: str = "CC",
+        has_findings: bool = False,
+        risk_level: str = "CLEAN",
+        hallazgos_summary: Optional[str] = None
+    ) -> bool:
+        """
+        Envía el correo corporativo con el resultado de la validación de TusDatos:
+        - Si no tiene hallazgos y el riesgo es CLEAN / LOW: correo de cuenta validada y 100% habilitada.
+        - Si tiene hallazgos o riesgo MEDIUM / HIGH: correo informativo de revisión manual preventiva.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        import asyncio
+
+        is_approved = (not has_findings) and (risk_level.upper() in ["CLEAN", "LOW"])
+
+        if is_approved:
+            subject, html = EmailTemplateService.get_sarlaft_approved_template(
+                user_name=user_name,
+                document_id=document_id,
+                document_type=document_type
+            )
+        else:
+            subject, html = EmailTemplateService.get_sarlaft_findings_template(
+                user_name=user_name,
+                document_id=document_id,
+                document_type=document_type,
+                risk_level=risk_level,
+                hallazgos_summary=hallazgos_summary
+            )
+
+        return await asyncio.to_thread(cls.send_html_email, to_email, subject, html)
+
+    @classmethod
+    def send_investment_request_created_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        request_id: int,
+        amount: float,
+        package_name: str,
+        period_months: str,
+        is_upgrade: bool = False,
+        payment_method: str = "Pasarela en línea / Transferencia"
+    ) -> bool:
+        """
+        Envía el correo corporativo cuando una solicitud de inversión o aumento de capital es radicada.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_investment_request_created_template(
+            user_name=user_name,
+            request_id=request_id,
+            amount=amount,
+            package_name=package_name,
+            period_months=period_months,
+            is_upgrade=is_upgrade,
+            payment_method=payment_method
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+    @classmethod
+    def send_investment_activated_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        contract_code: str,
+        amount: float,
+        package_name: str,
+        period_info: str,
+        is_upgrade: bool = False,
+        granted_shares: int = 0,
+        accrued_yield_paid: float = 0.0,
+        payment_method: Optional[str] = None
+    ) -> bool:
+        """
+        Envía el correo corporativo cuando una inversión o aumento de capital ha sido activado
+        (por confirmación de pago Yoint o aprobación administrativa).
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_investment_activated_template(
+            user_name=user_name,
+            contract_code=contract_code,
+            amount=amount,
+            package_name=package_name,
+            period_info=period_info,
+            is_upgrade=is_upgrade,
+            granted_shares=granted_shares,
+            accrued_yield_paid=accrued_yield_paid,
+            payment_method=payment_method
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+    @classmethod
+    def send_wallet_recharge_confirmed_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        amount: float,
+        new_balance: float,
+        payment_method: str,
+        reference_id: str,
+        date_str: Optional[str] = None
+    ) -> bool:
+        """
+        Envía el correo corporativo cuando una recarga de billetera digital ha sido confirmada y acreditada.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_wallet_recharge_confirmed_template(
+            user_name=user_name,
+            amount=amount,
+            new_balance=new_balance,
+            payment_method=payment_method,
+            reference_id=reference_id,
+            date_str=date_str
+        )
+        return cls.send_html_email(to_email, subject, html)
 
     @classmethod
     def send_event_registration_confirmation_email(
@@ -422,3 +424,111 @@ class EmailService:
         return cls.send_html_email(to_email, subject, html)
 
 
+    @classmethod
+    def send_event_registration_confirmation_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[object] = None,
+        attendance_mode: str = "in_person",
+        location: Optional[str] = None,
+        virtual_url: Optional[str] = None,
+        seats_reserved: int = 1,
+        has_companion: bool = False,
+        companion_name: Optional[str] = None,
+        is_company: bool = False,
+        company_name: Optional[str] = None,
+        company_nit: Optional[str] = None,
+        job_title: Optional[str] = None,
+        document_id: Optional[str] = None,
+        phone: Optional[str] = None,
+        city: Optional[str] = None,
+        interests: Optional[List[str]] = None,
+        attendee_type: str = "investor"
+    ) -> bool:
+        """
+        Envía el correo corporativo de confirmación de inscripción al evento Gloint Power Tech.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_event_registration_confirmation_template(
+            user_name=user_name,
+            event_title=event_title,
+            event_date=event_date,
+            attendance_mode=attendance_mode,
+            location=location,
+            virtual_url=virtual_url,
+            seats_reserved=seats_reserved,
+            has_companion=has_companion,
+            companion_name=companion_name,
+            is_company=is_company,
+            company_name=company_name,
+            company_nit=company_nit,
+            job_title=job_title,
+            document_id=document_id,
+            phone=phone,
+            city=city,
+            interests=interests,
+            attendee_type=attendee_type
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+    @classmethod
+    def send_event_attendance_confirmation_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[object],
+        location: Optional[str],
+        seats_reserved: int,
+        companion_name: Optional[str],
+        access_token: str,
+        qr_png: Optional[bytes] = None,
+    ) -> bool:
+        """
+        Correo de confirmación de asistencia presencial al evento Gloint Power Tech con QR único.
+        El QR viaja embebido (CID) para que se vea sin depender de que el cliente cargue imágenes remotas.
+        """
+        import base64
+        from src.services.email_template_service import EmailTemplateService
+        base = settings.FRONTEND_URL.rstrip("/")
+        page = f"{base}/evento/asistencia/{access_token}"
+        qr_cid = "qr-asistencia" if qr_png else None
+        subject, html = EmailTemplateService.get_event_attendance_confirmation_template(
+            user_name=user_name,
+            event_title=event_title,
+            event_date=event_date,
+            location=location,
+            seats_reserved=seats_reserved,
+            companion_name=companion_name,
+            confirm_url=f"{page}?accion=confirmar",
+            virtual_url=f"{page}?accion=virtual",
+            qr_cid=qr_cid,
+        )
+        attachments = None
+        if qr_png:
+            attachments = [{
+                "filename": "qr-asistencia.png",
+                "content": base64.b64encode(qr_png).decode("ascii"),
+                "content_type": "image/png",
+                "content_id": qr_cid,
+            }]
+        return cls.send_html_email(to_email, subject, html, attachments=attachments)
+
+    @classmethod
+    def send_event_live_invitation_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[object],
+        access_token: str,
+    ) -> bool:
+        """Invitación a la sala en vivo del evento con el enlace personal del inscrito virtual."""
+        from src.services.email_template_service import EmailTemplateService
+        live_url = f"{settings.FRONTEND_URL.rstrip('/')}/evento/en-vivo/{access_token}"
+        subject, html = EmailTemplateService.get_event_live_invitation_template(
+            user_name=user_name, event_title=event_title, event_date=event_date, live_url=live_url,
+        )
+        return cls.send_html_email(to_email, subject, html)

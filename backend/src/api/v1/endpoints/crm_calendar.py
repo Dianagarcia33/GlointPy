@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -84,7 +85,7 @@ async def sync_calendar(
             "has_saved_password": bool(current_user.imap_password)
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=public_error_detail("No se pudo completar la operación", e))
 
 
 @router.post("/events", dependencies=[Depends(RequirePermission(["crm:calendar:manage", "crm:leads:manage", "crm:view"]))])
@@ -111,7 +112,7 @@ async def create_calendar_event(
         )
         return res
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=public_error_detail("No se pudo completar la operación", e))
 
 
 @router.delete("/events/{event_uid}", dependencies=[Depends(RequirePermission(["crm:calendar:manage", "crm:leads:manage", "crm:view"]))])
@@ -134,4 +135,4 @@ async def delete_calendar_event(
         )
         return res
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=public_error_detail("No se pudo completar la operación", e))

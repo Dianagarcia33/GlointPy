@@ -1,19 +1,25 @@
-from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form
-from pydantic import BaseModel
+from src.core.errors import public_error_detail
+import logging
+
+from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form, BackgroundTasks
+from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+logger = logging.getLogger(__name__)
+
 from src.core.database import get_db
+from src.core.timezone import get_colombia_today
 from src.api.deps import RequirePermission, get_current_user
-from src.services.wallet_service import bulk_create_or_update_wallets, bulk_create_or_update_wallet_transactions
 from sqlalchemy.future import select
 from src.models.wallet import Wallet
 from src.models.user import User
+from src.models.withdrawal import Withdrawal, WithdrawalStatus
 
 router = APIRouter()
 
 from src.models.system_event import SystemEvent
 from src.services.system_event_service import SystemEventService
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optional[str]]:
     from sqlalchemy import func
@@ -22,12 +28,11 @@ async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optiona
     withdrawal_types = ["withdrawal", "withdrawals", "retiro", "retiros", "fechas_retiro"]
     
     events_res = await db.execute(
-        select(SystemEvent).where(
-            func.lower(SystemEvent.type).in_(withdrawal_types),
-            SystemEvent.is_active == True
-        )
+        select(SystemEvent).where(SystemEvent.is_active == True)
     )
-    all_withdrawal_events = events_res.scalars().all()
+    from src.services.system_event_service import normalize_event_type
+    _wanted_types = {normalize_event_type(t) for t in withdrawal_types}
+    all_withdrawal_events = [e for e in events_res.scalars().all() if normalize_event_type(e.type) in _wanted_types]
     
     if not all_withdrawal_events:
         return True, None
@@ -40,6 +45,7 @@ async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optiona
     return False, "Actualmente no se encuentra habilitada la ventana de retiros. Por favor consulta las fechas de retiro autorizadas en el sistema."
 
 from pydantic import BaseModel, Field
+from src.services.audit_trail_service import audit_in_tx
 
 class WalletWithdrawRequest(BaseModel):
     monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
@@ -48,6 +54,16 @@ class WalletWithdrawRequest(BaseModel):
 
 class SendCodeRequest(BaseModel):
     monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
+
+# H-236: el historial propio (movimientos, retiros y recargas) exige wallets:view_history en el servidor
+# (antes solo se ocultaba en pantalla). Mismo mecanismo PBAC que H-223 (credits.py / share_market.py).
+WALLET_HISTORY = [Depends(RequirePermission("wallets:view_history"))]
+
+
+def _can_view_balance(user) -> bool:
+    from src.core.pbac import PBACEngine
+    return PBACEngine.has_permission(user, "wallets:view_balance")
+
 
 @router.get("/me/balance")
 @router.get("/balance")
@@ -80,8 +96,14 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
     bank_details = bank_accounts_list[0] if bank_accounts_list else None
     can_withdraw, withdrawal_msg = await check_withdrawal_dates_active(db)
 
+    # H-210: sin wallets:view_balance el saldo no sale de la API (antes solo se ocultaba en pantalla)
+    balance_visible = _can_view_balance(current_user)
+
     return {
-        "balance": wallet.balance if wallet else 0,
+        # H-197: el resto de pantallas siguen recibiendo balance 0; el navbar usa has_wallet para ocultar el widget
+        "has_wallet": wallet is not None,
+        "balance_visible": balance_visible,
+        "balance": (wallet.balance if wallet else 0) if balance_visible else None,
         "currency": wallet.currency if wallet else "COP",
         "bank_details": bank_details,
         "bank_accounts": bank_accounts_list,
@@ -164,7 +186,7 @@ async def send_withdrawal_code(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al generar el código: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al generar el código", e))
 
     # 5. Send Email
     email_sent = EmailService.send_withdrawal_verification_code(current_user.email, code)
@@ -178,6 +200,7 @@ async def send_withdrawal_code(
 @router.post("/me/withdraw")
 async def request_withdrawal(
     req: WalletWithdrawRequest,
+    background_tasks: BackgroundTasks,
     current_user = Depends(get_current_user), 
     db: AsyncSession = Depends(get_db)
 ):
@@ -205,6 +228,7 @@ async def request_withdrawal(
             WithdrawalVerificationCode.user_id == current_user.id,
             WithdrawalVerificationCode.code == req.code,
             WithdrawalVerificationCode.used_at == None,
+            WithdrawalVerificationCode.purpose.is_(None),
             WithdrawalVerificationCode.expires_at > datetime.utcnow()
         )
         .order_by(WithdrawalVerificationCode.created_at.desc())
@@ -285,7 +309,7 @@ async def request_withdrawal(
         monto=monto_decimal,
         impuesto=impuesto,
         monto_neto=monto_neto,
-        fecha_solicitud=date.today(),
+        fecha_solicitud=get_colombia_today(),  # H-152: día calendario de Colombia, no el del servidor (UTC)
         estado=WithdrawalStatus.PENDING,
         metodo_pago="Transferencia",
         banco=bank_account.banco,
@@ -299,20 +323,266 @@ async def request_withdrawal(
     tx.reference_type = "withdrawal"
     tx.reference_id = withdrawal.id
 
+    # 7. Acreditar el 3.2% de retención a la Billetera Corporativa de la Empresa
+    try:
+        from src.services.company_wallet_service import CompanyWalletService
+        await CompanyWalletService.credit_tax_retention(db, withdrawal, current_user.name)
+    except Exception as cw_err:
+        logger.warning(f"Aviso al acreditar retención 3.2% a Billetera Corporativa: {cw_err}")
+
+    # H-65: auditoría atómica (misma transacción que el débito del saldo)
+    await audit_in_tx(
+        db, "WITHDRAWAL_REQUEST", "wallets", current_user, "Withdrawal", withdrawal.id,
+        f"Solicitud de retiro #{withdrawal.id} por ${float(monto_decimal):,.0f}",
+        {"withdrawal_id": withdrawal.id, "wallet_id": wallet.id, "monto": float(monto_decimal),
+         "impuesto": float(impuesto), "monto_neto": float(monto_neto),
+         "saldo_antes": float(wallet.balance + monto_decimal), "saldo_despues": float(wallet.balance),
+         "banco": bank_account.banco, "cuenta_ultimos4": str(bank_account.numero_cuenta or "")[-4:]},
+    )
+
     try:
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-        
-    return {"message": "Retiro solicitado con éxito.", "withdrawal_id": withdrawal.id, "new_balance": wallet.balance}
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
 
-@router.get("/me/movements")
+    # 8. Disparar dispersión automática a la API v2 de Yoint
+    yoint_tracking = None
+    try:
+        from src.services.yoint_service import YointService
+        dispersion = await YointService.send_dispersion(db=db, withdrawal=withdrawal, user=current_user)
+        if dispersion:
+            yoint_tracking = {
+                "dispersion_id": dispersion.id,
+                "order_id": dispersion.order_id,
+                "status": dispersion.status
+            }
+    except Exception as y_err:
+        logger.error(f"Error al enviar dispersión a Yoint para retiro #{withdrawal.id}: {y_err}", exc_info=True)
+
+    # 9. Enviar correo corporativo notificando que la solicitud de retiro está pendiente
+    try:
+        if current_user and current_user.email:
+            from src.services.email_service import EmailService
+            background_tasks.add_task(
+                EmailService.send_withdrawal_request_pending_email,
+                to_email=current_user.email,
+                user_name=current_user.name or "Inversionista",
+                amount=float(withdrawal.monto),
+                tax=float(withdrawal.impuesto or 0),
+                net_amount=float(withdrawal.monto_neto or withdrawal.monto),
+                bank=withdrawal.banco or (bank_account.banco if bank_account else "Entidad Bancaria"),
+                account_type=withdrawal.tipo_cuenta or (bank_account.tipo_cuenta if bank_account else "Cuenta"),
+                account_number=withdrawal.numero_cuenta or (bank_account.numero_cuenta if bank_account else "N/A"),
+                withdrawal_id=withdrawal.id
+            )
+    except Exception as em_err:
+        logger.warning(f"Aviso al encolar correo de retiro pendiente #{withdrawal.id}: {em_err}")
+
+    return {
+        "message": "Retiro solicitado con éxito.", 
+        "withdrawal_id": withdrawal.id, 
+        "new_balance": float(wallet.balance),
+        "yoint": yoint_tracking
+    }
+
+def _translate_wallet_text(text: Optional[str]) -> str:
+    if not text:
+        return ""
+    import re
+    cleaned = str(text)
+    # Remove admin tags & emails
+    cleaned = re.sub(r'\(Admin:.*?\)', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)', '', cleaned)
+    cleaned = cleaned.strip()
+    if not cleaned:
+        return ""
+
+    # Payment methods in descriptions
+    cleaned = re.sub(r'\(?BOTON_BANCOLOMBIA\)?', '(Botón Bancolombia)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?BANCOLOMBIA_QR\)?', '(QR Bancolombia)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?CREDIT_CARD\)?', '(Tarjeta de Crédito)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?DEBIT_CARD\)?', '(Tarjeta de Débito)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?BANK_TRANSFER\)?', '(Transferencia Bancaria)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?DIRECT_TRANSFER\)?', '(Transferencia Bancaria)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?CASH\)?', '(Efectivo)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?WALLET\)?', '(Billetera)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?NEQUI\)?', '(Nequi)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?PSE\)?', '(PSE)', cleaned, flags=re.IGNORECASE)
+
+    # Common English phrases
+    replacements = [
+        (r'\bwallet recharge\b', 'Recarga de billetera'),
+        (r'\bwallet topup\b', 'Recarga de billetera'),
+        (r'\brecharge online\b', 'Recarga en línea'),
+        (r'\brecharge via\b', 'Recarga vía'),
+        (r'\bdirect transfer to\b', 'Transferencia enviada a'),
+        (r'\bdirect transfer from\b', 'Transferencia recibida de'),
+        (r'\btransfer to\b', 'Transferencia a'),
+        (r'\btransfer from\b', 'Transferencia de'),
+        (r'\byield payout for\b', 'Pago de rendimientos de'),
+        (r'\byield payout\b', 'Pago de rendimientos'),
+        (r'\bbonus payout for\b', 'Pago de bono de'),
+        (r'\bbonus payout\b', 'Pago de bono'),
+        (r'\bwithdrawal request\b', 'Solicitud de retiro'),
+        (r'\bwithdrawal refund\b', 'Reembolso de retiro'),
+        (r'\bwithdrawal rejection\b', 'Devolución por rechazo de retiro'),
+        (r'\binvestment reservation\b', 'Reserva de inversión'),
+        (r'\bcapital liquidation\b', 'Liquidación de capital'),
+        (r'\badmin adjustment\b', 'Ajuste administrativo de saldo'),
+        (r'\binsufficient funds\b', 'Fondos insuficientes'),
+        (r'\bpending approval\b', 'Pendiente de aprobación'),
+        (r'\bapproved by admin\b', 'Aprobado por administración'),
+        (r'\brejected by admin\b', 'Rechazado por administración'),
+        (r'\border cancelled by user\b', 'Orden cancelada por el usuario'),
+        (r'\border canceled by user\b', 'Orden cancelada por el usuario'),
+        (r'\btransaction completed\b', 'Transacción completada'),
+        (r'\border\b', 'Orden'),
+        (r'\bref:\b', 'Ref:'),
+        (r'\breference:\b', 'Referencia:'),
+        (r'\bbatch\b', 'Lote'),
+    ]
+    for pattern, repl in replacements:
+        cleaned = re.sub(pattern, repl, cleaned, flags=re.IGNORECASE)
+
+    return cleaned
+
+
+def _translate_payment_method(method: Optional[str]) -> str:
+    if not method:
+        return "Transferencia Bancaria"
+    norm = str(method).strip().upper().replace("-", "_").replace(" ", "_")
+    mapping = {
+        "BOTON_BANCOLOMBIA": "Botón Bancolombia",
+        "BANCOLOMBIA": "Bancolombia",
+        "BANCOLOMBIA_QR": "QR Bancolombia",
+        "NEQUI": "Nequi",
+        "DAVIPLATA": "Daviplata",
+        "PSE": "PSE",
+        "CREDIT_CARD": "Tarjeta de Crédito",
+        "DEBIT_CARD": "Tarjeta de Débito",
+        "CARD": "Tarjeta",
+        "TARJETA": "Tarjeta",
+        "BANK_TRANSFER": "Transferencia Bancaria",
+        "TRANSFER": "Transferencia Bancaria",
+        "DIRECT_TRANSFER": "Transferencia Bancaria",
+        "CASH": "Efectivo",
+        "WALLET": "Billetera Gloint",
+        "BILLETERA": "Billetera Gloint",
+        "YOINT": "Yoint en Línea",
+        "GATEWAY": "Pasarela de Pago",
+        "MANUAL": "Consignación Directa",
+    }
+    return mapping.get(norm, str(method).replace("_", " ").title())
+
+
+def _translate_status(status_val: Optional[str]) -> str:
+    if not status_val:
+        return "completado"
+    norm = str(status_val).lower().strip()
+    mapping = {
+        "aprobado": "completado",
+        "completed": "completado",
+        "completado": "completado",
+        "procesado": "completado",
+        "success": "completado",
+        "pending": "pendiente",
+        "pendiente": "pendiente",
+        "processing": "en_proceso",
+        "en_proceso": "en_proceso",
+        "in_progress": "en_proceso",
+        "rejected": "rechazado",
+        "rechazado": "rechazado",
+        "cancelled": "cancelado",
+        "canceled": "cancelado",
+        "cancelado": "cancelado",
+        "failed": "fallido",
+        "fallido": "fallido",
+        "refunded": "reembolsado",
+        "reembolsado": "reembolsado",
+    }
+    return mapping.get(norm, "completado")
+
+
+def _get_movement_type_display(raw_type: Optional[str], is_ingreso: bool) -> str:
+    if not raw_type:
+        return "Ingreso a Billetera" if is_ingreso else "Egreso de Billetera"
+    norm = str(raw_type).lower().strip().replace("-", "_").replace(" ", "_")
+    mapping = {
+        "wallet_recharge": "Recarga de Billetera",
+        "wallet_topup": "Recarga de Billetera",
+        "wallet_deposit": "Recarga de Billetera",
+        "recharge": "Recarga de Billetera",
+        "recarga": "Recarga de Billetera",
+        "recarga_billetera": "Recarga de Billetera",
+        "recarga_en_linea": "Recarga en Línea",
+        "transfer_in": "Transferencia Recibida",
+        "transfer_received": "Transferencia Recibida",
+        "transferencia_recibida": "Transferencia Recibida",
+        "transfer_out": "Transferencia Enviada",
+        "transfer_sent": "Transferencia Enviada",
+        "transferencia_enviada": "Transferencia Enviada",
+        "transfer_between_wallets": "Transferencia entre Billeteras",
+        "transfer": "Transferencia de Billetera",
+        "withdrawal_rejection": "Reembolso de Retiro",
+        "withdrawal_refund": "Reembolso de Retiro",
+        "reembolso_de_retiro": "Reembolso de Retiro",
+        "reembolso_retiro": "Reembolso de Retiro",
+        "devolucion_por_rechazo": "Reembolso de Retiro",
+        "withdrawal_request": "Solicitud de Retiro",
+        "commission_settlement": "Liquidación de Comisiones",
+        "withdrawal": "Solicitud de Retiro",
+        "retiro": "Solicitud de Retiro",
+        "solicitud_retiro": "Solicitud de Retiro",
+        "solicitud_de_retiro": "Solicitud de Retiro",
+        "yield_payout_reversal": "Reversión de Rendimientos",
+        "yield_payout_reversed": "Rendimientos Revertidos",
+        "yield_payout": "Pago de Rendimientos",
+        "auto_yield_transfer": "Pago de Rendimientos",
+        "generacion_rendimiento": "Pago de Rendimientos",
+        "rendimiento_inversion": "Pago de Rendimientos",
+        "rendimiento": "Pago de Rendimientos",
+        "yield": "Pago de Rendimientos",
+        "bonus_payout": "Pago de Bono",
+        "auto_bonus_transfer": "Pago de Bono",
+        "bono_aceleracion": "Bono de Aceleración",
+        "bono": "Pago de Bono",
+        "bonus": "Pago de Bono",
+        "investment_reservation": "Reserva de Inversión",
+        "investment_payment": "Pago de Inversión",
+        "reserva_inversion": "Reserva de Inversión",
+        "capital_liquidation": "Liquidación de Capital",
+        "credit_installment": "Abono a Crédito",
+        "shares_purchase": "Compra de Acciones",
+        "shares_buy": "Compra de Acciones",
+        "shares_sale": "Venta de Acciones",
+        "shares_sell": "Venta de Acciones",
+        "shares_retention": "Custodia de Acciones",
+        "shares_release": "Liberación de Acciones",
+        "admin_adjustment": "Ajuste Administrativo de Saldo",
+        "cash": "Depósito de Saldo",
+        "deposit": "Depósito de Saldo",
+        "deposito": "Depósito de Saldo",
+        "credit": "Abono a Billetera",
+        "debit": "Débito de Billetera",
+        "ingreso": "Ingreso a Billetera",
+        "egreso": "Egreso de Billetera",
+    }
+    if norm in mapping:
+        return mapping[norm]
+    for k, v in mapping.items():
+        if k in norm:
+            return v
+    return "Ingreso a Billetera" if is_ingreso else "Egreso de Billetera"
+
+
+@router.get("/me/movements", dependencies=WALLET_HISTORY)
 async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the wallet transactions of the current logged-in user.
     """
     from src.models.wallet import Wallet, WalletTransaction
+    from src.models.withdrawal import Withdrawal, WithdrawalStatus
     
     # Fetch WalletTransactions
     t_result = await db.execute(
@@ -321,11 +591,36 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         .where(Wallet.user_id == current_user.id)
     )
     transactions = t_result.scalars().all()
+
+    # Pre-cargar los retiros del usuario para enriquecer las transacciones con desglose financiero exacto
+    w_res = await db.execute(
+        select(Withdrawal).where(Withdrawal.user_id == current_user.id)
+    )
+    user_withdrawals = w_res.scalars().all()
+    user_withdrawals_by_id = {w.id: w for w in user_withdrawals}
     
+    # Pre-cargar dispersiones Yoint asociadas a los retiros del usuario
+    from src.models.yoint_dispersion import YointDispersion
+    w_ids = [w.id for w in user_withdrawals]
+    dispersions_by_wid = {}
+    if w_ids:
+        d_res = await db.execute(
+            select(YointDispersion).where(YointDispersion.withdrawal_id.in_(w_ids))
+        )
+        for d in d_res.scalars().all():
+            dispersions_by_wid.setdefault(d.withdrawal_id, []).append(d)
+
+    from datetime import datetime
+    balance_visible = _can_view_balance(current_user)
     response = []
+    # Retiros ya enlazados por referencia explícita: el emparejamiento por monto no los reutiliza
+    claimed_withdrawal_ids = {
+        t.reference_id for t in transactions
+        if t.reference_type == "withdrawal" and t.reference_id in user_withdrawals_by_id
+    }
     
     # Map Transactions
-    for t in transactions:
+    for t in sorted(transactions, key=lambda x: x.created_at or datetime.min):
         amount = float(t.amount)
         raw_type = (t.type or "").lower().strip().replace("-", "_")
         
@@ -340,42 +635,115 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         direction = "out" if is_outflow else "in"
         tipo_str = "egreso" if is_outflow else "ingreso"
             
-        # Sanitizar descripción para proteger privacidad de administradores y contrapartes
-        desc = t.description or ""
+        # Sanitizar y traducir descripción al español
+        desc = _translate_wallet_text(t.description)
         is_admin = current_user.is_superuser or (current_user.permissions and "admin.wallets.manage" in current_user.permissions)
         if not is_admin:
-            import re
-            desc = re.sub(r'\(Admin:.*?\)', '', desc).strip()
             if not desc or t.type == "admin_adjustment":
                 desc = "Ajuste de saldo administrativo autorizado"
-            desc = re.sub(r'\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)', '', desc)
+
+        # Valores por defecto para transacciones estándar
+        monto_val = abs(amount)
+        impuesto_val = 0.0
+        monto_neto_val = abs(amount)
+        estado_val = "completado" # Transacciones estándar ya efectivas en billetera
+        banco_val = None
+        tipo_cuenta_val = None
+        numero_cuenta_val = None
+        metodo_pago_val = None
+        fecha_solicitud_val = t.created_at.isoformat() if t.created_at else None
+        fecha_aprobacion_val = t.created_at.isoformat() if t.created_at else None
+        fecha_procesamiento_val = t.created_at.isoformat() if t.created_at else None
+        motivo_rechazo_val = None
+        can_cancel_val = False
+        has_yoint_val = False
+
+        # Vincular retiro si aplica para obtener el impuesto 3.2%, el neto real y el estado exacto
+        linked_w = None
+        is_withdrawal_request_tx = raw_type.replace(" ", "_") in ["withdrawal_request", "solicitud_retiro", "retiro", "withdrawal"]
+        if t.reference_type == "withdrawal" and t.reference_id in user_withdrawals_by_id:
+            linked_w = user_withdrawals_by_id[t.reference_id]
+        elif is_withdrawal_request_tx:
+            # H-203: sin referencia explícita, se empareja con el retiro de igual monto que ningún otro
+            # movimiento haya reclamado y cuya fecha de solicitud esté más cerca del movimiento
+            # (antes se tomaba el primero con el mismo monto, que podía ser otro retiro de $5.000)
+            tx_day = t.created_at.date() if t.created_at else None
+            candidates = [
+                w for w in user_withdrawals
+                if abs(float(w.monto) - abs(amount)) < 0.01 and w.id not in claimed_withdrawal_ids
+            ]
+            if candidates:
+                if tx_day:
+                    candidates.sort(key=lambda w: abs((w.fecha_solicitud - tx_day).days) if w.fecha_solicitud else 9999)
+                linked_w = candidates[0]
+                claimed_withdrawal_ids.add(linked_w.id)
+
+        if linked_w:
+            monto_val = float(linked_w.monto)
+            impuesto_val = float(linked_w.impuesto)
+            monto_neto_val = float(linked_w.monto_neto) # El valor neto real a recibir en el banco
+            raw_w_estado = linked_w.estado.value if hasattr(linked_w.estado, "value") else str(linked_w.estado)
+            estado_val = _translate_status(raw_w_estado)
+            banco_val = linked_w.banco
+            tipo_cuenta_val = linked_w.tipo_cuenta
+            numero_cuenta_val = linked_w.numero_cuenta
+            metodo_pago_val = _translate_payment_method(linked_w.metodo_pago)
+            fecha_solicitud_val = linked_w.fecha_solicitud.isoformat() if linked_w.fecha_solicitud else (t.created_at.isoformat() if t.created_at else None)
+            fecha_aprobacion_val = linked_w.fecha_aprobacion.isoformat() if linked_w.fecha_aprobacion else None
+            fecha_procesamiento_val = linked_w.fecha_procesamiento.isoformat() if linked_w.fecha_procesamiento else None
+            motivo_rechazo_val = _translate_wallet_text(linked_w.motivo_rechazo) if linked_w.motivo_rechazo else None
+
+            w_disps = dispersions_by_wid.get(linked_w.id, [])
+            has_yoint_val = any(
+                d.status not in ["FAILED", "REJECTED"] or d.order_id for d in w_disps
+            ) or bool(linked_w.comprobante_pago and "YOINT" in str(linked_w.comprobante_pago).upper())
+            can_cancel_val = (linked_w.estado == WithdrawalStatus.PENDING or str(linked_w.estado).lower() in ["pending", "pendiente"]) and not has_yoint_val
+        elif is_withdrawal_request_tx:
+            # Retiro sin registro asociado: no se puede afirmar que fue aprobado ni procesado (H-203)
+            fecha_aprobacion_val = None
+            fecha_procesamiento_val = None
+        elif t.reference_type == "yoint_payin" or "yoint" in (t.type or "").lower() or "recharge" in (t.type or "").lower():
+            metodo_pago_val = _translate_payment_method("BOTON_BANCOLOMBIA" if "bancolombia" in desc.lower() else "Yoint en Línea")
+
+        tipo_display = _get_movement_type_display(t.type, not is_outflow)
+
+        # H-185: saldo antes del movimiento = saldo después - efecto firmado del movimiento
+        # (la tabla guarda balance_after; el efecto se toma de la dirección, no del signo del monto)
+        saldo_anterior_val = None
+        if t.balance_after is not None:
+            signed_effect = -abs(amount) if is_outflow else abs(amount)
+            saldo_anterior_val = round(float(t.balance_after) - signed_effect, 2)
 
         response.append({
             "id": f"t_{t.id}",
+            "real_id": linked_w.id if linked_w else None,
             "investor_id": None,
             "user_id": current_user.id,
-            "origen": t.type,
+            "origen": tipo_display,
             "tipo": tipo_str,
+            "tipo_display": tipo_display,
             "type": t.type,
             "direction": direction,
-            "monto": abs(amount),
-            "impuesto": 0,
-            "monto_neto": abs(amount),
-            "fecha_solicitud": t.created_at.isoformat() if t.created_at else None,
+            "monto": monto_val,
+            "impuesto": impuesto_val,
+            "monto_neto": monto_neto_val,
+            "fecha_solicitud": fecha_solicitud_val,
             "fecha_retiro": None,
-            "estado": "procesado", # Wallet transactions are typically immediately processed
-            "metodo_pago": None,
-            "banco": None,
-            "tipo_cuenta": None,
-            "numero_cuenta": None,
+            "estado": estado_val,
+            "metodo_pago": metodo_pago_val,
+            "banco": banco_val,
+            "tipo_cuenta": tipo_cuenta_val,
+            "numero_cuenta": numero_cuenta_val,
             "observaciones": desc,
-            "motivo_rechazo": None,
-            "fecha_aprobacion": t.created_at.isoformat() if t.created_at else None,
-            "fecha_procesamiento": t.created_at.isoformat() if t.created_at else None,
+            "motivo_rechazo": motivo_rechazo_val,
+            "fecha_aprobacion": fecha_aprobacion_val,
+            "fecha_procesamiento": fecha_procesamiento_val,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-            "saldo_anterior": None,
-            "saldo_nuevo": float(t.balance_after),
+            "saldo_anterior": saldo_anterior_val if balance_visible else None,
+            "saldo_nuevo": (float(t.balance_after) if t.balance_after is not None else None) if balance_visible else None,
+            "can_cancel": can_cancel_val,
+            "has_yoint_dispersion": has_yoint_val,
             "_sort_date": t.created_at
         })
         
@@ -388,12 +756,13 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         
     return response
 
-@router.get("/me/withdrawals")
+@router.get("/me/withdrawals", dependencies=WALLET_HISTORY)
 async def get_my_withdrawals(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the withdrawals of the current logged-in user.
     """
-    from src.models.withdrawal import Withdrawal
+    from src.models.withdrawal import Withdrawal, WithdrawalStatus
+    from src.models.yoint_dispersion import YointDispersion
     
     w_result = await db.execute(
         select(Withdrawal)
@@ -402,34 +771,60 @@ async def get_my_withdrawals(current_user = Depends(get_current_user), db: Async
     )
     withdrawals = w_result.scalars().all()
     
+    # Pre-cargar dispersiones de Yoint para saber si los retiros tienen dispersión activa
+    w_ids = [w.id for w in withdrawals]
+    dispersions_by_wid = {}
+    if w_ids:
+        d_res = await db.execute(
+            select(YointDispersion).where(YointDispersion.withdrawal_id.in_(w_ids))
+        )
+        for d in d_res.scalars().all():
+            dispersions_by_wid.setdefault(d.withdrawal_id, []).append(d)
+
     response = []
     for w in withdrawals:
         if w.metodo_pago and w.metodo_pago.lower() == 'wallet':
             continue
             
+        w_disps = dispersions_by_wid.get(w.id, [])
+        has_active_yoint = any(
+            d.status not in ["FAILED", "REJECTED"] or d.order_id for d in w_disps
+        ) or bool(w.comprobante_pago and "YOINT" in str(w.comprobante_pago).upper())
+        can_cancel = (w.estado == WithdrawalStatus.PENDING) and not has_active_yoint
+
+        raw_w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+        estado_val = _translate_status(raw_w_estado)
+        metodo_pago_val = _translate_payment_method(w.metodo_pago)
+        tipo_disp = _get_movement_type_display(w.tipo.value if hasattr(w.tipo, 'value') else w.tipo, False)
+        observaciones_val = _translate_wallet_text(w.observaciones) if w.observaciones else None
+        motivo_rechazo_val = _translate_wallet_text(w.motivo_rechazo) if w.motivo_rechazo else None
+
         response.append({
             "id": f"w_{w.id}",
             "real_id": w.id,
             "investor_id": w.investor_id,
             "user_id": w.user_id,
-            "origen": w.origen,
+            "origen": tipo_disp,
             "tipo": w.tipo.value if hasattr(w.tipo, 'value') else w.tipo,
+            "tipo_display": tipo_disp,
             "monto": float(w.monto),
             "impuesto": float(w.impuesto),
             "monto_neto": float(w.monto_neto),
             "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
             "fecha_retiro": w.fecha_retiro.isoformat() if w.fecha_retiro else None,
-            "estado": w.estado.value if hasattr(w.estado, 'value') else w.estado,
-            "metodo_pago": w.metodo_pago,
+            "estado": estado_val,
+            "metodo_pago": metodo_pago_val,
             "banco": w.banco,
             "tipo_cuenta": w.tipo_cuenta,
             "numero_cuenta": w.numero_cuenta,
-            "observaciones": w.observaciones,
-            "motivo_rechazo": w.motivo_rechazo,
+            "observaciones": observaciones_val,
+            "motivo_rechazo": motivo_rechazo_val,
             "fecha_aprobacion": w.fecha_aprobacion.isoformat() if w.fecha_aprobacion else None,
             "fecha_procesamiento": w.fecha_procesamiento.isoformat() if w.fecha_procesamiento else None,
             "created_at": w.created_at.isoformat() if w.created_at else None,
             "updated_at": w.updated_at.isoformat() if w.updated_at else None,
+            "can_cancel": can_cancel,
+            "has_yoint_dispersion": has_active_yoint,
         })
         
     return response
@@ -457,6 +852,22 @@ async def cancel_my_withdrawal(
         
     if withdrawal.estado != WithdrawalStatus.PENDING:
         raise HTTPException(status_code=400, detail="Solo se pueden cancelar retiros en estado pendiente.")
+
+    # 1.1 Protección financiera estricta: Bloquear cancelación si la dispersión ya fue enviada a Yoint
+    from src.models.yoint_dispersion import YointDispersion
+    d_res = await db.execute(
+        select(YointDispersion).where(YointDispersion.withdrawal_id == withdrawal.id)
+    )
+    dispersions = d_res.scalars().all()
+    has_active_dispersion = any(
+        d.status not in ["FAILED", "REJECTED"] or d.order_id for d in dispersions
+    ) or bool(withdrawal.comprobante_pago and "YOINT" in str(withdrawal.comprobante_pago).upper())
+
+    if has_active_dispersion:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta solicitud de retiro ya fue despachada y se encuentra en procesamiento con la pasarela bancaria Yoint. No puede ser cancelada para evitar duplicidad de desembolsos."
+        )
         
     # 2. Fetch Wallet
     wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
@@ -484,40 +895,30 @@ async def cancel_my_withdrawal(
         reference_id=withdrawal.id
     )
     db.add(tx)
-    
+
+    # Revertir retención del 3.2% en el libro fiscal corporativo
+    try:
+        from src.services.company_wallet_service import CompanyWalletService
+        await CompanyWalletService.refund_tax_retention(db, withdrawal)
+    except Exception as cw_err:
+        logger.warning(f"Aviso al revertir retención en libro fiscal para retiro cancelado #{withdrawal.id}: {cw_err}")
+
+    await audit_in_tx(
+        db, "WITHDRAWAL_CANCEL", "wallets", current_user, "Withdrawal", withdrawal.id,
+        f"Cancelación del retiro #{withdrawal.id}; se devuelven ${float(monto_decimal):,.0f}",
+        {"withdrawal_id": withdrawal.id, "estado_antes": "PENDING", "estado_despues": "CANCELLED",
+         "monto_devuelto": float(monto_decimal), "saldo_antes": float(wallet.balance - monto_decimal),
+         "saldo_despues": float(wallet.balance)},
+    )
+
     try:
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
         
     return {"message": "Retiro cancelado exitosamente.", "new_balance": wallet.balance}
 
-
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
-async def bulk_upload_wallets(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and load/update wallets for users in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    success_count, errors = await bulk_create_or_update_wallets(db, content)
-    return {"success_count": success_count, "errors": errors}
-
-
-@router.post("/transactions/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
-async def bulk_upload_transactions(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and load/update wallet transactions in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    success_count, errors = await bulk_create_or_update_wallet_transactions(db, content)
-    return {"success_count": success_count, "errors": errors}
 
 from src.schemas.wallet import AdminWalletAdjustRequest
 @router.post("/admin/wallets/{wallet_id}/adjust", dependencies=[Depends(RequirePermission("admin.investors.wallet_adjust"))])
@@ -536,11 +937,22 @@ async def admin_adjust_wallet(
     if req.action not in ["add", "subtract", "set"]:
         raise HTTPException(status_code=400, detail="Acción inválida. Use add, subtract, o set.")
         
-    wallet_res = await db.execute(select(Wallet).where(Wallet.id == wallet_id))
+    if req.amount < 0 or (req.action != "set" and req.amount == 0):
+        raise HTTPException(status_code=400, detail="El monto del ajuste debe ser mayor a cero.")
+
+    # FOR UPDATE: el saldo validado no puede cambiar por otra operación antes de guardar el ajuste
+    wallet_res = await db.execute(select(Wallet).where(Wallet.id == wallet_id).with_for_update())
     wallet = wallet_res.scalars().first()
     
     if not wallet:
         raise HTTPException(status_code=404, detail="Billetera no encontrada.")
+
+    # H-174: un débito mayor al saldo se rechaza con el saldo disponible, nunca se recorta a 0
+    if req.action == "subtract" and req.amount > wallet.balance:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El débito excede el saldo disponible (${float(wallet.balance):,.0f} COP).".replace(",", ".")
+        )
         
     old_balance = wallet.balance
     
@@ -594,8 +1006,8 @@ async def admin_adjust_wallet(
             monto=monto_abs,
             impuesto=impuesto,
             monto_neto=monto_neto,
-            fecha_solicitud=date.today(),
-            fecha_retiro=date.today(),
+            fecha_solicitud=get_colombia_today(),  # H-152: día calendario de Colombia, no el del servidor (UTC)
+            fecha_retiro=get_colombia_today(),
             estado=WithdrawalStatus.APPROVED,
             metodo_pago="Ajuste Admin Wallet",
             banco=bank_account.banco if bank_account else None,
@@ -613,12 +1025,22 @@ async def admin_adjust_wallet(
 
         tx.reference_type = "withdrawal"
         tx.reference_id = withdrawal.id
-    
+
+    await audit_in_tx(
+        db, "WALLET_ADMIN_ADJUST", "wallets", current_user, "Wallet", wallet.id,
+        f"Ajuste administrativo de billetera #{wallet.id} ({req.action}) por ${abs(float(diff)):,.0f}",
+        {"wallet_id": wallet.id, "wallet_user_id": wallet.user_id, "accion": req.action,
+         "monto_solicitado": float(req.amount), "diferencia": float(diff),
+         "saldo_antes": float(old_balance), "saldo_despues": float(wallet.balance),
+         "motivo": (req.description or "").strip()[:300] or None,
+         "retiro_generado_id": tx.reference_id if tx.reference_type == "withdrawal" else None},
+    )
+
     try:
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al ajustar billetera: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al ajustar billetera", e))
         
     return {"message": "Saldo ajustado correctamente.", "new_balance": wallet.balance}
 
@@ -773,6 +1195,15 @@ async def transfer_wallet_funds(
     )
     db.add(recipient_tx)
 
+    await audit_in_tx(
+        db, "WALLET_TRANSFER", "wallets", current_user, "Wallet", sender_wallet.id,
+        f"Transferencia de ${float(amount):,.0f} de la billetera #{sender_wallet.id} a la #{recipient_wallet.id}",
+        {"wallet_origen_id": sender_wallet.id, "wallet_destino_id": recipient_wallet.id,
+         "usuario_destino_id": recipient.id, "monto": float(amount),
+         "saldo_origen_antes": float(sender_wallet.balance + amount), "saldo_origen_despues": float(sender_wallet.balance),
+         "saldo_destino_antes": float(recipient_wallet.balance - amount), "saldo_destino_despues": float(recipient_wallet.balance)},
+    )
+
     await db.commit()
 
     # Notificaciones in-app y push
@@ -815,7 +1246,27 @@ async def transfer_wallet_funds(
 # ==========================================================
 
 class RejectRechargeRequest(BaseModel):
-    reason: str
+    reason: Optional[str] = None
+    rejection_reason: Optional[str] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def populate_reason(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get('reason') and data.get('rejection_reason'):
+                data['reason'] = data['rejection_reason']
+        return data
+
+    @field_validator('reason')
+    @classmethod
+    def validate_reason(cls, v: Optional[str]) -> str:
+        clean = (v or "").strip()
+        if len(clean) < 10:
+            raise ValueError("El motivo de rechazo debe contener al menos 10 caracteres explicativos.")
+        # Prevenir cadenas de texto basura repetitivo (ej: asdf, sss, 1111)
+        if len(set(clean.lower().replace(" ", ""))) < 4:
+            raise ValueError("Por favor ingrese un motivo de rechazo válido y descriptivo para el usuario.")
+        return clean
 
 class ApproveRechargeRequest(BaseModel):
     admin_notes: Optional[str] = None
@@ -847,15 +1298,10 @@ async def create_wallet_recharge(
             detail="El monto mínimo de recarga es de $5.000 COP."
         )
 
-    # Validar extensión del comprobante
-    filename = receipt.filename or ""
-    ext = os.path.splitext(filename)[1].lower()
-    allowed_exts = [".jpg", ".jpeg", ".png", ".webp", ".pdf"]
-    if ext not in allowed_exts:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato de comprobante no válido. Use JPG, PNG, WEBP o PDF."
-        )
+    # H-190: extensión, tamaño y contenido real del comprobante
+    from src.core.uploads import validate_receipt_upload
+    receipt_bytes = await receipt.read()
+    ext = validate_receipt_upload(receipt.filename, receipt_bytes)
 
     # Verificar o crear la billetera del usuario
     w_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
@@ -872,7 +1318,7 @@ async def create_wallet_recharge(
     dest_path = os.path.join(upload_dir, unique_filename)
 
     with open(dest_path, "wb") as buffer:
-        shutil.copyfileobj(receipt.file, buffer)
+        buffer.write(receipt_bytes)
 
     receipt_url = f"/uploads/comprobantes/{unique_filename}"
 
@@ -887,6 +1333,13 @@ async def create_wallet_recharge(
         user_notes=notes.strip() if notes else None
     )
     db.add(recharge)
+    await db.flush()
+    await audit_in_tx(
+        db, "WALLET_RECHARGE_CREATE", "wallets", current_user, "WalletRecharge", recharge.id,
+        f"Solicitud de recarga #{recharge.id} por ${float(recharge.amount):,.0f}",
+        {"recharge_id": recharge.id, "wallet_id": wallet.id, "monto": float(recharge.amount),
+         "metodo": recharge.payment_method, "estado": "pending"},
+    )
     await db.commit()
     await db.refresh(recharge)
 
@@ -904,7 +1357,7 @@ async def create_wallet_recharge(
     }
 
 
-@router.get("/me/recharges")
+@router.get("/me/recharges", dependencies=WALLET_HISTORY)
 async def get_my_recharges(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -913,6 +1366,10 @@ async def get_my_recharges(
     Obtiene el historial de solicitudes de recarga del inversionista autenticado.
     """
     from src.models.wallet_recharge import WalletRecharge
+    from src.models.yoint_payin import YointPayin
+    from src.models.wallet import Wallet, WalletTransaction
+    from datetime import datetime
+    from sqlalchemy import or_
 
     stmt = (
         select(WalletRecharge)
@@ -921,6 +1378,64 @@ async def get_my_recharges(
     )
     res = await db.execute(stmt)
     recharges = res.scalars().all()
+
+    # Auto-conciliación en tiempo real: Si una recarga está pendiente pero ya se acreditó o procesó en Yoint, marcarla como approved
+    has_healed = False
+    for r in recharges:
+        if r.status == "pending":
+            # 1. Buscar si tiene YointPayin exitoso asociado
+            p_res = await db.execute(
+                select(YointPayin).where(
+                    YointPayin.wallet_recharge_id == r.id,
+                    YointPayin.status == "SUCCESS"
+                )
+            )
+            payin = p_res.scalars().first()
+
+            # 2. Buscar por coincidencia de reference_number
+            if not payin and r.reference_number and r.reference_number != "EN_PROCESO_YOINT":
+                p_res2 = await db.execute(
+                    select(YointPayin).where(
+                        YointPayin.user_id == current_user.id,
+                        YointPayin.status == "SUCCESS",
+                        or_(
+                            YointPayin.order_id == r.reference_number,
+                            YointPayin.payment_reference == r.reference_number
+                        )
+                    )
+                )
+                payin = p_res2.scalars().first()
+
+            # 3. Buscar si ya existe una transacción de ingreso de recarga para ese monto en la billetera
+            linked_tx = None
+            if not payin:
+                tx_res = await db.execute(
+                    select(WalletTransaction)
+                    .join(Wallet, WalletTransaction.wallet_id == Wallet.id)
+                    .where(
+                        Wallet.user_id == current_user.id,
+                        WalletTransaction.amount == r.amount,
+                        WalletTransaction.type.in_(["wallet_recharge", "recharge", "recarga"]),
+                        WalletTransaction.created_at >= r.created_at
+                    )
+                )
+                linked_tx = tx_res.scalars().first()
+
+            if payin or linked_tx:
+                r.status = "approved"
+                r.reviewed_at = (payin.updated_at if payin else (linked_tx.created_at if linked_tx else None)) or datetime.utcnow()
+                r.admin_notes = f"Aprobada y sincronizada automáticamente con la pasarela Yoint ({payin.order_id if payin else 'Saldo acreditado'})"
+                if payin and payin.order_id:
+                    r.reference_number = payin.order_id
+                db.add(r)
+                has_healed = True
+
+    if has_healed:
+        try:
+            await db.commit()
+        except Exception as heal_err:
+            await db.rollback()
+            logger.warning(f"Aviso al auto-conciliar recargas en get_my_recharges: {heal_err}")
 
     return [
         {
@@ -968,14 +1483,21 @@ async def cancel_my_recharge(
 
     recharge.status = "cancelled"
     recharge.admin_notes = "Cancelada por el usuario"
+    await audit_in_tx(
+        db, "WALLET_RECHARGE_CANCEL", "wallets", current_user, "WalletRecharge", recharge.id,
+        f"Cancelación de la recarga #{recharge.id}",
+        {"recharge_id": recharge.id, "monto": float(recharge.amount), "estado_antes": "pending", "estado_despues": "cancelled"},
+    )
     await db.commit()
 
     return {"message": "Solicitud de recarga cancelada exitosamente."}
 
 
 @router.get("/admin/recharges", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+@router.get("/recharges/admin", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
 async def get_all_recharges_admin(
     status_filter: Optional[str] = None,
+    status: Optional[str] = None,
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
@@ -984,6 +1506,74 @@ async def get_all_recharges_admin(
     """
     from sqlalchemy.orm import selectinload
     from src.models.wallet_recharge import WalletRecharge
+    from src.models.yoint_payin import YointPayin
+    from src.models.wallet import WalletTransaction
+    from datetime import datetime
+    from sqlalchemy import or_, and_
+
+    # Auto-conciliación de recargas en pending antes de listar
+    try:
+        pending_recharges_q = select(WalletRecharge).where(WalletRecharge.status == "pending")
+        res_pending = await db.execute(pending_recharges_q)
+        pending_to_heal = res_pending.scalars().all()
+        has_admin_healed = False
+
+        for pr in pending_to_heal:
+            # 1. Buscar payin SUCCESS coincidente
+            p_res = await db.execute(
+                select(YointPayin).where(
+                    or_(
+                        YointPayin.wallet_recharge_id == pr.id,
+                        and_(
+                            YointPayin.user_id == pr.user_id,
+                            YointPayin.status == "SUCCESS",
+                            or_(
+                                YointPayin.order_id == pr.reference_number,
+                                YointPayin.payment_reference == pr.reference_number,
+                                and_(
+                                    YointPayin.amount == pr.amount,
+                                    YointPayin.payin_type == "WALLET_TOPUP"
+                                )
+                            )
+                        )
+                    )
+                ).order_by(YointPayin.id.desc())
+            )
+            matched_payin = p_res.scalars().first()
+            if matched_payin and matched_payin.status == "SUCCESS":
+                pr.status = "approved"
+                pr.reviewed_at = matched_payin.updated_at or datetime.utcnow()
+                pr.reference_number = matched_payin.order_id or matched_payin.payment_reference or pr.reference_number
+                pr.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({matched_payin.order_id or matched_payin.payment_reference})"
+                if not matched_payin.wallet_recharge_id:
+                    matched_payin.wallet_recharge_id = pr.id
+                    db.add(matched_payin)
+                db.add(pr)
+                has_admin_healed = True
+                continue
+
+            # 2. Buscar si ya existe transacción de saldo
+            tx_res = await db.execute(
+                select(WalletTransaction).where(
+                    WalletTransaction.wallet_id == pr.wallet_id,
+                    WalletTransaction.amount == pr.amount,
+                    WalletTransaction.type.in_(["wallet_recharge", "recarga", "recharge"]),
+                    WalletTransaction.created_at >= pr.created_at
+                )
+            )
+            matched_tx = tx_res.scalars().first()
+            if matched_tx:
+                pr.status = "approved"
+                pr.reviewed_at = matched_tx.created_at or datetime.utcnow()
+                pr.admin_notes = "Aprobada automáticamente (Saldo acreditado en billetera)"
+                db.add(pr)
+                has_admin_healed = True
+
+        if has_admin_healed:
+            await db.commit()
+    except Exception as heal_err:
+        await db.rollback()
+        logger.warning(f"Aviso al auto-conciliar en get_admin_recharges: {heal_err}")
 
     stmt = (
         select(WalletRecharge)
@@ -994,8 +1584,9 @@ async def get_all_recharges_admin(
         .order_by(WalletRecharge.created_at.desc())
     )
 
-    if status_filter and status_filter.lower() != "todos" and status_filter.lower() != "all":
-        stmt = stmt.where(WalletRecharge.status == status_filter.lower().strip())
+    active_status = status_filter or status
+    if active_status and active_status.lower() != "todos" and active_status.lower() != "all":
+        stmt = stmt.where(WalletRecharge.status == active_status.lower().strip())
 
     res = await db.execute(stmt)
     recharges = res.scalars().all()
@@ -1043,6 +1634,7 @@ async def get_all_recharges_admin(
 
 
 @router.post("/admin/recharges/{recharge_id}/approve", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+@router.post("/recharges/{recharge_id}/approve", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
 async def approve_wallet_recharge_admin(
     recharge_id: int,
     payload: Optional[ApproveRechargeRequest] = None,
@@ -1055,6 +1647,7 @@ async def approve_wallet_recharge_admin(
     from datetime import datetime
     from decimal import Decimal
     from src.models.wallet_recharge import WalletRecharge
+    from sqlalchemy import or_, and_  # H-65: faltaba; sin esto la aprobación fallaba con NameError
     from src.models.wallet import Wallet, WalletTransaction
     from src.services.push_notification_service import PushNotificationService
 
@@ -1083,22 +1676,44 @@ async def approve_wallet_recharge_admin(
         db.add(wallet)
         await db.flush()
 
-    # Acreditar saldo en la billetera
+    # Acreditar saldo en la billetera protegiendo contra duplicidad si Yoint ya la acreditó
     recharge_amount = Decimal(str(recharge.amount))
-    wallet.balance = Decimal(str(wallet.balance)) + recharge_amount
-
-    # Crear la transacción de ingreso en wallet_transactions
-    notes_detail = f" - {payload.admin_notes.strip()}" if payload and payload.admin_notes else ""
-    tx = WalletTransaction(
-        wallet_id=wallet.id,
-        amount=recharge_amount,
-        type="wallet_recharge",
-        reference_type="wallet_recharge",
-        reference_id=recharge.id,
-        description=f"Recarga de saldo aprobada ({recharge.payment_method}){notes_detail}",
-        balance_after=wallet.balance
+    
+    chk_existing_tx = await db.execute(
+        select(WalletTransaction).where(
+            WalletTransaction.wallet_id == wallet.id,
+            WalletTransaction.amount == recharge_amount,
+            or_(
+                and_(
+                    WalletTransaction.reference_type == "wallet_recharge",
+                    WalletTransaction.reference_id == recharge.id
+                ),
+                and_(
+                    WalletTransaction.type.in_(["wallet_recharge", "recarga", "recharge"]),
+                    WalletTransaction.created_at >= recharge.created_at
+                )
+            )
+        )
     )
-    db.add(tx)
+    existing_tx = chk_existing_tx.scalars().first()
+
+    if not existing_tx:
+        wallet.balance = Decimal(str(wallet.balance)) + recharge_amount
+
+        # Crear la transacción de ingreso en wallet_transactions
+        notes_detail = f" - {payload.admin_notes.strip()}" if payload and payload.admin_notes else ""
+        tx = WalletTransaction(
+            wallet_id=wallet.id,
+            amount=recharge_amount,
+            type="wallet_recharge",
+            reference_type="wallet_recharge",
+            reference_id=recharge.id,
+            description=f"Recarga de saldo aprobada ({recharge.payment_method}){notes_detail}",
+            balance_after=wallet.balance
+        )
+        db.add(tx)
+    else:
+        logger.info(f"Saldo ya acreditado previamente en transacción #{existing_tx.id} para recarga #{recharge.id}, no se duplica saldo.")
 
     # Actualizar estado de la recarga
     recharge.status = "approved"
@@ -1106,6 +1721,15 @@ async def approve_wallet_recharge_admin(
     recharge.reviewed_at = datetime.utcnow()
     if payload and payload.admin_notes:
         recharge.admin_notes = payload.admin_notes.strip()
+
+    await audit_in_tx(
+        db, "WALLET_RECHARGE_APPROVE", "wallets", current_user, "WalletRecharge", recharge.id,
+        f"Aprobación de la recarga #{recharge.id} por ${float(recharge_amount):,.0f}",
+        {"recharge_id": recharge.id, "wallet_id": wallet.id, "usuario_id": recharge.user_id,
+         "monto": float(recharge_amount), "estado_antes": "pending", "estado_despues": "approved",
+         "saldo_acreditado": existing_tx is None, "saldo_despues": float(wallet.balance),
+         "notas": (payload.admin_notes or "").strip()[:300] if payload else None},
+    )
 
     await db.commit()
 
@@ -1123,6 +1747,24 @@ async def approve_wallet_recharge_admin(
     except Exception as err:
         print(f"Warning sending recharge approval notification: {err}")
 
+    # Enviar correo corporativo de recarga aprobada
+    try:
+        from src.models.user import User
+        u_res = await db.execute(select(User).where(User.id == recharge.user_id))
+        u_obj = u_res.scalars().first()
+        if u_obj and u_obj.email:
+            from src.services.email_service import EmailService
+            EmailService.send_wallet_recharge_confirmed_email(
+                to_email=u_obj.email,
+                user_name=u_obj.name or "Inversionista",
+                amount=float(recharge_amount),
+                new_balance=float(wallet.balance),
+                payment_method=recharge.payment_method or "Consignación / Transferencia",
+                reference_id=recharge.reference_number or f"REC-{recharge.id}"
+            )
+    except Exception as mail_err:
+        print(f"Warning sending recharge approval email: {mail_err}")
+
     return {
         "message": "Recarga aprobada exitosamente y saldo acreditado en la billetera.",
         "new_balance": float(wallet.balance)
@@ -1130,6 +1772,7 @@ async def approve_wallet_recharge_admin(
 
 
 @router.post("/admin/recharges/{recharge_id}/reject", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+@router.post("/recharges/{recharge_id}/reject", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
 async def reject_wallet_recharge_admin(
     recharge_id: int,
     payload: RejectRechargeRequest,
@@ -1167,6 +1810,13 @@ async def reject_wallet_recharge_admin(
     recharge.reviewed_by = current_user.id
     recharge.reviewed_at = datetime.utcnow()
     recharge.admin_notes = payload.reason.strip()
+
+    await audit_in_tx(
+        db, "WALLET_RECHARGE_REJECT", "wallets", current_user, "WalletRecharge", recharge.id,
+        f"Rechazo de la recarga #{recharge.id}",
+        {"recharge_id": recharge.id, "usuario_id": recharge.user_id, "monto": float(recharge.amount),
+         "estado_antes": "pending", "estado_despues": "rejected", "motivo": payload.reason.strip()[:300]},
+    )
 
     await db.commit()
 

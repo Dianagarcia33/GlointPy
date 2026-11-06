@@ -1,4 +1,4 @@
-import { fetchApi } from './api';
+import { fetchApi, API_URL } from './api';
 
 export interface EventData {
   id: number;
@@ -106,7 +106,16 @@ export const registerInvestorAttendee = async (payload: InvestorRsvpPayload): Pr
   });
 };
 
-export const getMyEventRegistration = async (): Promise<AttendeeData | null> => {
+// Inscripción del propio usuario + enlace personal y estado de la sala (para entrar al evento desde el dashboard).
+export interface MyEventRegistration extends AttendeeData {
+  access_token?: string | null;
+  live_open: boolean;
+  questions_open: boolean;
+  survey_open: boolean;
+  coupon_active: boolean;
+}
+
+export const getMyEventRegistration = async (): Promise<MyEventRegistration | null> => {
   return await fetchApi('/events/my-registration');
 };
 
@@ -125,4 +134,470 @@ export const cancelAttendeeRegistration = async (attendeeId: number): Promise<{ 
   return await fetchApi(`/events/admin/attendees/${attendeeId}`, {
     method: 'DELETE',
   });
+};
+
+// ---------------------------------------------------------------------------
+// Confirmación de asistencia presencial (enlace personal del correo, sin sesión)
+// ---------------------------------------------------------------------------
+
+export interface AttendanceStatus {
+  full_name: string;
+  attendance_mode: 'in_person' | 'virtual';
+  status: 'confirmed' | 'cancelled';
+  seats_reserved: number;
+  companion_name?: string | null;
+  attendance_confirmed_at?: string | null;
+  event_title: string;
+  event_date?: string | null;
+  location?: string | null;
+}
+
+export interface AttendanceEmailsResult {
+  send: boolean;
+  recipients: number;
+  emails: string[];
+}
+
+export const getAttendanceStatus = async (token: string): Promise<AttendanceStatus> => {
+  return await fetchApi(`/events/attendance/${encodeURIComponent(token)}`);
+};
+
+export const confirmAttendance = async (token: string): Promise<AttendanceStatus> => {
+  return await fetchApi(`/events/attendance/${encodeURIComponent(token)}/confirm`, { method: 'POST' });
+};
+
+export const switchAttendanceToVirtual = async (token: string): Promise<AttendanceStatus> => {
+  return await fetchApi(`/events/attendance/${encodeURIComponent(token)}/virtual`, { method: 'POST' });
+};
+
+export const getAttendanceQrUrl = (token: string): string => {
+  return `${API_URL}/events/attendance/${encodeURIComponent(token)}/qr.png`;
+};
+
+// Admin: send=false solo devuelve la lista de destinatarios; send=true encola el envío real.
+export const sendAttendanceConfirmationEmails = async (send: boolean): Promise<AttendanceEmailsResult> => {
+  return await fetchApi('/events/admin/attendance-emails', {
+    method: 'POST',
+    body: JSON.stringify({ send }),
+  });
+};
+
+// Admin: envía el correo de confirmación a un solo inscrito (pruebas o reenvíos).
+export const sendAttendanceEmailToAttendee = async (attendeeId: number): Promise<{ sent: boolean; email: string }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/attendance-email`, { method: 'POST' });
+};
+
+
+// ---------------------------------------------------------------------------
+// Sala en vivo (transmisión Mux incrustada, acceso por enlace personal)
+// ---------------------------------------------------------------------------
+
+export interface LiveStatus {
+  full_name: string;
+  event_title: string;
+  event_date?: string | null;
+  live_open: boolean;
+  coupon_active: boolean;
+}
+
+export interface LiveJoin {
+  session_id: string;
+  playback_id: string;
+  playback_token: string | null;
+  heartbeat_seconds: number;
+}
+
+export interface LiveAttendeeRow {
+  attendee_id: number;
+  full_name: string;
+  email: string;
+  attendee_type: 'investor' | 'external';
+  invited_at?: string | null;
+  first_joined_at?: string | null;
+  last_seen_at?: string | null;
+  watch_minutes: number;
+  joins: number;
+  online: boolean;
+}
+
+export interface LiveOverview {
+  live_open: boolean;
+  live_playback_id: string | null;
+  signing_configured: boolean;
+  total_virtual: number;
+  invited: number;
+  joined: number;
+  online_now: number;
+  attendees: LiveAttendeeRow[];
+}
+
+export const getLiveStatus = async (token: string): Promise<LiveStatus> => {
+  return await fetchApi(`/events/live/${encodeURIComponent(token)}`);
+};
+
+export const joinLive = async (token: string): Promise<LiveJoin> => {
+  return await fetchApi(`/events/live/${encodeURIComponent(token)}/join`, { method: 'POST' });
+};
+
+export const liveHeartbeat = async (token: string, sessionId: string): Promise<{ live_open: boolean; coupon_active: boolean }> => {
+  return await fetchApi(`/events/live/${encodeURIComponent(token)}/heartbeat`, {
+    method: 'POST',
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+};
+
+export const getLiveOverview = async (): Promise<LiveOverview> => {
+  return await fetchApi('/events/admin/live');
+};
+
+export const updateLiveConfig = async (payload: { live_playback_id?: string; live_open?: boolean }): Promise<LiveOverview> => {
+  return await fetchApi('/events/admin/live/config', { method: 'PUT', body: JSON.stringify(payload) });
+};
+
+// send=false solo devuelve la lista de destinatarios; send=true encola el envío real.
+export const sendLiveInvitations = async (send: boolean): Promise<AttendanceEmailsResult> => {
+  return await fetchApi('/events/admin/live/invitations', { method: 'POST', body: JSON.stringify({ send }) });
+};
+
+export const sendLiveInvitationToAttendee = async (attendeeId: number): Promise<{ sent: boolean; email: string }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/live-invitation`, { method: 'POST' });
+};
+
+// ---------------------------------------------------------------------------
+// Preguntas moderadas (presenciales y virtuales)
+// ---------------------------------------------------------------------------
+
+export type QuestionStatus = 'pending' | 'approved' | 'answered' | 'rejected';
+
+export interface AttendeeQuestion {
+  id: number;
+  text: string;
+  status: QuestionStatus;
+  author: string;
+  mine: boolean;
+  votes: number;
+  voted: boolean;
+  created_at?: string | null;
+}
+
+export interface AttendeeQuestions {
+  questions_open: boolean;
+  attendee_name: string;
+  questions: AttendeeQuestion[];
+}
+
+export interface AdminQuestion {
+  id: number;
+  text: string;
+  status: QuestionStatus;
+  votes: number;
+  author: string;
+  email?: string | null;
+  attendee_type?: 'investor' | 'external' | null;
+  attendance_mode?: 'in_person' | 'virtual' | null;
+  created_at?: string | null;
+}
+
+export interface AdminQuestions {
+  questions_open: boolean;
+  counts: Record<QuestionStatus, number>;
+  questions: AdminQuestion[];
+}
+
+export const getMyQuestions = async (token: string): Promise<AttendeeQuestions> => {
+  return await fetchApi(`/events/questions/${encodeURIComponent(token)}`);
+};
+
+export const submitQuestion = async (token: string, text: string): Promise<{ ok: boolean }> => {
+  return await fetchApi(`/events/questions/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify({ text }) });
+};
+
+export const voteQuestion = async (token: string, questionId: number): Promise<{ voted: boolean }> => {
+  return await fetchApi(`/events/questions/${encodeURIComponent(token)}/${questionId}/vote`, { method: 'POST' });
+};
+
+export const getAdminQuestions = async (): Promise<AdminQuestions> => {
+  return await fetchApi('/events/admin/questions');
+};
+
+export const setQuestionsOpen = async (isOpen: boolean): Promise<AdminQuestions> => {
+  return await fetchApi('/events/admin/questions/open', { method: 'PUT', body: JSON.stringify({ is_open: isOpen }) });
+};
+
+export const moderateQuestion = async (questionId: number, status: QuestionStatus): Promise<AdminQuestions> => {
+  return await fetchApi(`/events/admin/questions/${questionId}`, { method: 'PUT', body: JSON.stringify({ status }) });
+};
+
+// URL del WebSocket de eventos (mismo criterio que el chat: ws/wss según el origen de la API).
+export const getEventsWebSocketUrl = (path: string): string => {
+  let base = API_URL;
+  if (base.startsWith('/')) {
+    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+    base = `${protocol}//${host}${base}`;
+  } else {
+    base = base.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+  }
+  return `${base}/events${path}`;
+};
+
+// ---------------------------------------------------------------------------
+// Control de entrada presencial (QR) y lista unificada de asistencia
+// ---------------------------------------------------------------------------
+
+export interface CheckInEntry {
+  id: number;
+  full_name: string;
+  email: string;
+  attendee_type: 'investor' | 'external';
+  seats_reserved: number;
+  companion_name?: string | null;
+  checked_in_at?: string | null;
+}
+
+export interface CheckInResult {
+  result: 'checked_in' | 'already_checked_in';
+  attendee: CheckInEntry;
+}
+
+export interface UnifiedAttendeeRow {
+  id: number;
+  full_name: string;
+  email: string;
+  phone?: string | null;
+  attendee_type: 'investor' | 'external';
+  attendance_mode: 'in_person' | 'virtual';
+  seats_reserved: number;
+  attended: boolean;
+  checked_in_at?: string | null;
+  live_first_joined_at?: string | null;
+  live_watch_minutes: number;
+}
+
+export interface UnifiedAttendance {
+  groups: Record<string, { registered: number; attended: number }>;
+  in_person_registered: number;
+  in_person_checked_in: number;
+  seats_expected: number;
+  seats_checked_in: number;
+  attendees: UnifiedAttendeeRow[];
+}
+
+export const checkInByCode = async (code: string): Promise<CheckInResult> => {
+  return await fetchApi('/events/admin/checkin', { method: 'POST', body: JSON.stringify({ code }) });
+};
+
+export const checkInAttendee = async (attendeeId: number): Promise<CheckInResult> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/checkin`, { method: 'POST' });
+};
+
+export const undoCheckIn = async (attendeeId: number): Promise<{ ok: boolean }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/checkin`, { method: 'DELETE' });
+};
+
+export const getUnifiedAttendance = async (): Promise<UnifiedAttendance> => {
+  return await fetchApi('/events/admin/attendance');
+};
+
+// ---------------------------------------------------------------------------
+// Encuesta de satisfacción en vivo
+// ---------------------------------------------------------------------------
+
+export const RATING_FIELDS = ['overall_rating', 'content_rating', 'speakers_rating', 'organization_rating'] as const;
+export type RatingField = (typeof RATING_FIELDS)[number];
+
+export interface SurveyStatus {
+  full_name: string;
+  event_title: string;
+  survey_open: boolean;
+  already_answered: boolean;
+}
+
+export interface SurveyAnswers extends Record<RatingField, number> {
+  nps: number;
+  comment?: string;
+}
+
+export interface SurveyStats {
+  total: number;
+  averages: Record<RatingField, number | null>;
+  nps: { score: number | null; promoters: number; passives: number; detractors: number };
+}
+
+export interface SurveyResults {
+  survey_open: boolean;
+  eligible_attendees: number;
+  overall: SurveyStats;
+  groups: Record<string, SurveyStats>;
+  distributions: Record<RatingField, Record<string, number>>;
+  recent_comments: { comment: string; group: string; created_at?: string | null }[];
+}
+
+export const getSurveyStatus = async (token: string): Promise<SurveyStatus> => {
+  return await fetchApi(`/events/survey/${encodeURIComponent(token)}`);
+};
+
+export const submitSurvey = async (token: string, answers: SurveyAnswers): Promise<{ ok: boolean }> => {
+  return await fetchApi(`/events/survey/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify(answers) });
+};
+
+export const getSurveyResults = async (): Promise<SurveyResults> => {
+  return await fetchApi('/events/admin/survey/results');
+};
+
+export const setSurveyOpen = async (isOpen: boolean): Promise<SurveyResults> => {
+  return await fetchApi('/events/admin/survey/open', { method: 'PUT', body: JSON.stringify({ is_open: isOpen }) });
+};
+
+// ---------------------------------------------------------------------------
+// Chat en vivo de la sala (solo virtuales; moderación posterior)
+// ---------------------------------------------------------------------------
+
+export interface ChatMessage {
+  id: number;
+  author: string;
+  text: string;
+  created_at?: string | null;
+  mine?: boolean;
+}
+
+export interface ChatHistory {
+  chat_open: boolean;
+  muted: boolean;
+  messages: ChatMessage[];
+}
+
+export interface AdminChatMessage extends ChatMessage {
+  attendee_id: number;
+  muted?: boolean;
+  is_question?: boolean;
+}
+
+export interface AdminChat {
+  chat_open: boolean;   // interruptor del equipo
+  live_open: boolean;   // el chat solo funciona con la sala abierta
+  messages: AdminChatMessage[];
+}
+
+export const getChatHistory = async (token: string): Promise<ChatHistory> => {
+  return await fetchApi(`/events/chat/${encodeURIComponent(token)}`);
+};
+
+export const sendChatMessage = async (token: string, text: string): Promise<{ ok: boolean; id: number }> => {
+  return await fetchApi(`/events/chat/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify({ text }) });
+};
+
+export const getAdminChat = async (): Promise<AdminChat> => {
+  return await fetchApi('/events/admin/chat');
+};
+
+export const deleteChatMessage = async (messageId: number): Promise<{ ok: boolean }> => {
+  return await fetchApi(`/events/admin/chat/${messageId}`, { method: 'DELETE' });
+};
+
+export const muteChatAttendee = async (attendeeId: number, muted: boolean): Promise<{ ok: boolean; muted: boolean }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/chat-mute`, { method: 'PUT', body: JSON.stringify({ muted }) });
+};
+
+export const setChatOpen = async (isOpen: boolean): Promise<AdminChat> => {
+  return await fetchApi('/events/admin/chat/open', { method: 'PUT', body: JSON.stringify({ is_open: isOpen }) });
+};
+
+// Convierte un mensaje del chat en pregunta oficial (aprobada) para los presentadores.
+export const promoteChatMessage = async (messageId: number): Promise<{ ok: boolean; question_id: number }> => {
+  return await fetchApi(`/events/admin/chat/${messageId}/promote`, { method: 'POST' });
+};
+
+// ---------------------------------------------------------------------------
+// Cupones de descuento para Gloint Place
+// ---------------------------------------------------------------------------
+
+export type CouponStatus = 'valid' | 'redeemed' | 'expired' | 'inactive';
+// Para el asistente: 'none' = no fue seleccionado para recibir cupón
+
+export interface MyCoupon {
+  full_name: string;
+  assigned: boolean;            // el equipo lo seleccionó para recibir cupón
+  active: boolean;
+  status: CouponStatus | 'none';
+  code?: string | null;
+  percent: number;
+  hours: number;
+  expires_at?: string | null;
+  store_link?: string;
+  redeemed_at?: string | null;
+}
+
+export interface AdminCouponRow {
+  attendee_id: number;
+  full_name: string;
+  email: string;
+  attendee_type: 'investor' | 'external';
+  attendance_mode: 'in_person' | 'virtual';
+  code: string;
+  status: CouponStatus;
+  redeemed_at?: string | null;
+  redeemed_order_ref?: string | null;
+}
+
+// Cada asistente vigente, con su cupón si el equipo se lo dio (code/status en null si no)
+export interface AdminCouponCandidate {
+  attendee_id: number;
+  full_name: string;
+  email: string;
+  attendee_type: 'investor' | 'external';
+  attendance_mode: 'in_person' | 'virtual';
+  attended: boolean;            // entró por la puerta (presencial) o se conectó a la sala (virtual)
+  code: string | null;
+  status: CouponStatus | null;
+  redeemed_at?: string | null;
+  redeemed_order_ref?: string | null;
+}
+
+export interface AdminCoupons {
+  active: boolean;
+  live: boolean;
+  percent: number;
+  hours: number;
+  store_url: string;
+  starts_at?: string | null;
+  expires_at?: string | null;
+  counts: Record<CouponStatus, number>;
+  total: number;                // cupones entregados
+  eligible: number;             // inscritos vigentes que se pueden elegir
+  candidates: AdminCouponCandidate[];
+  coupons: AdminCouponRow[];
+  result?: { assigned?: number; already_had?: number; ignored?: number; revoked?: number; kept_used?: number };
+}
+
+export const getMyCoupon = async (token: string): Promise<MyCoupon> => {
+  return await fetchApi(`/events/coupon/${encodeURIComponent(token)}`);
+};
+
+export const getCouponQrUrl = (token: string): string => {
+  return `${API_URL}/events/coupon/${encodeURIComponent(token)}/qr.png`;
+};
+
+export const getAdminCoupons = async (): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons');
+};
+
+export const updateCouponConfig = async (percent: number, hours: number, storeUrl: string): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons/config', {
+    method: 'PUT',
+    body: JSON.stringify({ percent, hours, store_url: storeUrl }),
+  });
+};
+
+export const setCouponsActive = async (active: boolean): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons/activate', { method: 'POST', body: JSON.stringify({ active }) });
+};
+
+// El equipo elige a quién se le da cupón (no es para todos los inscritos).
+export const assignCoupons = async (attendeeIds: number[]): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons/assign', { method: 'POST', body: JSON.stringify({ attendee_ids: attendeeIds }) });
+};
+
+export const revokeCoupons = async (attendeeIds: number[]): Promise<AdminCoupons> => {
+  return await fetchApi('/events/admin/coupons/revoke', { method: 'POST', body: JSON.stringify({ attendee_ids: attendeeIds }) });
 };

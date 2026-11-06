@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from typing import Sequence, Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -9,15 +10,39 @@ from src.models.investor import Investor
 from src.models.user import User
 from src.schemas.potential_referral import PotentialReferralCreate, PotentialReferralUpdate
 
+def summarize_estado_counts(rows) -> Dict[str, int]:
+    """Totales por estado a partir de filas (estado, cantidad); estado vacío cuenta como 'pendiente' (H-227)."""
+    counts = {"total": 0, "pendiente": 0, "contactado": 0, "registrado": 0, "rechazado": 0}
+    for estado, n in rows:
+        key = (estado or "pendiente")
+        key = key.value if hasattr(key, "value") else str(key)
+        counts[key] = counts.get(key, 0) + int(n)
+        counts["total"] += int(n)
+    return counts
+
+
 class PotentialReferralService:
     @staticmethod
-    async def get_by_user_id(db: AsyncSession, user_id: int) -> Sequence[PotentialReferral]:
-        # Buscar investor del usuario
+    async def _investors_of_user(db: AsyncSession, user_id: int) -> Sequence[Investor]:
+        """Contratos del usuario (por user_id o, si no tiene, por su documento). Misma regla para alta y listado (H-228)."""
         result = await db.execute(select(Investor).where(Investor.user_id == user_id))
         investors = result.scalars().all()
         if not investors:
+            user_res = await db.execute(select(User).where(User.id == user_id))
+            usr = user_res.scalars().first()
+            if usr and usr.document_id:
+                res2 = await db.execute(
+                    select(Investor).join(User, Investor.user_id == User.id).where(User.document_id == usr.document_id)
+                )
+                investors = res2.scalars().all()
+        return investors
+
+    @staticmethod
+    async def get_by_user_id(db: AsyncSession, user_id: int) -> Sequence[PotentialReferral]:
+        investors = await PotentialReferralService._investors_of_user(db, user_id)
+        if not investors:
             return []
-        
+
         investor_ids = [inv.id for inv in investors]
         ref_result = await db.execute(
             select(PotentialReferral)
@@ -37,13 +62,13 @@ class PotentialReferralService:
         query = select(PotentialReferral)
 
         if search:
-            search_term = f"%{search}%"
+            search_term = like_contains(search)
             query = query.where(
                 or_(
-                    PotentialReferral.nombre.ilike(search_term),
-                    PotentialReferral.telefono.ilike(search_term),
-                    PotentialReferral.email.ilike(search_term),
-                    PotentialReferral.codigo_referido.ilike(search_term)
+                    PotentialReferral.nombre.ilike(search_term, escape=LIKE_ESCAPE),
+                    PotentialReferral.telefono.ilike(search_term, escape=LIKE_ESCAPE),
+                    PotentialReferral.email.ilike(search_term, escape=LIKE_ESCAPE),
+                    PotentialReferral.codigo_referido.ilike(search_term, escape=LIKE_ESCAPE)
                 )
             )
 
@@ -59,11 +84,15 @@ class PotentialReferralService:
         result = await db.execute(query)
         referrals = result.scalars().all()
 
+        # H-227: conteos por estado de TODA la tabla, independientes de la página, el buscador y el filtro
+        counts_res = await db.execute(select(PotentialReferral.estado, func.count()).group_by(PotentialReferral.estado))
+
         return {
             "data": referrals,
             "total": total,
             "page": page,
-            "limit": limit
+            "limit": limit,
+            "counts": summarize_estado_counts(counts_res.all())
         }
 
     @staticmethod
@@ -122,24 +151,9 @@ class PotentialReferralService:
 
     @staticmethod
     async def create_by_user(db: AsyncSession, user_id: int, data: PotentialReferralCreate) -> PotentialReferral:
-        # Obtener los contratos de inversión del usuario por user_id
-        res = await db.execute(select(Investor).where(Investor.user_id == user_id))
-        investors = res.scalars().all()
-
-        if not investors:
-            user_res = await db.execute(select(User).where(User.id == user_id))
-            usr = user_res.scalars().first()
-            if usr and usr.document_id:
-                res2 = await db.execute(
-                    select(Investor).join(User, Investor.user_id == User.id).where(User.document_id == usr.document_id)
-                )
-                investors = res2.scalars().all()
-
-        if not investors:
-            res_any = await db.execute(select(Investor).limit(1))
-            first_any = res_any.scalars().first()
-            if first_any:
-                investors = [first_any]
+        # H-228: antes, sin contrato propio, el referido se asignaba al primer inversionista de la base y
+        # luego no aparecía en la lista de quien lo registró (y se atribuía a otra persona).
+        investors = await PotentialReferralService._investors_of_user(db, user_id)
 
         if not investors:
             raise HTTPException(
@@ -155,7 +169,9 @@ class PotentialReferralService:
         if not target_investor:
             target_investor = investors[0]
 
-        codigo = data.codigo_referido or target_investor.assigned_code
+        # el código guardado es siempre el del contrato al que se asigna (si el pedido no coincide con ninguno propio, se usa el del contrato)
+        matched = bool(data.codigo_referido) and target_investor.assigned_code == data.codigo_referido.strip()
+        codigo = data.codigo_referido.strip() if matched else (target_investor.assigned_code or data.codigo_referido)
 
         payload = data.model_dump()
         payload["investor_id"] = target_investor.id
@@ -218,7 +234,7 @@ class PotentialReferralService:
         from src.models.wallet import Wallet, WalletStatus
         from src.models.user_bank_account import UserBankAccount
         from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
-        from src.core.security import get_password_hash
+        from src.core.security import aget_password_hash
 
         res = await db.execute(select(PotentialReferral).where(PotentialReferral.id == referral_id))
         referral = res.scalars().first()
@@ -240,9 +256,13 @@ class PotentialReferralService:
         role_res = await db.execute(select(Role).where(Role.name.in_(["Investor", "Inversionista", "Usuario"])))
         role = role_res.scalars().first()
 
-        # 3. Crear Usuario (Usando el documento como contraseña inicial por defecto)
-        raw_password = (data.password or data.documento).strip()
-        hashed_pwd = get_password_hash(raw_password)
+        # 3. Crear Usuario con contraseña temporal aleatoria (H-165/H-76): antes era el número de documento,
+        #    un dato predecible. Se pide cambiarla en el primer ingreso.
+        if not data.comprobante_path:
+            raise HTTPException(status_code=422, detail="Adjunta el comprobante de pago para convertir el referido en solicitud de inversión.")
+        from src.core.security import generate_secure_temp_password
+        raw_password = generate_secure_temp_password(12)
+        hashed_pwd = await aget_password_hash(raw_password)
 
         # Parse date of birth if provided
         dob = None
@@ -256,6 +276,7 @@ class PotentialReferralService:
             name=data.name,
             email=data.email,
             password_hash=hashed_pwd,
+            must_change_password=True,
             is_active=True,
             document_id=data.documento,
             phone_number=data.numero_celular,
@@ -324,5 +345,6 @@ class PotentialReferralService:
         return {
             "message": "Referido convertido exitosamente en solicitud de inversión",
             "request_id": req.id,
-            "user_id": new_user.id
+            "user_id": new_user.id,
+            "temp_password": raw_password  # se muestra una sola vez al administrador
         }

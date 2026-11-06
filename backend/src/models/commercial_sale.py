@@ -43,6 +43,11 @@ class CommercialSale(Base):
     status = Column(Enum(CommercialSaleStatus), default=CommercialSaleStatus.pendiente, nullable=False)
     settlement_id = Column(BigInteger, ForeignKey("commission_settlements.id", ondelete="SET NULL"), nullable=True)
 
+    # Contrato y solicitud que originaron la venta (adjudicación automática al aprobar): al eliminar
+    # el contrato se anula la venta y su comisión en cascada (H-145)
+    investor_id = Column(BigInteger, nullable=True, index=True)
+    investment_request_id = Column(BigInteger, nullable=True, index=True)
+
     sale_date = Column(Date, default=datetime.utcnow, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

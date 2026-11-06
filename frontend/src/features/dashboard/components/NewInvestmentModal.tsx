@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
+import { RECEIPT_ACCEPT, RECEIPT_FORMATS_LABEL, isAllowedReceiptFile } from '../../../utils/receiptFiles';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck } from 'lucide-react';
+import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck, Clock, ShieldAlert, Zap, CheckCircle2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
+import { sarlaftService } from '../../../services/sarlaft';
 import { compressImage } from '../../../utils/imageCompression';
+import { useAuthStore } from '../../../store/authStore';
+import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
+import { ONLINE_PAYMENTS_ENABLED } from '../../../constants/features';
+import { PaymentLogosRow } from '../../../components/payments/PaymentLogos';
 
 interface NewInvestmentModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
     currentPackageId?: number;
     currentPackageAmount?: number;
     currentPeriodId?: number;
@@ -15,8 +22,18 @@ interface NewInvestmentModalProps {
     isUpgrade?: boolean;
 }
 
-export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentPackageAmount, currentPeriodId, investorId, isUpgrade = false }: NewInvestmentModalProps) => {
+export const NewInvestmentModal = ({ 
+    isOpen, 
+    onClose, 
+    onSuccess,
+    currentPackageId, 
+    currentPackageAmount, 
+    currentPeriodId, 
+    investorId, 
+    isUpgrade = false 
+}: NewInvestmentModalProps) => {
     const queryClient = useQueryClient();
+    const { user } = useAuthStore();
     
     // UI State
     const [step, setStep] = useState(1);
@@ -26,6 +43,10 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
     // Step 2 State
     const [useWallet, setUseWallet] = useState(false);
     const [walletAmount, setWalletAmount] = useState<number>(0);
+    const [walletNotice, setWalletNotice] = useState<string | null>(null);
+    const [paymentChoice, setPaymentChoice] = useState<'YOINT_ONLINE' | 'MANUAL_VOUCHER'>(ONLINE_PAYMENTS_ENABLED ? 'YOINT_ONLINE' : 'MANUAL_VOUCHER');
+    const [autoApproved, setAutoApproved] = useState(false);
+    const [createdRequestId, setCreatedRequestId] = useState<number | null>(null);
     const [files, setFiles] = useState<FileList | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -54,6 +75,26 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         enabled: isOpen && step === 2,
     });
 
+    // SARLAFT Compliance Query
+    const { data: sarlaftData, isLoading: loadingSarlaft } = useQuery({
+        queryKey: ['my_sarlaft_check'],
+        queryFn: () => sarlaftService.getMyCheck(),
+        enabled: isOpen,
+    });
+
+    const sarlaftCheck = sarlaftData?.check;
+    const rawStatus = (sarlaftCheck?.status || sarlaftCheck?.tusdatos_status || sarlaftData?.status || 'none').toLowerCase();
+    
+    // Si no hay verificación o está en proceso -> Pendiente
+    const isSarlaftPending = rawStatus === 'none' || rawStatus === 'pending' || rawStatus === 'processing' || rawStatus === 'procesando';
+    
+    // Si falló o fue clasificado de alto riesgo sin corregir -> Rechazado
+    const isSarlaftRejected = !isSarlaftPending && (
+        rawStatus === 'failed' || rawStatus === 'error' || (
+            sarlaftCheck?.risk_level === 'HIGH' && !(sarlaftCheck as any)?.tusdatos_hallazgos_corregidos
+        )
+    );
+
     React.useEffect(() => {
         if (isUpgrade && currentPeriodId && periods) {
             const period = periods.find((p: any) => p.id === currentPeriodId);
@@ -69,7 +110,46 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         setWalletAmount(0);
         setFiles(null);
         setSubmitError(null);
+        setCreatedRequestId(null);
+        setAutoApproved(false);
+        setPaymentChoice(ONLINE_PAYMENTS_ENABLED ? 'YOINT_ONLINE' : 'MANUAL_VOUCHER');
         onClose();
+    };
+
+    const handleCreateRequestForOnlinePayment = async (): Promise<number> => {
+        if (!selectedPackage || !selectedPeriod) {
+            throw new Error('Debes seleccionar un paquete y un periodo de contrato.');
+        }
+        if (createdRequestId) {
+            return createdRequestId;
+        }
+
+        const formData = new FormData();
+        formData.append('paquete_inversion_id', selectedPackage.id.toString());
+        formData.append('monto', packageAmount.toString());
+        formData.append('periodo_contrato', selectedPeriod.id.toString());
+        
+        if (useWallet && walletAmount > 0) {
+            formData.append('monto_billetera_usado', walletAmount.toString());
+        }
+        if (isUpgrade) {
+            formData.append('is_upgrade', 'true');
+        }
+        if (investorId) {
+            formData.append('investor_id', investorId.toString());
+        }
+
+        const res = await fetchApi('/investments/requests', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!res || !res.id) {
+            throw new Error(res?.detail || 'No se pudo crear la solicitud de inversión previa al pago.');
+        }
+
+        setCreatedRequestId(res.id);
+        return res.id;
     };
 
     const handleFilesSelected = (selectedFiles: FileList | null) => {
@@ -82,6 +162,14 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
         for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
+            // H-190: solo imágenes (PNG, JPG, WEBP) o PDF
+            if (!isAllowedReceiptFile(file)) {
+                setSubmitError(`El archivo "${file.name}" no es un tipo permitido. Adjunta ${RECEIPT_FORMATS_LABEL}.`);
+                setFiles(null);
+                const badInput = document.getElementById('comprobantes') as HTMLInputElement;
+                if (badInput) badInput.value = '';
+                return;
+            }
             if (file.size > MAX_SIZE_BYTES) {
                 setSubmitError(`El archivo "${file.name}" (${(file.size / 1024 / 1024).toFixed(1)} MB) supera el tamaño máximo permitido de ${MAX_SIZE_MB} MB. Por favor comprímelo o adjunta un archivo más liviano.`);
                 setFiles(null);
@@ -102,6 +190,17 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my_investments'] });
+            queryClient.invalidateQueries({ queryKey: ['investments'] });
+            if (investorId) {
+                queryClient.invalidateQueries({ queryKey: ['investment', investorId] });
+            }
+            if (onSuccess) {
+                try {
+                    onSuccess();
+                } catch (e) {
+                    console.error("Error ejecutando onSuccess en NewInvestmentModal:", e);
+                }
+            }
             setSubmitError(null);
             setStep(3);
         },
@@ -176,14 +275,43 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800">
-                            {step === 1 ? (isUpgrade ? 'Aumento de Capital' : 'Nueva Inversión') : step === 2 ? 'Detalles de Pago' : (isUpgrade ? '¡Solicitud de Aumento Registrada!' : '¡Inversión Registrada!')}
-                        </h2>
-                        <p className="text-xs text-slate-500 mt-1">
-                            {step === 1 ? 'Configura tu plan y descubre tu rentabilidad' : step === 2 ? 'Adjunta tus soportes y código de referido' : 'Tu solicitud ha sido procesada con éxito'}
-                        </p>
+                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div className="flex items-center gap-3">
+                        {step === 2 && !createRequestMutation.isPending && (
+                            <button
+                                type="button"
+                                onClick={() => setStep(1)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer group shrink-0"
+                                title="Volver al paso anterior"
+                            >
+                                <ChevronLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+                                <span>Atrás</span>
+                            </button>
+                        )}
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-800">
+                                {isSarlaftPending
+                                    ? 'Validación de Identidad'
+                                    : isSarlaftRejected
+                                    ? 'Verificación de Seguridad'
+                                    : step === 1 
+                                    ? (isUpgrade ? 'Aumento de Capital' : 'Nueva Inversión') 
+                                    : step === 2 
+                                    ? 'Detalles de Pago' 
+                                    : (isUpgrade ? '¡Solicitud de Aumento Registrada!' : '¡Inversión Registrada!')}
+                            </h2>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                {isSarlaftPending
+                                    ? 'Cumplimiento normativo y validación con Tusdatos.co'
+                                    : isSarlaftRejected
+                                    ? 'Estado de la cuenta para solicitudes de inversión'
+                                    : step === 1 
+                                    ? 'Configura tu plan y descubre tu rentabilidad' 
+                                    : step === 2 
+                                    ? 'Selecciona tu método de pago y confirma tu inversión' 
+                                    : 'Tu solicitud ha sido procesada con éxito'}
+                            </p>
+                        </div>
                     </div>
                     <button onClick={step === 3 ? handleFinalClose : onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
                         <X className="w-5 h-5" />
@@ -192,7 +320,67 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto custom-scrollbar">
-                    {step === 1 && (
+                    {loadingSarlaft ? (
+                        <div className="py-16 flex flex-col items-center justify-center space-y-3">
+                            <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
+                            <p className="text-sm font-semibold text-slate-500">Verificando cumplimiento normativo SARLAFT...</p>
+                        </div>
+                    ) : isSarlaftPending ? (
+                        <div className="py-8 px-4 text-center space-y-5 animate-fadeIn">
+                            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
+                                <Clock className="w-8 h-8 animate-pulse" />
+                            </div>
+                            <div className="space-y-2 max-w-md mx-auto">
+                                <h3 className="text-lg font-bold text-slate-900">Validación de Identidad en Proceso</h3>
+                                <p className="text-sm text-slate-600">
+                                    Tu cuenta se encuentra en proceso de validación automática de antecedentes y listas restrictivas con Tusdatos.co.
+                                </p>
+                                <div className="text-xs text-amber-800 bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-left space-y-1">
+                                    <p className="font-bold flex items-center gap-1.5">
+                                        <span>⏳</span> Cumplimiento SARLAFT / SAGRILAFT
+                                    </p>
+                                    <p className="text-amber-700">
+                                        Por disposiciones legales y normativas, las solicitudes de inversión sólo pueden realizarse una vez tu verificación de identidad haya finalizado satisfactoriamente.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="pt-2">
+                                <button onClick={handleFinalClose} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm">
+                                    Entendido
+                                </button>
+                            </div>
+                        </div>
+                    ) : isSarlaftRejected ? (
+                        <div className="py-8 px-4 text-center space-y-5 animate-fadeIn">
+                            <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
+                                <ShieldAlert className="w-8 h-8" />
+                            </div>
+                            <div className="space-y-2 max-w-md mx-auto">
+                                <h3 className="text-lg font-bold text-slate-900">Cuenta No Habilitada para Inversiones</h3>
+                                <p className="text-sm text-slate-600">
+                                    Tu validación SARLAFT fue rechazada o presentó alertas de alto riesgo en listas restrictivas y antecedentes normativos.
+                                </p>
+                                <div className="text-xs text-rose-800 bg-rose-50 p-3.5 rounded-2xl border border-rose-200 text-left space-y-1">
+                                    <p className="font-bold flex items-center gap-1.5">
+                                        <span>🛡️</span> Revisión de Cumplimiento Requerida
+                                    </p>
+                                    <p className="text-rose-700">
+                                        Por seguridad y políticas regulatorias, no es posible generar solicitudes de inversión. Tu expediente debe ser evaluado manualmente por un oficial de cumplimiento.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="pt-2 flex justify-center gap-3">
+                                <button onClick={handleFinalClose} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">
+                                    Cerrar
+                                </button>
+                                <button onClick={() => { handleFinalClose(); window.location.href = '/dashboard/tickets'; }} className="px-6 py-2.5 bg-brand-600 text-white rounded-xl font-bold text-sm hover:bg-brand-700 transition-colors shadow-sm">
+                                    Contactar a Soporte
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {step === 1 && (
                         <div className="space-y-6 animate-fadeIn">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Packages Selector */}
@@ -324,7 +512,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                             checked={useWallet}
                                             onChange={(e) => {
                                                 setUseWallet(e.target.checked);
-                                                if (!e.target.checked) setWalletAmount(0);
+                                                if (!e.target.checked) { setWalletAmount(0); setWalletNotice(null); }
                                             }}
                                         />
                                         <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
@@ -333,8 +521,12 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                 
                                 {useWallet && (
                                     <div className="space-y-3 animate-fadeIn">
+                                        {/* H-202: saldo real de la billetera y, aparte, lo máximo aplicable a esta compra */}
                                         <p className="text-sm text-slate-500">
-                                            Saldo disponible: <span className="font-bold text-slate-700">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(maxWalletAllowed)}</span>
+                                            Saldo disponible: <span className="font-bold text-slate-700">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(wallet?.balance ?? 0)}</span>
+                                        </p>
+                                        <p className="text-xs text-slate-400 -mt-1.5">
+                                            Máximo aplicable a esta inversión: <span className="font-semibold text-slate-500">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(maxWalletAllowed)}</span>
                                         </p>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">$</span>
@@ -345,12 +537,25 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                                 value={walletAmount}
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value) || 0;
+                                                    if (val > maxWalletAllowed) {
+                                                        const walletBalance = wallet?.balance ?? 0;
+                                                        setWalletNotice(
+                                                            val > walletBalance
+                                                                ? `Saldo insuficiente: tu billetera tiene ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(walletBalance)}. Se ajustó el monto al máximo aplicable.`
+                                                                : 'El monto supera lo que se debe pagar en esta inversión; se ajustó al máximo aplicable.'
+                                                        );
+                                                    } else {
+                                                        setWalletNotice(null);
+                                                    }
                                                     setWalletAmount(Math.min(val, maxWalletAllowed));
                                                 }}
                                                 className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-2 pl-8 pr-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500"
                                                 placeholder="Monto a usar"
                                             />
                                         </div>
+                                        {walletNotice && (
+                                            <p className="text-xs font-semibold text-amber-700" role="status">{walletNotice}</p>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -405,106 +610,244 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                 </div>
                             </div>
 
-                            {/* Comprobantes */}
-                            <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Upload className="w-4 h-4 text-slate-400" />
-                                        <span>Comprobantes de Pago</span>
-                                    </div>
-                                    {amountToPay === 0 && (
-                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                            100% Cubierto con Billetera (Opcional)
-                                        </span>
-                                    )}
-                                </label>
-
-                                {amountToPay === 0 ? (
-                                    <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold mb-3">
-                                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                                        <div>
-                                            <p className="font-bold text-sm text-emerald-900">¡Diferencia 100% cubierta con tu Billetera!</p>
-                                            <p className="font-normal text-emerald-700 mt-0.5">El valor del aumento se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.</p>
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-brand-400 transition-colors bg-slate-50">
-                                    <input 
-                                        type="file" 
-                                        id="comprobantes" 
-                                        multiple
-                                        accept="image/*,.pdf"
-                                        className="hidden"
-                                        onChange={(e) => handleFilesSelected(e.target.files)}
-                                    />
-                                    <label htmlFor="comprobantes" className="cursor-pointer flex flex-col items-center">
-                                        <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                                        <span className="text-sm font-semibold text-slate-700">
-                                            {amountToPay === 0 ? 'Adjuntar soporte voluntario (opcional)' : 'Haz clic para subir o arrastra tus archivos'}
-                                        </span>
-                                        <span className="text-xs text-slate-500 mt-1">Imágenes (PNG, JPG, WEBP) o PDF • <strong>Máx. 10 MB por archivo</strong></span>
+                            {/* Selector de Método de Pago si hay saldo a transferir */}
+                            {ONLINE_PAYMENTS_ENABLED && amountToPay > 0 && (
+                                <div className="space-y-3 pt-1">
+                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                                        Selecciona cómo pagar los {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amountToPay)}:
                                     </label>
-                                    
-                                    {files && files.length > 0 && (
-                                        <div className="mt-4 pt-4 border-t border-slate-200 text-left space-y-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentChoice('YOINT_ONLINE')}
+                                            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                                paymentChoice === 'YOINT_ONLINE'
+                                                    ? 'bg-brand-50/50 border-brand-500 ring-2 ring-brand-500/20 shadow-xs'
+                                                    : 'bg-white border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
                                             <div className="flex items-center justify-between">
-                                                <p className="text-xs font-bold text-slate-500 uppercase">Archivos seleccionados:</p>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setFiles(null);
-                                                        const inputEl = document.getElementById('comprobantes') as HTMLInputElement;
-                                                        if (inputEl) inputEl.value = '';
-                                                    }}
-                                                    className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                    Quitar archivos
-                                                </button>
-                                            </div>
-                                            {Array.from(files).map((file, i) => (
-                                                <div key={i} className="text-sm text-slate-700 flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-100">
-                                                    <div className="w-2 h-2 rounded-full bg-brand-500"></div>
-                                                    <span className="truncate flex-1">{file.name}</span>
-                                                    <span className="text-xs font-mono text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-xl bg-brand-100/70 text-brand-600 flex items-center justify-center font-bold">
+                                                        <Zap className="w-4 h-4 text-brand-600 fill-brand-600" />
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-900 font-montserrat">
+                                                        Pago en Línea Automático
+                                                    </span>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                                <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider">
+                                                    Inmediato
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-2 pt-1">
+                                                <p className="text-[11px] text-slate-500 leading-tight">
+                                                    Nequi, Botón Bancolombia o PSE. Aprobación inmediata.
+                                                </p>
+                                                <PaymentLogosRow size={18} />
+                                            </div>
+                                        </button>
 
-                            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
-                                <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-blue-700 leading-relaxed">
-                                    Al enviar tu solicitud, el estado de tu inversión será "Pendiente" hasta que el equipo administrativo valide los comprobantes de pago.
-                                </p>
-                            </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentChoice('MANUAL_VOUCHER')}
+                                            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                                paymentChoice === 'MANUAL_VOUCHER'
+                                                    ? 'bg-brand-50/50 border-brand-500 ring-2 ring-brand-500/20 shadow-xs'
+                                                    : 'bg-white border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
+                                                        <Upload className="w-4 h-4 text-slate-600" />
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-900 font-montserrat">
+                                                        Transferencia Manual
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 leading-tight">
+                                                Consigna a nuestra cuenta bancaria y sube tu comprobante para validación manual.
+                                            </p>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Contenido según el modo de pago seleccionado */}
+                            {amountToPay > 0 && paymentChoice === 'YOINT_ONLINE' ? (
+                                <div className="pt-2">
+                                    <YointPaymentWidget
+                                        amount={amountToPay}
+                                        payinType="INVESTMENT_REQUEST"
+                                        userPhone={user?.phone_number || ''}
+                                        submitButtonText="Pagar Inversión en Línea"
+                                        onRequestCreate={handleCreateRequestForOnlinePayment}
+                                        onSuccess={(statusRes) => {
+                                            const isAppr = Boolean(statusRes.investment_approved || statusRes.status === 'SUCCESS');
+                                            setAutoApproved(isAppr);
+                                            queryClient.invalidateQueries({ queryKey: ['my_investments'] });
+                                            queryClient.invalidateQueries({ queryKey: ['wallet'] });
+                                            queryClient.invalidateQueries({ queryKey: ['investments'] });
+                                            if (investorId) {
+                                                queryClient.invalidateQueries({ queryKey: ['investment', investorId] });
+                                            }
+                                            // Recargar el componente padre inmediatamente sin quitar el modal
+                                            if (onSuccess) {
+                                                try {
+                                                    onSuccess();
+                                                } catch (e) {
+                                                    console.error("Error ejecutando onSuccess en NewInvestmentModal:", e);
+                                                }
+                                            }
+                                            setStep(3);
+                                        }}
+                                        onFailed={(_statusRes, errMsg) => {
+                                            setSubmitError(errMsg || 'El pago de la inversión no fue aprobado por la pasarela.');
+                                        }}
+                                    />
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Comprobantes */}
+                                    <div>
+                                        <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Upload className="w-4 h-4 text-slate-400" />
+                                                <span>Comprobantes de Pago</span>
+                                            </div>
+                                            {amountToPay === 0 && (
+                                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                                    100% Cubierto con Billetera (Opcional)
+                                                </span>
+                                            )}
+                                        </label>
+
+                                        {amountToPay === 0 ? (
+                                            <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold mb-3">
+                                                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                                                <div>
+                                                    <p className="font-bold text-sm text-emerald-900">
+                                                        {isUpgrade ? '¡Diferencia 100% cubierta con tu Billetera!' : '¡Inversión 100% cubierta con tu Billetera!'}
+                                                    </p>
+                                                    <p className="font-normal text-emerald-700 mt-0.5">
+                                                        {isUpgrade
+                                                            ? 'El valor del aumento se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.'
+                                                            : 'El valor del paquete se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : null}
+
+                                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-brand-400 transition-colors bg-slate-50">
+                                            <input 
+                                                type="file" 
+                                                id="comprobantes" 
+                                                multiple
+                                                accept={RECEIPT_ACCEPT}
+                                                className="hidden"
+                                                onChange={(e) => handleFilesSelected(e.target.files)}
+                                            />
+                                            <label htmlFor="comprobantes" className="cursor-pointer flex flex-col items-center">
+                                                <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                                                <span className="text-sm font-semibold text-slate-700">
+                                                    {amountToPay === 0 ? 'Adjuntar soporte voluntario (opcional)' : 'Haz clic para subir o arrastra tus archivos'}
+                                                </span>
+                                                <span className="text-xs text-slate-500 mt-1">Imágenes (PNG, JPG, WEBP) o PDF • <strong>Máx. 10 MB por archivo</strong></span>
+                                            </label>
+                                            
+                                            {files && files.length > 0 && (
+                                                <div className="mt-4 pt-4 border-t border-slate-200 text-left space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-xs font-bold text-slate-500 uppercase">Archivos seleccionados:</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFiles(null);
+                                                                const inputEl = document.getElementById('comprobantes') as HTMLInputElement;
+                                                                if (inputEl) inputEl.value = '';
+                                                            }}
+                                                            className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                            Quitar archivos
+                                                        </button>
+                                                    </div>
+                                                    {Array.from(files).map((file, i) => (
+                                                        <div key={i} className="text-sm text-slate-700 flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-100">
+                                                            <div className="w-2 h-2 rounded-full bg-brand-500"></div>
+                                                            <span className="truncate flex-1">{file.name}</span>
+                                                            <span className="text-xs font-mono text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
+                                        <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                                        <p className="text-xs text-blue-700 leading-relaxed">
+                                            Al enviar tu solicitud, el estado de tu inversión será "Pendiente" hasta que el equipo administrativo valide los comprobantes de pago.
+                                        </p>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                     
                     {step === 3 && (
                         <div className="flex flex-col items-center justify-center p-8 text-center animate-fadeIn space-y-4">
-                            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4 border-4 border-emerald-50">
-                                <TrendingUp className="w-10 h-10 text-emerald-500" />
-                            </div>
-                            <h3 className="text-2xl font-bold text-slate-800">¡Solicitud Registrada!</h3>
-                            <p className="text-slate-600 text-sm max-w-sm mx-auto">
-                                Hemos recibido tu solicitud de inversión. Nuestro equipo administrativo la validará en breve y te notificaremos cuando esté aprobada.
-                            </p>
-                            <button 
-                                onClick={handleFinalClose}
-                                className="mt-6 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md transition-all"
-                            >
-                                Entendido
-                            </button>
+                            {autoApproved ? (
+                                <>
+                                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-2 border-4 border-emerald-50 text-emerald-600 shadow-md animate-bounce">
+                                        <CheckCircle2 className="w-10 h-10" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full inline-block">
+                                            Aprobación Inmediata Confirmada
+                                        </span>
+                                        <h3 className="text-2xl font-bold text-slate-900 font-montserrat">
+                                            {isUpgrade ? '¡Aumento de Capital Aprobado y Activo!' : '¡Inversión Aprobada y Activa!'}
+                                        </h3>
+                                        <p className="text-slate-600 text-sm max-w-sm mx-auto leading-relaxed">
+                                            {isUpgrade
+                                                ? 'Tu pago en línea fue validado y confirmado exitosamente. Tu inversión y nuevos rendimientos ya se encuentran actualizados en tu panel.'
+                                                : 'Tu pago en línea fue validado y confirmado exitosamente. Tu contrato de inversión y rentabilidad ya se encuentran activos en tu panel.'}
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={handleFinalClose}
+                                        className="mt-6 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer"
+                                    >
+                                        {isUpgrade ? 'Continuar' : 'Ver Mis Inversiones'}
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4 border-4 border-emerald-50">
+                                        <TrendingUp className="w-10 h-10 text-emerald-500" />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-slate-800">¡Solicitud Registrada!</h3>
+                                    <p className="text-slate-600 text-sm max-w-sm mx-auto">
+                                        Hemos recibido tu solicitud de inversión. Nuestro equipo administrativo la validará en breve y te notificaremos cuando esté aprobada.
+                                    </p>
+                                    <button 
+                                        onClick={handleFinalClose}
+                                        className="mt-6 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer"
+                                    >
+                                        Entendido
+                                    </button>
+                                </>
+                            )}
                         </div>
+                    )}
+                        </>
                     )}
                 </div>
 
                 {/* Footer */}
-                {step !== 3 && (
+                {step !== 3 && !isSarlaftPending && !isSarlaftRejected && !loadingSarlaft && (
                     <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center">
                         {step === 1 ? (
                             <div className="w-full flex justify-end">
@@ -527,14 +870,16 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                     <ChevronLeft className="w-4 h-4" />
                                     Atrás
                                 </button>
-                                <button 
-                                    onClick={handleSubmit}
-                                    disabled={createRequestMutation.isPending || (amountToPay > 0 && (!files || files.length === 0))}
-                                    className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    {createRequestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                    Confirmar Inversión
-                                </button>
+                                {(amountToPay === 0 || paymentChoice === 'MANUAL_VOUCHER') && (
+                                    <button 
+                                        onClick={handleSubmit}
+                                        disabled={createRequestMutation.isPending || (amountToPay > 0 && (!files || files.length === 0))}
+                                        className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        {createRequestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                        Confirmar Inversión
+                                    </button>
+                                )}
                             </>
                         )}
                     </div>

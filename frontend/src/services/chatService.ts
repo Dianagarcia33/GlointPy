@@ -141,7 +141,6 @@ export const chatService = {
   },
 
   getWebSocketUrl: (roomId: number): string => {
-    const token = useAuthStore.getState().accessToken;
     let fullUrl = API_URL;
     if (fullUrl.startsWith('/')) {
       const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -150,11 +149,11 @@ export const chatService = {
     } else {
       fullUrl = fullUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
     }
-    return `${fullUrl}/chat/ws/${roomId}?token=${encodeURIComponent(token || '')}`;
+    // La sesión viaja en la cookie HttpOnly (mismo sitio): ya no se pone el token en la URL
+    return `${fullUrl}/chat/ws/${roomId}`;
   },
 
   getGlobalWebSocketUrl: (): string => {
-    const token = useAuthStore.getState().accessToken;
     let fullUrl = API_URL;
     if (fullUrl.startsWith('/')) {
       const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -163,6 +162,6 @@ export const chatService = {
     } else {
       fullUrl = fullUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
     }
-    return `${fullUrl}/chat/ws/notifications/global?token=${encodeURIComponent(token || '')}`;
+    return `${fullUrl}/chat/ws/notifications/global`;
   }
 };

@@ -93,6 +93,7 @@ class PushNotificationService:
         active_tokens = result.scalars().all()
 
         if not active_tokens:
+            logger.info(f"Push omitido: el usuario {user_id} no tiene dispositivos con token activo.")
             return {
                 "success": False,
                 "sent_count": 0,
@@ -110,11 +111,19 @@ class PushNotificationService:
                 multicast_message = messaging.MulticastMessage(
                     notification=messaging.Notification(title=title, body=body),
                     data=data or {},
-                    tokens=tokens_list
+                    tokens=tokens_list,
+                    # iOS: sin sonido explícito el aviso llega en silencio
+                    apns=messaging.APNSConfig(
+                        payload=messaging.APNSPayload(aps=messaging.Aps(sound="default"))
+                    ),
                 )
                 response = messaging.send_each_for_multicast(multicast_message)
                 sent_success = response.success_count
                 failed_count = response.failure_count
+                # Motivo de cada fallo (p. ej. clave APNs sin cargar en Firebase, token vencido); sin el token completo
+                for token, item in zip(tokens_list, response.responses):
+                    if not item.success:
+                        logger.warning(f"Push fallido para usuario {user_id} (token ...{token[-6:]}): {item.exception}")
                 logger.info(f"Push enviado a usuario {user_id}: {sent_success} exitosos, {failed_count} fallidos.")
             except Exception as err:
                 logger.error(f"Error al enviar push vía FCM: {err}")
@@ -217,18 +226,19 @@ class PushNotificationService:
                 )
             )
             target_users = users_res.scalars().all()
-        else: # "all"
-            target_audience = "all"
+        elif target_audience == "all":
             users_res = await db.execute(select(User).where(User.is_active == True))
             target_users = users_res.scalars().all()
+        else:
+            # H-208: un alcance que no se pueda resolver nunca cae en "todos los usuarios"
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail="El alcance de la notificación no es válido: indica 'all', un rol o usuarios específicos.")
 
         recipients_count = len(target_users)
         if recipients_count == 0:
-            return {
-                "success": False,
-                "message": "No se encontraron usuarios activos para la audiencia seleccionada.",
-                "recipients_count": 0
-            }
+            # H-208: un alcance que no resuelve a ningún usuario activo (rol o ids inexistentes) se rechaza con error
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail="No se encontraron usuarios activos para la audiencia seleccionada.")
 
         # 2. Crear registros in-app (UserNotification) para cada usuario
         notifications_to_add = [

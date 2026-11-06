@@ -21,7 +21,8 @@ class Withdrawal(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     investor_id = Column(BigInteger, ForeignKey("investors.id", ondelete="CASCADE"), nullable=True)
-    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # RESTRICT (H-170): no se puede borrar un usuario que tenga retiros; antes CASCADE los borraba con él
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     
     origen = Column(String(255), default="inversion", nullable=False)
     tipo = Column(Enum(WithdrawalType, values_callable=lambda obj: [e.value for e in obj]), nullable=False)
@@ -61,3 +62,4 @@ class Withdrawal(Base):
     investor = relationship("Investor", back_populates="withdrawals")
     approver = relationship("User", foreign_keys=[aprobado_por])
     processor = relationship("User", foreign_keys=[procesado_por])
+    yoint_dispersions = relationship("YointDispersion", back_populates="withdrawal", cascade="all, delete-orphan", order_by="desc(YointDispersion.id)")

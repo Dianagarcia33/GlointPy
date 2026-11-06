@@ -11,10 +11,12 @@ export default {
       },
       colors: {
         brand: {
-          50: '#fff7ed',  // Naranja ultra claro
-          400: '#fbbf24', // Ámbar
-          500: '#f97316', // Naranja principal
-          600: '#ea580c', // Naranja oscuro
+          50: '#FCF5E4',  // Marfil dorado
+          400: '#E8A83E', // Dorado del logo (acentos sobre fondos oscuros)
+          500: '#a06a10', // Dorado profundo: botones y enlaces (texto blanco 4.5:1)
+          600: '#865709', // Hover
+          700: '#7E500C', // Dorado oscuro
+          800: '#4f3a0c', // Bronce oscuro
         },
         surface: {
           bg: '#f1f5f9',    // slate-100

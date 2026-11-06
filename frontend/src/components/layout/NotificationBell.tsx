@@ -13,6 +13,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ isDark = fal
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<UserNotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -58,12 +59,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ isDark = fal
   };
 
   const handleMarkAllRead = async () => {
+    setActionError(null);
     try {
       await notificationService.markAllRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
-    } catch (err) {
+      // H-186: confirmar con el servidor para que el contador nunca muestre un estado que no se guardó
+      fetchUserNotifications();
+    } catch (err: any) {
       console.error('Error al marcar todas como leídas:', err);
+      setActionError(err?.message || 'No se pudieron marcar las notificaciones como leídas.');
     }
   };
 
@@ -159,6 +164,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ isDark = fal
               </button>
             )}
           </div>
+
+          {actionError && (
+            <div role="alert" className="px-4 py-2 bg-rose-50 border-b border-rose-200 text-rose-700 text-xs font-semibold">
+              {actionError}
+            </div>
+          )}
 
           {/* Listado de Notificaciones */}
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">

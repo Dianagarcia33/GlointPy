@@ -1,12 +1,26 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
+
+def _round_percentage(v: Optional[float]) -> Optional[float]:
+    """La rentabilidad se maneja con 2 decimales, igual que el formulario (H-131)."""
+    if v is None:
+        return v
+    rounded = round(v, 2)
+    if rounded <= 0:
+        raise ValueError("La rentabilidad mensual debe ser de al menos 0,01%.")
+    return rounded
 
 class PeriodBase(BaseModel):
     percentage: float = Field(..., gt=0, le=100, description="Porcentaje de rendimiento mensual del periodo")
     months: int = Field(..., ge=1, le=120, description="Número de meses del periodo")
     days: int = Field(..., ge=1, le=3660, description="Número de días del periodo")
     is_active: bool = True
+
+    @field_validator("percentage")
+    @classmethod
+    def round_percentage(cls, v: float) -> float:
+        return _round_percentage(v)
 
     @model_validator(mode="after")
     def validate_coherence(self):
@@ -28,6 +42,11 @@ class PeriodUpdate(BaseModel):
     months: Optional[int] = Field(None, ge=1, le=120)
     days: Optional[int] = Field(None, ge=1, le=3660)
     is_active: Optional[bool] = None
+
+    @field_validator("percentage")
+    @classmethod
+    def round_percentage(cls, v: Optional[float]) -> Optional[float]:
+        return _round_percentage(v)
 
     @model_validator(mode="after")
     def validate_coherence(self):

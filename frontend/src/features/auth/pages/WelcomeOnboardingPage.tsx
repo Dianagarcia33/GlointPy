@@ -28,7 +28,7 @@ export const WelcomeOnboardingPage = () => {
 
 
     return (
-        <div className="min-h-screen bg-slate-50 font-inter text-slate-900 flex flex-col selection:bg-brand-500/20">
+        <div className="gl-auth min-h-screen bg-slate-50 font-inter text-slate-900 flex flex-col selection:bg-brand-500/20">
             <Navbar />
 
             <main className="flex-1 flex flex-col items-center justify-center p-6 mt-24 md:mt-16 relative z-10">

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { validateDocumentId, validatePhoneNumber, validateBirthDate } from '../../../utils/identityValidation';
+import { getColombiaToday } from '../../../utils/format';
 import { createPortal } from 'react-dom';
 import { ShieldAlert, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
@@ -37,12 +39,28 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
       setError('El documento de identidad es obligatorio.');
       return;
     }
+    // Solo se valida el formato de lo que cambia: los datos históricos del usuario no lo bloquean (H-198)
+    const docError = documentId.trim() !== (user?.document_id || '') ? validateDocumentId(documentId) : null;
+    if (docError) {
+      setError(docError);
+      return;
+    }
     if (!phoneNumber.trim()) {
       setError('El número de teléfono o celular es obligatorio.');
       return;
     }
+    const phoneError = phoneNumber.trim() !== (user?.phone_number || '') ? validatePhoneNumber(phoneNumber) : null;
+    if (phoneError) {
+      setError(phoneError);
+      return;
+    }
     if (!dateOfBirth) {
       setError('Por favor indica tu fecha de nacimiento.');
+      return;
+    }
+    const dobError = validateBirthDate(dateOfBirth, getColombiaToday());
+    if (dobError) {
+      setError(dobError);
       return;
     }
 
@@ -195,7 +213,7 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
               <input
                 type="date"
                 required
-                max={new Date().toISOString().split('T')[0]}
+                max={(() => { const d = new Date(`${getColombiaToday()}T12:00:00`); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA'); })()}
                 value={dateOfBirth}
                 onChange={(e) => setDateOfBirth(e.target.value)}
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white transition-all font-medium"

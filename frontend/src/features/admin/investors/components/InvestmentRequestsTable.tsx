@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
 import { commercialService } from '../../../../services/commercial';
-import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink } from 'lucide-react';
+import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink, AlertTriangle, ShieldCheck, Search } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { getMediaUrl, fetchApi } from '../../../../services/api';
 import { sarlaftService } from '../../../../services/sarlaft';
@@ -46,7 +46,14 @@ const InvestmentRequestsTableSkeleton = () => {
   );
 };
 
-export const InvestmentRequestsTable = () => {
+interface InvestmentRequestsTableProps {
+  // Avisa a la página para refrescar los contratos tras aprobar o rechazar (H-146)
+  onDataChanged?: () => void;
+  // Cambia cuando la página registra una solicitud nueva: la tabla vuelve a cargar (H-146)
+  refreshKey?: number;
+}
+
+export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: InvestmentRequestsTableProps) => {
   const [requests, setRequests] = useState<InvestmentRequest[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +75,7 @@ export const InvestmentRequestsTable = () => {
       .then(res => setCommercialUsers(res || []))
       .catch(() => setCommercialUsers([]));
 
-    fetchApi('/users/')
+    fetchApi('/users')
       .then((res: any) => {
         const list = Array.isArray(res) ? res : res?.items || res?.data || [];
         if (list.length > 0) {
@@ -107,6 +114,7 @@ export const InvestmentRequestsTable = () => {
       await approveInvestmentRequest(selectedRequestToReview.id, cId);
       setSelectedRequestToReview(null);
       await fetchData();
+      onDataChanged?.();
     } catch (err: any) {
       alert(err.message || 'Error al aprobar');
     } finally {
@@ -123,6 +131,7 @@ export const InvestmentRequestsTable = () => {
       setRejectingId(null);
       setRejectionReason('');
       await fetchData();
+      onDataChanged?.();
     } catch (err: any) {
       alert(err.message || 'Error al rechazar');
     } finally {
@@ -217,7 +226,7 @@ export const InvestmentRequestsTable = () => {
 
   useEffect(() => {
     fetchData();
-  }, [page, search]);
+  }, [page, search, refreshKey]);
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -245,14 +254,15 @@ export const InvestmentRequestsTable = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Filters Bar */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex-1 w-full relative">
+      <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+        <div className="relative flex-1 min-w-[240px] sm:max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input 
             type="text" 
             placeholder="Buscar por nombre o correo del usuario..." 
-            className="w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+            className="w-full pl-10 pr-3.5 py-2 text-xs bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand-500 font-sans"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
@@ -260,9 +270,9 @@ export const InvestmentRequestsTable = () => {
         <Can permission="admin.investments.solicitud_inversion">
           <button
             onClick={() => setIsNewRequestModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer shrink-0 font-montserrat"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>Solicitud de Inversión</span>
           </button>
         </Can>
@@ -276,10 +286,10 @@ export const InvestmentRequestsTable = () => {
         }}
       />
 
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+            <thead className="bg-slate-50/80 text-slate-400 font-bold border-b border-slate-200/80 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-4 py-4 w-10"></th>
                 <th className="px-6 py-4">ID</th>
@@ -325,6 +335,12 @@ export const InvestmentRequestsTable = () => {
                             <div className="text-xs text-slate-500">{request.user.email}</div>
                             {request.user.document_id && (
                               <div className="text-xs text-slate-500">Doc: {request.user.document_id}</div>
+                            )}
+                            {request.extra_data?.biometrics?.requires_manual_review && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 mt-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                Validar Identidad
+                              </span>
                             )}
                           </div>
                         ) : (
@@ -490,7 +506,8 @@ export const InvestmentRequestsTable = () => {
                                       'created_by_nombre',
                                       'created_by_user_nombre',
                                       'advisor_nombre',
-                                      'adviser_nombre'
+                                      'adviser_nombre',
+                                      'biometrics'
                                     ];
 
                                     if (internalKeysToHide.includes(key)) return null;
@@ -597,7 +614,20 @@ export const InvestmentRequestsTable = () => {
                                   {/* Documentos KYC con Vista Previa */}
                                   {request.extra_data?.kyc_docs && Array.isArray(request.extra_data.kyc_docs) && request.extra_data.kyc_docs.length > 0 && (
                                     <div className="pt-2 border-t border-slate-100 space-y-2">
-                                      <span className="text-slate-500 font-medium block">Documentos de Identidad (KYC):</span>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 font-medium block">Documentos de Identidad (KYC):</span>
+                                        {request.extra_data?.biometrics?.requires_manual_review ? (
+                                          <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-bold rounded border border-amber-300 inline-flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                            Validación Manual ({request.extra_data.biometrics.attempts || 3} intentos)
+                                          </span>
+                                        ) : request.extra_data?.biometrics?.verified ? (
+                                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded border border-emerald-200 inline-flex items-center gap-1">
+                                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                            Biometría Aprobada ({request.extra_data.biometrics.similarity}%)
+                                          </span>
+                                        ) : null}
+                                      </div>
                                       <div className="grid grid-cols-3 gap-2">
                                         {request.extra_data.kyc_docs.map((path: string, idx: number) => {
                                           const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
@@ -932,8 +962,34 @@ export const InvestmentRequestsTable = () => {
                   </div>
 
                   {selectedRequestToReview.extra_data.kyc_docs && Array.isArray(selectedRequestToReview.extra_data.kyc_docs) && selectedRequestToReview.extra_data.kyc_docs.length > 0 && (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos de Identidad (KYC)</h4>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <h4 className="text-sm font-semibold text-slate-800">Documentos de Identidad (KYC)</h4>
+                        {selectedRequestToReview.extra_data?.biometrics?.requires_manual_review ? (
+                          <span className="px-2.5 py-1 bg-amber-100 text-amber-900 text-xs font-bold rounded-lg border border-amber-300 flex items-center gap-1.5 shadow-sm">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                            Requiere Validación Manual ({selectedRequestToReview.extra_data.biometrics.attempts || 3} intentos fallidos)
+                          </span>
+                        ) : selectedRequestToReview.extra_data?.biometrics?.verified ? (
+                          <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            Biometría Aprobada ({selectedRequestToReview.extra_data.biometrics.similarity}%)
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {selectedRequestToReview.extra_data?.biometrics?.requires_manual_review && (
+                        <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs flex items-start gap-2.5">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <p className="font-bold text-amber-950">Atención: Validación Facial Automática No Completada</p>
+                            <p className="text-amber-800 leading-relaxed">
+                              El sistema agotó los {selectedRequestToReview.extra_data.biometrics.attempts || 3} intentos de comparación biométrica sin éxito. Por favor coteja visualmente la foto del documento de identidad con la selfie del usuario antes de proceder con la aprobación de la solicitud.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-3 gap-3">
                         {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => {
                           const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
@@ -1030,7 +1086,11 @@ export const InvestmentRequestsTable = () => {
                 </label>
                 {selectedRequestToReview.extra_data?.commercial_id && (
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    ✨ Seleccionado por el cliente en su solicitud
+                    {/* Si la radicó otra persona (p. ej. un administrador), el directivo no lo eligió el cliente (H-146) */}
+                    {selectedRequestToReview.extra_data?.created_by_user_id &&
+                    String(selectedRequestToReview.extra_data.created_by_user_id) !== String(selectedRequestToReview.user_id)
+                      ? '✨ Asignado al radicar la solicitud'
+                      : '✨ Seleccionado por el cliente en su solicitud'}
                   </span>
                 )}
               </div>

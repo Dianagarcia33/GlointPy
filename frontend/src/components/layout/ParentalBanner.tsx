@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert, ArrowLeft, Loader2, Users } from 'lucide-react';
@@ -6,13 +6,21 @@ import { useAuthStore } from '../../store/authStore';
 import { usersService } from '../../services/users';
 
 export const ParentalBanner: React.FC = () => {
-  const { user, parentBackup, login, setParentBackup } = useAuthStore();
+  const { user, parentBackup, login, logout, setParentBackup } = useAuthStore();
   const [isSwitchingBack, setIsSwitchingBack] = useState(false);
+  const [returnError, setReturnError] = useState<string | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // We are in parental mode if we have a parentBackup in store OR the user has a parent_user_id
-  const isParentalMode = Boolean(parentBackup || user?.parent_user_id);
+  // H-182: solo hay supervisión parental si el tutor cambió realmente a esta cuenta (parentBackup);
+  // que el usuario tenga un tutor asignado (parent_user_id) no lo convierte en supervisor
+  // H-213: un respaldo del mismo usuario es un resto de un cambio fallido, no una supervisión real
+  const isStaleBackup = Boolean(parentBackup && user && parentBackup.user.id === user.id);
+  const isParentalMode = Boolean(parentBackup) && !isStaleBackup;
+
+  useEffect(() => {
+    if (isStaleBackup) setParentBackup(null);
+  }, [isStaleBackup, setParentBackup]);
 
   if (!isParentalMode || !user) {
     return null;
@@ -20,23 +28,21 @@ export const ParentalBanner: React.FC = () => {
 
   const handleReturnToParent = async () => {
     setIsSwitchingBack(true);
+    setReturnError(null);
     try {
       // Backend call sets the HttpOnly cookie for the parent
       const res = await usersService.switchBackToParent();
-      login(res.user as any, res.access_token);
+      login(res.user as any);
       setParentBackup(null);
       queryClient.clear();
       navigate('/dashboard');
     } catch (err: any) {
-      if (parentBackup && parentBackup.token) {
-        login(parentBackup.user, parentBackup.token);
-        setParentBackup(null);
-        queryClient.clear();
-        navigate('/dashboard');
-        return;
-      }
+      // H-214: si el servidor no confirma el regreso, la sesión sigue siendo la del menor.
+      // No se simula el regreso con el respaldo local: se mantiene la supervisión y se avisa.
       console.error('Error al retornar a la cuenta del tutor:', err);
-      alert(err.message || 'No fue posible volver a la cuenta del tutor. Por favor inicia sesión nuevamente.');
+      setReturnError(
+        'No fue posible volver a tu cuenta de tutor. Sigues dentro de la cuenta del menor; cierra sesión e ingresa de nuevo con tu cuenta.'
+      );
     } finally {
       setIsSwitchingBack(false);
     }
@@ -81,6 +87,18 @@ export const ParentalBanner: React.FC = () => {
           )}
         </button>
       </div>
+      {returnError && (
+        <div role="alert" className="max-w-7xl mx-auto mt-2 flex flex-col sm:flex-row items-center justify-between gap-2 bg-rose-900/70 border border-rose-300/40 rounded-xl px-3 py-2 text-rose-50">
+          <span>{returnError}</span>
+          <button
+            type="button"
+            onClick={() => { logout(); navigate('/login'); }}
+            className="px-3 py-1 bg-white text-rose-900 font-bold rounded-lg text-xs cursor-pointer shrink-0"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      )}
     </aside>
   );
 };

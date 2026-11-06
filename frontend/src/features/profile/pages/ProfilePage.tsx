@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { validateDocumentId, validatePhoneNumber, validateBirthDate } from '../../../utils/identityValidation';
+import { getColombiaToday } from '../../../utils/format';
 import { 
   User as UserIcon, 
   Mail, 
@@ -13,15 +15,18 @@ import {
   Eye, 
   EyeOff, 
   KeyRound, 
-  Shield, 
-  Sparkles
+  Shield
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { usersService } from '../../../services/users';
-import { formatColombiaDate } from '../../../utils/format';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
+import { isValidPassword } from '../../auth/components/PasswordStrengthIndicator';
 
 export const ProfilePage: React.FC = () => {
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, logout } = useAuthStore();
+  const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
+  const [isClosingSessions, setIsClosingSessions] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
 
   // Active tab: 'personal' | 'security'
   const [activeTab, setActiveTab] = useState<'personal' | 'security'>('personal');
@@ -51,6 +56,8 @@ export const ProfilePage: React.FC = () => {
 
   // Load user data on mount
   useEffect(() => {
+    let isMounted = true;
+
     if (user) {
       setName(user.name || '');
       setEmail(user.email || '');
@@ -64,7 +71,31 @@ export const ProfilePage: React.FC = () => {
         }
       }
     }
-  }, [user]);
+
+    usersService.getMyProfile()
+      .then((freshUser) => {
+        if (!isMounted || !freshUser) return;
+        setUser(freshUser as any);
+        setName(freshUser.name || '');
+        setEmail(freshUser.email || '');
+        setDocumentId(freshUser.document_id || '');
+        setPhoneNumber(freshUser.phone_number || '');
+        if (freshUser.date_of_birth) {
+          try {
+            setDateOfBirth(String(freshUser.date_of_birth).split('T')[0]);
+          } catch {
+            setDateOfBirth('');
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('No se pudo refrescar el perfil completo desde la API:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Handle personal profile submit
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -78,6 +109,20 @@ export const ProfilePage: React.FC = () => {
     }
     if (!email.trim()) {
       setProfileError('El correo electrónico es requerido.');
+      return;
+    }
+    // Sin validación nativa del navegador (noValidate), el formato del correo se valida aquí
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setProfileError('Ingresa un correo electrónico válido.');
+      return;
+    }
+
+    // H-198: formato de documento, teléfono y fecha de nacimiento (solo de lo que cambia)
+    const docError = documentId.trim() && documentId.trim() !== (user?.document_id || '') ? validateDocumentId(documentId) : null;
+    const phoneError = phoneNumber.trim() && phoneNumber.trim() !== (user?.phone_number || '') ? validatePhoneNumber(phoneNumber) : null;
+    const dobError = dateOfBirth && dateOfBirth !== (user?.date_of_birth || '').slice(0, 10) ? validateBirthDate(dateOfBirth, getColombiaToday()) : null;
+    if (docError || phoneError || dobError) {
+      setProfileError((docError || phoneError || dobError) as string);
       return;
     }
 
@@ -111,8 +156,8 @@ export const ProfilePage: React.FC = () => {
       setPasswordError('Por favor ingresa tu contraseña actual.');
       return;
     }
-    if (!newPassword || newPassword.length < 6) {
-      setPasswordError('La nueva contraseña debe tener al menos 6 caracteres.');
+    if (!isValidPassword(newPassword)) {
+      setPasswordError('La nueva contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y un carácter especial.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -139,118 +184,188 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleCloseAllSessions = async () => {
+    try {
+      setIsClosingSessions(true);
+      setSessionsError(null);
+      await usersService.logoutAllMySessions();
+      // Esta sesión también se cierra: se limpia el estado local y se vuelve al inicio de sesión
+      logout();
+      window.location.href = '/login';
+    } catch (err: any) {
+      setSessionsError(err?.message || 'No se pudieron cerrar las sesiones. Inténtalo de nuevo.');
+      setIsSessionsModalOpen(false);
+    } finally {
+      setIsClosingSessions(false);
+    }
+  };
+
   const roles = user?.roles_list || (user?.roles?.map((r: any) => typeof r === 'string' ? r : r.name) || []);
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300 font-inter">
-      {/* Banner de Cabecera Ejecutivo */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-        
-        <div className="relative z-10 flex items-center gap-5">
-          <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center text-white text-3xl font-black shadow-lg shadow-brand-500/30 border-2 border-white/20 shrink-0">
-            {user?.name?.charAt(0).toUpperCase()}
-          </div>
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Mi Perfil de Usuario</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black font-montserrat tracking-tight text-white">
-              {user?.name}
-            </h1>
-            <p className="text-slate-300 text-xs sm:text-sm flex items-center gap-2">
-              <Mail className="w-3.5 h-3.5 text-slate-400" />
-              <span>{user?.email}</span>
-            </p>
-          </div>
+    <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
+      
+      {/* 🏛️ 1. Encabezado de Página (Estándar Soporte en Tickets) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+            <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
+              <UserIcon className="w-6 h-6" />
+            </span>
+            Mi Perfil de Usuario
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Gestiona tu información personal y credenciales de acceso de forma segura en la plataforma
+          </p>
         </div>
 
-        {/* Badges de Roles y Estado */}
-        <div className="relative z-10 flex flex-wrap gap-2 items-center">
+        {/* Roles y Badges (Alineados a la derecha del Header) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {user?.is_active ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-2xl border border-emerald-200 font-montserrat">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Cuenta Verificada
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-2xl border border-slate-200 font-montserrat">
+              Inactiva
+            </span>
+          )}
           {user?.is_superuser && (
-            <span className="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-xl text-xs font-bold font-montserrat flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-rose-400" />
-              Super Administrador
+            <span className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl text-xs font-bold font-montserrat flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-rose-600" />
+              Super Admin
             </span>
           )}
           {roles.map((roleName: string, idx: number) => (
             <span 
               key={idx} 
-              className="px-3 py-1.5 bg-brand-500/20 text-brand-300 border border-brand-500/30 rounded-xl text-xs font-bold font-montserrat uppercase tracking-wider"
+              className="px-3 py-1.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-2xl text-xs font-bold font-montserrat uppercase tracking-wider"
             >
               {roleName}
             </span>
           ))}
-          {user?.must_update_profile && (
-            <span className="px-3 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-pulse">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-              Actualización pendiente
-            </span>
-          )}
         </div>
       </div>
 
-      {/* Tabs de Navegación */}
-      <div className="flex border-b border-slate-200 gap-2 sm:gap-4 overflow-x-auto">
+      {/* 📊 2. Cuadrícula de Métricas KPI (4-Stat Cards exactas al Mercado de Acciones) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Card 1: Nombre del Titular */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Titular de la Cuenta</span>
+            <UserIcon className="w-4 h-4 text-brand-600" />
+          </div>
+          <span className="text-xl font-black text-slate-900 font-montserrat block truncate">
+            {user?.name || 'Usuario'}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block">
+            ID de usuario: #{user?.id}
+          </span>
+        </div>
+
+        {/* Card 2: Documento de Identidad */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Documento de Identidad</span>
+            <IdCard className="w-4 h-4 text-indigo-600" />
+          </div>
+          <span className="text-xl font-black text-slate-900 font-mono block">
+            {user?.document_id || 'Sin registrar'}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block">
+            {user?.document_id ? 'Identificación registrada' : 'Pendiente por registrar'}
+          </span>
+        </div>
+
+        {/* Card 3: Teléfono / WhatsApp */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Teléfono / WhatsApp</span>
+            <Phone className="w-4 h-4 text-emerald-600" />
+          </div>
+          <span className="text-xl font-black text-emerald-600 font-mono block truncate">
+            {user?.phone_number || 'Sin registrar'}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block">
+            Canal oficial de contacto
+          </span>
+        </div>
+
+        {/* Card 4: Correo Electrónico */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Correo Electrónico</span>
+            <Mail className="w-4 h-4 text-amber-500" />
+          </div>
+          <span className="text-base sm:text-lg font-black text-slate-900 font-mono block truncate" title={user?.email}>
+            {user?.email || 'Sin correo'}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block">
+            Acceso principal al sistema
+          </span>
+        </div>
+      </div>
+
+      {/* 🎛️ 3. Pestañas de Navegación Segmentadas (Pill Controls) */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
         <button
           type="button"
           onClick={() => setActiveTab('personal')}
-          className={`flex items-center gap-2 py-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
             activeTab === 'personal'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <UserIcon className="w-4 h-4" />
-          <span>Datos Personales</span>
+          Datos Personales
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 py-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
             activeTab === 'security'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'bg-slate-900 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Lock className="w-4 h-4" />
-          <span>Seguridad y Contraseña</span>
+          Seguridad & Contraseña
         </button>
       </div>
 
-      {/* Contenido de Tab: Datos Personales */}
+      {/* 📝 4. TAB CONTENT: DATOS PERSONALES */}
       {activeTab === 'personal' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-          <div className="max-w-2xl">
-            <h2 className="text-lg font-bold text-slate-900 font-montserrat flex items-center gap-2 mb-1">
-              <IdCard className="w-5 h-5 text-brand-500" />
-              <span>Información Personal</span>
-            </h2>
-            <p className="text-slate-500 text-xs sm:text-sm mb-6">
-              Actualiza tu información personal para mantener tu cuenta al día según los requisitos de la plataforma.
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 font-montserrat">
+              Información Personal del Titular
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Actualiza tus datos para mantener al día tus contratos y cuentas bancarias asociadas
             </p>
+          </div>
 
-            {profileSuccess && (
-              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-sm animate-in fade-in">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>{profileSuccess}</span>
-              </div>
-            )}
+          {profileSuccess && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold animate-in fade-in">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>{profileSuccess}</span>
+            </div>
+          )}
 
-            {profileError && (
-              <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-700 text-sm animate-in fade-in">
-                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <span>{profileError}</span>
-              </div>
-            )}
+          {profileError && (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-700 text-xs font-semibold animate-in fade-in">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <span>{profileError}</span>
+            </div>
+          )}
 
-            <form onSubmit={handleProfileSubmit} className="space-y-5">
+          <form onSubmit={handleProfileSubmit} noValidate className="space-y-4 max-w-3xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <UserIcon className="w-3.5 h-3.5 text-brand-500" />
-                  <span>Nombre Completo *</span>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Nombre Completo <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -258,14 +373,13 @@ export const ProfilePage: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Tu nombre completo"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-medium"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-sans"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-brand-500" />
-                  <span>Correo Electrónico *</span>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Correo Electrónico <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="email"
@@ -273,131 +387,133 @@ export const ProfilePage: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="correo@ejemplo.com"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-medium"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-sans"
                 />
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <IdCard className="w-3.5 h-3.5 text-brand-500" />
-                    <span>Documento de Identidad</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={documentId}
-                    onChange={(e) => setDocumentId(e.target.value)}
-                    placeholder="Número de cédula o documento"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-brand-500" />
-                    <span>Teléfono / WhatsApp</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="+57 300 123 4567"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-medium"
-                  />
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Cédula o Documento de Identidad
+                </label>
+                <input
+                  type="text"
+                  value={documentId}
+                  onChange={(e) => setDocumentId(e.target.value)}
+                  placeholder="Ej. 1020304050"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono"
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-brand-500" />
-                  <span>Fecha de Nacimiento</span>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Teléfono / WhatsApp
                 </label>
                 <input
-                  type="date"
-                  max={new Date().toISOString().split('T')[0]}
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  className="w-full sm:w-1/2 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-medium"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Ej. +57 300 123 4567"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono"
                 />
               </div>
+            </div>
 
-              <div className="pt-3">
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-2xl shadow-lg shadow-brand-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-60 text-sm"
-                >
-                  {isSavingProfile ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Guardando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>Guardar Información</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                Fecha de Nacimiento
+              </label>
+              <input
+                type="date"
+                max={new Date().toISOString().split('T')[0]}
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+                className="w-full sm:w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono"
+              />
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs text-slate-400 font-medium">
+                Los campos con <span className="text-rose-500 font-bold">*</span> son requeridos.
+              </span>
+
+              <button
+                type="submit"
+                disabled={isSavingProfile}
+                className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-sm shadow-brand-500/20 flex items-center gap-2 cursor-pointer disabled:opacity-50 font-montserrat"
+              >
+                {isSavingProfile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Guardar Información</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
-      {/* Contenido de Tab: Seguridad y Contraseña */}
+      {/* 🔐 5. TAB CONTENT: SEGURIDAD Y CONTRASEÑA */}
       {activeTab === 'security' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-          <div className="max-w-xl">
-            <h2 className="text-lg font-bold text-slate-900 font-montserrat flex items-center gap-2 mb-1">
-              <KeyRound className="w-5 h-5 text-amber-500" />
-              <span>Cambiar Contraseña</span>
-            </h2>
-            <p className="text-slate-500 text-xs sm:text-sm mb-6">
-              Para proteger tu cuenta, te recomendamos usar una contraseña robusta con letras, números y símbolos.
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 font-montserrat">
+              Cambiar Contraseña de Acceso
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y un carácter especial
             </p>
+          </div>
 
-            {passwordSuccess && (
-              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-sm animate-in fade-in">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>{passwordSuccess}</span>
+          {passwordSuccess && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold animate-in fade-in">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>{passwordSuccess}</span>
+            </div>
+          )}
+
+          {passwordError && (
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-700 text-xs font-semibold animate-in fade-in">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <span>{passwordError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordSubmit} noValidate className="space-y-4 max-w-2xl">
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                Contraseña Actual <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-            )}
+            </div>
 
-            {passwordError && (
-              <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-700 text-sm animate-in fade-in">
-                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <span>{passwordError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Contraseña Actual *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showCurrentPassword ? 'text' : 'password'}
-                    required
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-medium pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Nueva Contraseña * (mínimo 6 caracteres)
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Nueva Contraseña <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -406,13 +522,13 @@ export const ProfilePage: React.FC = () => {
                     minLength={6}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-medium pr-10"
+                    placeholder="Mínimo 8 caracteres"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono pr-11"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -420,8 +536,8 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Confirmar Nueva Contraseña *
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Confirmar Nueva Contraseña <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -429,42 +545,76 @@ export const ProfilePage: React.FC = () => {
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all font-medium pr-10"
+                    placeholder="Repite la contraseña"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono pr-11"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
+            </div>
 
-              <div className="pt-3">
-                <button
-                  type="submit"
-                  disabled={isSavingPassword}
-                  className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-60 text-sm"
-                >
-                  {isSavingPassword ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Actualizando Contraseña...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="w-4 h-4" />
-                      <span>Cambiar Contraseña</span>
-                    </>
-                  )}
-                </button>
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="submit"
+                disabled={isSavingPassword}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50 font-montserrat"
+              >
+                {isSavingPassword ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Actualizando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-4 h-4" />
+                    <span>Actualizar Contraseña</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+
+          <div className="pt-6 border-t border-slate-100 space-y-3">
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-slate-900 font-montserrat">Sesiones abiertas</h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Si perdiste un dispositivo o sospechas que alguien más usó tu cuenta, cierra todas las sesiones. Tendrás que volver a iniciar sesión en la web y en la app.
+              </p>
+            </div>
+            {sessionsError && (
+              <div role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2 text-rose-700 text-xs font-semibold">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{sessionsError}</span>
               </div>
-            </form>
+            )}
+            <button
+              type="button"
+              onClick={() => { setSessionsError(null); setIsSessionsModalOpen(true); }}
+              className="px-5 py-2.5 border border-slate-300 hover:border-slate-900 text-slate-800 rounded-2xl text-xs font-bold transition-all cursor-pointer"
+            >
+              Cerrar todas mis sesiones
+            </button>
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={isSessionsModalOpen}
+        onClose={() => setIsSessionsModalOpen(false)}
+        onConfirm={handleCloseAllSessions}
+        title="Cerrar todas las sesiones"
+        description="Se cerrará tu sesión en todos los dispositivos, incluido este. Para volver a entrar tendrás que iniciar sesión de nuevo."
+        confirmText="Cerrar todas"
+        variant="warning"
+        isLoading={isClosingSessions}
+      />
+
     </div>
   );
 };

@@ -129,6 +129,15 @@ class AttendeeResponse(BaseModel):
                 return [v] if v.strip() else []
         return None
 
+class MyRegistrationResponse(AttendeeResponse):
+    """Inscripción del propio usuario + lo necesario para entrar al evento desde su dashboard."""
+    access_token: Optional[str] = None   # enlace personal (sala en vivo, preguntas, encuesta); solo de su propia inscripción
+    live_open: bool = False              # la transmisión está abierta
+    questions_open: bool = False
+    survey_open: bool = False
+    coupon_active: bool = False          # los cupones de Gloint Place están disponibles
+
+
 class AdminEventSummaryResponse(BaseModel):
     event: EventPublicResponse
     total_attendees: int

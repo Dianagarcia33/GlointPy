@@ -1,15 +1,28 @@
 from fastapi import APIRouter
-from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents, uploads, banks, investment_ranks, external_apps, share_market, events, rooms
+from src.api.v1.endpoints import (
+    roles, users, auth, periods, packages, investors, bank_accounts, wallets,
+    investment_requests, withdrawals, investments, system_events, audit, sarlaft,
+    commercial_sales, analytics, templates, beneficiaries, potential_referrals,
+    chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents,
+    uploads, banks, investment_ranks, external_apps, share_market, events, rooms,
+    webhooks, inventory, yoint_payins, credits, daily_yields,
+    suppliers, purchase_orders, company_assets, technical_test, locations
+)
 
 api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(roles.router, prefix="", tags=["security"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
+api_router.include_router(suppliers.router, prefix="/suppliers", tags=["suppliers"])
+api_router.include_router(purchase_orders.router, prefix="/purchase-orders", tags=["purchase-orders"])
+api_router.include_router(company_assets.router, prefix="/assets", tags=["company-assets"])
 api_router.include_router(periods.router, prefix="/periods", tags=["periods"])
 api_router.include_router(packages.router, prefix="/packages", tags=["packages"])
 api_router.include_router(investors.router, prefix="/investors", tags=["investors"])
 api_router.include_router(banks.router, prefix="/banks", tags=["banks"])
+api_router.include_router(locations.router, prefix="/locations", tags=["locations"])
 api_router.include_router(bank_accounts.router, prefix="/bank-accounts", tags=["bank-accounts"])
 api_router.include_router(wallets.router, prefix="/wallets", tags=["wallets"])
 api_router.include_router(investments.router, prefix="/investments", tags=["investments"])
@@ -37,3 +50,8 @@ api_router.include_router(notifications.router, prefix="/notifications", tags=["
 api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
 api_router.include_router(investor_documents.router, prefix="", tags=["investor-documents"])
 api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
+api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+api_router.include_router(yoint_payins.router, prefix="/yoint/payins", tags=["yoint-payins"])
+api_router.include_router(credits.router, prefix="/credits", tags=["credits"])
+api_router.include_router(daily_yields.router, prefix="/daily-yields", tags=["daily-yields"])
+api_router.include_router(technical_test.router, prefix="/technical-test", tags=["technical-test"])

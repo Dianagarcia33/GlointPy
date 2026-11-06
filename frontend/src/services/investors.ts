@@ -58,6 +58,7 @@ export interface Investor {
   package_id: number;
   period_id: number;
   start_date: string;
+  start_date_reason?: string; // H-142: motivo si la fecha de ingreso es retroactiva (solo al enviar)
   end_date: string;
   observations?: string;
   created_at: string;
@@ -80,7 +81,7 @@ export interface Investor {
   is_finalized?: boolean;
 }
 
-export const getInvestors = async (params?: { page?: number; limit?: number; search?: string; has_history?: boolean }): Promise<{ data: Investor[]; total: number }> => {
+export const getInvestors = async (params?: { page?: number; limit?: number; search?: string; has_history?: boolean }): Promise<{ data: Investor[]; total: number; accelerated_total?: number }> => {
   const queryParams = new URLSearchParams();
   if (params) {
     if (params.page !== undefined) queryParams.append('page', params.page.toString());
@@ -109,15 +110,6 @@ export const updateInvestor = async (id: number, data: Partial<Investor>) => {
 export const deleteInvestor = async (id: number) => {
   return await fetchApi(`/investors/${id}`, {
     method: 'DELETE',
-  });
-};
-
-export const bulkUploadInvestors = async (file: File): Promise<{ success: number; errors: string[] }> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  return await fetchApi('/investors/bulk-upload', {
-    method: 'POST',
-    body: formData,
   });
 };
 

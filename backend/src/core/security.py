@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Union, Any
 import bcrypt
@@ -26,15 +27,34 @@ def get_password_hash(password: str) -> str:
         password = password.encode('utf-8')
     return bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
 
-def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
-    """Genera el token JWT de acceso (24 horas)."""
+async def averify_password(plain_password: str, hashed_password: str) -> bool:
+    """Versión asíncrona de verify_password: bcrypt es lento a propósito, se ejecuta en un hilo para no bloquear la API."""
+    return await asyncio.to_thread(verify_password, plain_password, hashed_password)
+
+async def aget_password_hash(password: str) -> str:
+    """Versión asíncrona de get_password_hash (ver averify_password)."""
+    return await asyncio.to_thread(get_password_hash, password)
+
+def create_access_token(
+    subject: Union[str, Any],
+    expires_delta: timedelta = None,
+    extra_claims: dict = None,
+    token_version: int = 0,
+) -> str:
+    """
+    Genera el token JWT de acceso (24 horas). extra_claims agrega datos firmados (p. ej. imp_by, H-182).
+    token_version es la versión de sesión del usuario (claim "tv"): si luego se revoca, el token deja de valer.
+    """
+    now = datetime.utcnow()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = now + expires_delta
     else:
         minutes = getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 1440)
-        expire = datetime.utcnow() + timedelta(minutes=minutes)
+        expire = now + timedelta(minutes=minutes)
         
-    to_encode = {"exp": expire, "sub": str(subject)}
+    to_encode = {"exp": expire, "iat": now, "sub": str(subject), "tv": int(token_version or 0)}
+    if extra_claims:
+        to_encode.update(extra_claims)
     algorithm = getattr(settings, 'ALGORITHM', 'HS256')
     encoded_jwt = jwt.encode(
         to_encode, 
@@ -83,3 +103,38 @@ def verify_password_reset_token(token: str) -> dict:
         return payload
     except Exception:
         return None
+
+def generate_secure_temp_password(length: int = 12) -> str:
+    """
+    Genera una contraseña temporal criptográficamente segura, aleatoria e impredecible.
+    Garantiza al menos una mayúscula, una minúscula, un dígito y un carácter especial seguro.
+    """
+    import secrets
+    import string
+    
+    if length < 10:
+        length = 10
+        
+    specials = "!@#$%*"
+    digits = string.digits
+    uppers = string.ascii_uppercase
+    lowers = string.ascii_lowercase
+
+    password_chars = [
+        secrets.choice(uppers),
+        secrets.choice(lowers),
+        secrets.choice(digits),
+        secrets.choice(specials),
+    ]
+
+    all_chars = string.ascii_letters + digits + specials
+    for _ in range(length - 4):
+        password_chars.append(secrets.choice(all_chars))
+
+    # Mezclar criptográficamente
+    shuffled = []
+    while password_chars:
+        idx = secrets.randbelow(len(password_chars))
+        shuffled.append(password_chars.pop(idx))
+
+    return "".join(shuffled)

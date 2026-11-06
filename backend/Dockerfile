@@ -22,5 +22,8 @@ COPY seed_crm.py .
 # Exponer el puerto
 EXPOSE 8000
 
-# Comando para iniciar FastAPI con keepalive optimizado
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "75"]
+# Comando para iniciar FastAPI con keepalive optimizado.
+# --proxy-headers / --forwarded-allow-ips: la API corre detrás del proxy HTTPS del VPS; con estas
+# opciones respeta X-Forwarded-Proto y las redirecciones (p. ej. por barra final) conservan https
+# en vez de apuntar a http:// (H-155). El proxy debe enviar X-Forwarded-Proto y X-Forwarded-For.
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "75", "--proxy-headers", "--forwarded-allow-ips", "*"]

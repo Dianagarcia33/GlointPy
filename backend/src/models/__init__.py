@@ -29,6 +29,16 @@ from src.models.investment_rank import InvestmentRank
 from src.models.external_app import ExternalApp, ExternalPaymentOrder
 from src.models.share_market import SharePriceHistory, ShareIssuance, ShareListing, ShareTradeOrder
 from src.models.wallet_recharge import WalletRecharge
-from src.models.event import Event, EventAttendee, EventAuthorizedDomain
+from src.models.event import Event, EventAttendee, EventAuthorizedDomain, EventLiveSession, EventQuestion, EventQuestionVote, EventSurveyResponse, EventChatMessage, EventCoupon
 from src.models.room import MeetingRoom, RoomReservation
-
+from src.models.yoint_dispersion import YointDispersion
+from src.models.yoint_payin import YointPayin
+from src.models.company_tax_ledger import CompanyTaxLedger
+from src.models.inventory import InventoryCategory, InventoryItem, InventoryMovement
+from src.models.supplier import InventorySupplier
+from src.models.purchase_order import PurchaseOrder, PurchaseOrderItem
+from src.models.company_asset import CompanyAsset, AssetAssignment
+from src.models.credit import Credit, CreditInstallment, CreditConfig
+from src.models.auto_transfer_log import AutoTransferLog
+from src.models.technical_evaluation import TechnicalEvaluation
+from src.models.user_session import UserSession

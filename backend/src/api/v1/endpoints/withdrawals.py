@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
@@ -10,16 +10,20 @@ from src.core.database import get_db
 from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate, WithdrawalPaginatedResponse, WithdrawalRejectRequest, WithdrawalBulkProcessRequest
 from src.services.withdrawal_service import WithdrawalService
 from src.services.pdf_service import PDFService
+from src.services.audit_trail_service import log_audit_trail
 from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
 
 router = APIRouter()
 
-@router.get("/", response_model=WithdrawalPaginatedResponse)
+# H-183: lectura global y carga masiva de retiros solo para la administración de pagos
+WITHDRAWAL_ADMIN_PERMISSIONS = ["admin.withdrawals.manage", "admin.payments.manage", "admin.audits.manage", "admin.users.manage", "admin.roles.manage"]
+
+@router.get("/", response_model=WithdrawalPaginatedResponse, dependencies=[Depends(RequirePermission(WITHDRAWAL_ADMIN_PERMISSIONS))])
 async def get_withdrawals(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=50000),
     search: str = Query(None),
     status: str = Query(None),
     tipo: str = Query(None),
@@ -41,27 +45,160 @@ async def get_withdrawals(
         end_date=end_date
     )
 
+@router.get("/company-tax-wallet", dependencies=[Depends(RequirePermission(["admin.withdrawals.manage", "admin.payments.manage"]))])
+async def get_company_tax_wallet(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene el balance y los últimos movimientos contables de la Billetera Corporativa (Caja de Impuestos 3.2%).
+    """
+    from src.services.company_wallet_service import CompanyWalletService
+    return await CompanyWalletService.get_tax_wallet_summary(db)
+
 @router.get("/{withdrawal_id}", response_model=WithdrawalResponse)
 async def get_withdrawal(
     withdrawal_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    from src.core.pbac import PBACEngine
     withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
-    if not withdrawal:
+    # H-183: solo el titular o la administración; igual respuesta si no existe o es ajeno
+    if not withdrawal or (
+        withdrawal.user_id != current_user.id
+        and not PBACEngine.has_permission(current_user, WITHDRAWAL_ADMIN_PERMISSIONS)
+    ):
         raise HTTPException(status_code=404, detail="Withdrawal not found")
     return withdrawal
+
+@router.get("/{withdrawal_id}/yoint", dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def get_withdrawal_yoint_info(
+    withdrawal_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene el historial forense y payloads completos de dispersión de Yoint para un retiro.
+    """
+    from sqlalchemy.future import select
+    from src.models.yoint_dispersion import YointDispersion
+
+    q = select(YointDispersion).where(YointDispersion.withdrawal_id == withdrawal_id).order_by(YointDispersion.id.desc())
+    res = await db.execute(q)
+    dispersions = res.scalars().all()
+
+    return [
+        {
+            "id": d.id,
+            "order_id": d.order_id,
+            "idempotency_key": d.idempotency_key,
+            "payment_reference": d.payment_reference,
+            "status": d.status,
+            "amount": float(d.amount),
+            "tax_amount": float(d.tax_amount),
+            "financial_entity_id": d.financial_entity_id,
+            "financial_entity_name": d.financial_entity_name,
+            "account_number": d.account_number,
+            "account_type": d.account_type,
+            "recipient_name": d.recipient_name,
+            "recipient_document": d.recipient_document,
+            "request_payload": d.request_payload,
+            "response_payload": d.response_payload,
+            "webhook_payload": d.webhook_payload,
+            "error_message": d.error_message,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+            "updated_at": d.updated_at.isoformat() if d.updated_at else None
+        }
+        for d in dispersions
+    ]
+
+@router.post("/{withdrawal_id}/disperse-yoint", dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def manually_disperse_to_yoint(
+    withdrawal_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Permite al Administrador reenviar o forzar la dispersión de un retiro a la API de Yoint.
+    """
+    from src.services.yoint_service import YointService
+
+    withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Retiro no encontrado")
+
+    if not withdrawal.user:
+        raise HTTPException(status_code=400, detail="El retiro no tiene usuario asignado")
+
+    dispersion = await YointService.send_dispersion(db=db, withdrawal=withdrawal, user=withdrawal.user)
+
+    await log_audit_trail(
+        db=db,
+        action="WITHDRAWAL_YOINT_DISPERSE",
+        module="withdrawals",
+        user=current_user,
+        entity_type="Withdrawal",
+        entity_id=withdrawal_id,
+        description=f"Dispersión manual a Yoint para retiro #{withdrawal_id}. Estado: {dispersion.status}, OrderId: {dispersion.order_id}",
+        details={"dispersion_id": dispersion.id, "order_id": dispersion.order_id, "status": dispersion.status},
+        request=request
+    )
+
+    return {
+        "message": "Dispersión procesada con Yoint",
+        "dispersion_id": dispersion.id,
+        "order_id": dispersion.order_id,
+        "status": dispersion.status,
+        "error_message": dispersion.error_message
+    }
+
+@router.get("/{withdrawal_id}/yoint-status", dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def check_withdrawal_yoint_status(
+    withdrawal_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Consulta en vivo a la API de Yoint el estado de la última orden de este retiro.
+    """
+    from sqlalchemy.future import select
+    from src.models.yoint_dispersion import YointDispersion
+    from src.services.yoint_service import YointService
+
+    q = select(YointDispersion).where(YointDispersion.withdrawal_id == withdrawal_id).order_by(YointDispersion.id.desc())
+    res = await db.execute(q)
+    dispersion = res.scalars().first()
+
+    if not dispersion:
+        raise HTTPException(status_code=404, detail="Este retiro no tiene dispersiones registradas en Yoint")
+
+    live_status = await YointService.query_order_status(db, dispersion)
+    return {
+        "order_id": dispersion.order_id,
+        "current_local_status": dispersion.status,
+        "live_yoint_response": live_status
+    }
 
 @router.get("/{withdrawal_id}/receipt")
 async def get_withdrawal_receipt(
     withdrawal_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Generate and stream a PDF receipt for the approved withdrawal on the fly.
     """
+    # H-183: antes era público y los ids son consecutivos; solo el titular o la administración de pagos
+    from src.core.pbac import PBACEngine
     withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
-    if not withdrawal:
+    can_view_all = PBACEngine.has_permission(
+        current_user,
+        WITHDRAWAL_ADMIN_PERMISSIONS
+    )
+    if not withdrawal or (withdrawal.user_id != current_user.id and not can_view_all):
+        # Misma respuesta si no existe o es ajeno: no revela qué ids existen
         raise HTTPException(status_code=404, detail="Retiro no encontrado")
     
     if withdrawal.estado not in ["aprobado", "procesado"]:
@@ -76,11 +213,11 @@ async def get_withdrawal_receipt(
         media_type="application/pdf", 
         headers={"Content-Disposition": f"inline; filename=receipt_{withdrawal.id}.pdf"}
     )
-
 @router.post("/{withdrawal_id}/approve", response_model=WithdrawalResponse, dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def approve_withdrawal(
     withdrawal_id: int,
     background_tasks: BackgroundTasks,
+    request: Request,
     file: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -101,18 +238,46 @@ async def approve_withdrawal(
             
     withdrawal = await WithdrawalService.approve_withdrawal(db, withdrawal_id, current_user.id, file_path)
     
-    # Enviar email
-    if withdrawal.user and withdrawal.user.email:
-        from src.services.email_service import EmailService
-        background_tasks.add_task(
-            EmailService.send_withdrawal_approval_email,
-            to_email=withdrawal.user.email,
-            user_name=withdrawal.user.name,
-            amount=withdrawal.monto_neto if hasattr(withdrawal, 'monto_neto') else withdrawal.monto,
-            method=withdrawal.metodo_pago,
-            bank=withdrawal.banco,
-            account_number=withdrawal.numero_cuenta
-        )
+    # Registro inmutable en Audit Trail (H-65)
+    await log_audit_trail(
+        db=db,
+        action="WITHDRAWAL_APPROVE",
+        module="withdrawals",
+        user=current_user,
+        entity_type="Withdrawal",
+        entity_id=withdrawal_id,
+        description=f"Aprobación de retiro #{withdrawal_id} por valor neto de ${getattr(withdrawal, 'monto_neto', withdrawal.monto):,.2f}",
+        details={"withdrawal_id": withdrawal_id, "monto_neto": float(getattr(withdrawal, 'monto_neto', withdrawal.monto)), "banco": withdrawal.banco},
+        request=request
+    )
+
+    # Enviar email corporativo de aprobación y transferencia
+    try:
+        user_to_email = withdrawal.user
+        if not user_to_email and withdrawal.user_id:
+            from sqlalchemy.future import select
+            u_res = await db.execute(select(User).where(User.id == withdrawal.user_id))
+            user_to_email = u_res.scalars().first()
+
+        if user_to_email and user_to_email.email:
+            from src.services.email_service import EmailService
+            monto_transferido = float(withdrawal.monto_neto or withdrawal.monto)
+            background_tasks.add_task(
+                EmailService.send_withdrawal_approval_email,
+                to_email=user_to_email.email,
+                user_name=user_to_email.name or "Inversionista",
+                amount=monto_transferido,
+                method=withdrawal.metodo_pago or "Transferencia Bancaria",
+                bank=withdrawal.banco or "Entidad Bancaria Registrada",
+                account_number=withdrawal.numero_cuenta or "N/A",
+                tax=float(withdrawal.impuesto or 0),
+                gross_amount=float(withdrawal.monto or 0),
+                account_type=withdrawal.tipo_cuenta,
+                withdrawal_id=withdrawal.id
+            )
+    except Exception as em_err:
+        import logging
+        logging.getLogger(__name__).warning(f"Error encolando correo de aprobación para retiro #{withdrawal.id}: {em_err}")
         
     return withdrawal
 
@@ -120,28 +285,29 @@ async def approve_withdrawal(
 async def reject_withdrawal(
     withdrawal_id: int,
     req: WithdrawalRejectRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Reject a pending withdrawal and refund to wallet.
     """
-    return await WithdrawalService.reject_withdrawal(db, withdrawal_id, current_user.id, req.motivo_rechazo)
+    rejected = await WithdrawalService.reject_withdrawal(db, withdrawal_id, current_user.id, req.motivo_rechazo)
 
-@router.post("/bulk-upload", response_model=Dict[str, Any])
-async def bulk_upload_withdrawals(
-    withdrawals: List[WithdrawalCreate],
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Bulk upload withdrawals for data migration.
-    """
-    created = await WithdrawalService.bulk_create_withdrawals(db, withdrawals)
-    return {
-        "message": f"Successfully imported {len(created)} withdrawals.",
-        "count": len(created)
-    }
+    # Registro inmutable en Audit Trail (H-65)
+    await log_audit_trail(
+        db=db,
+        action="WITHDRAWAL_REJECT",
+        module="withdrawals",
+        user=current_user,
+        entity_type="Withdrawal",
+        entity_id=withdrawal_id,
+        description=f"Rechazo de retiro #{withdrawal_id}. Motivo: {req.motivo_rechazo}",
+        details={"withdrawal_id": withdrawal_id, "motivo_rechazo": req.motivo_rechazo},
+        request=request
+    )
+
+    return rejected
 
 @router.post("/sync-wallet-debits", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def sync_wallet_debits(
@@ -151,7 +317,7 @@ async def sync_wallet_debits(
     """
     Sincroniza retroactivamente todas las transacciones de débito de billetera creando registros de retiro en estado APROBADO.
     """
-    return await WithdrawalService.sync_wallet_debits(db, current_user.id)
+    return await WithdrawalService.sync_wallet_debits(db, current_user.id, actor=current_user)
 
 @router.post("/bulk-process", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def bulk_process_withdrawals(
@@ -165,7 +331,8 @@ async def bulk_process_withdrawals(
     return await WithdrawalService.bulk_process_withdrawals(
         db=db,
         withdrawal_ids=req.withdrawal_ids,
-        admin_id=current_user.id
+        admin_id=current_user.id,
+        actor=current_user
     )
 
 @router.post("/bulk-approve", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
@@ -180,6 +347,7 @@ async def bulk_approve_withdrawals(
     return await WithdrawalService.bulk_approve_withdrawals(
         db=db,
         withdrawal_ids=req.withdrawal_ids,
-        admin_id=current_user.id
+        admin_id=current_user.id,
+        actor=current_user
     )
 

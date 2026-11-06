@@ -14,7 +14,7 @@ import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 export function NosotrosMisionVision() {
   const valores = [
     { icon: <Zap size={20} />, title: "Innovación", desc: "Buscamos siempre nuevas formas de crear valor.", color: GOLD },
-    { icon: <Scale size={20} />, title: "Integridad", desc: "Actuamos con transparencia y responsabilidad.", color: "#60a5fa" },
+    { icon: <Scale size={20} />, title: "Integridad", desc: "Actuamos con transparencia y responsabilidad.", color: "#C9CDD3" },
     { icon: <Users size={20} />, title: "Comunidad", desc: "Crecemos juntos, poniendo a las personas primero.", color: ORANGE },
     { icon: <TrendingUp size={20} />, title: "Escalabilidad", desc: "Diseñamos para el largo plazo desde el inicio.", color: "#34d399" },
     { icon: <Globe size={20} />, title: "Visión global", desc: "Pensamos en grande con impacto local y regional.", color: "#a78bfa" },
@@ -39,7 +39,7 @@ export function NosotrosMisionVision() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
             className="rounded-3xl p-8 md:p-10 relative overflow-hidden group"
-            style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
+            style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}
           >
             <div className="absolute -right-16 -bottom-16 w-48 h-48 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${GOLD}25 0%, transparent 70%)` }} />
 

@@ -9,6 +9,7 @@ import {
     X,
     Users,
     AlertCircle,
+    AlertTriangle,
     UserPlus,
     UserMinus,
     Minus,
@@ -16,6 +17,7 @@ import {
     Calendar
 } from 'lucide-react';
 import { shareMarketService, ShareTradeOrder, SharePriceHistory, ShareIssuance, UserShareAccount } from '../../../../services/shareMarket';
+import { getMediaUrl } from '../../../../services/api';
 import { usersService, User } from '../../../../services/users';
 import { ShareGrowthChart } from '../components/ShareGrowthChart';
 
@@ -45,10 +47,14 @@ export const AdminSharesPage: React.FC = () => {
     // Modal de Sincronización y Resumen de Acciones
     const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
     const [syncStage, setSyncStage] = useState<'confirm' | 'result'>('confirm');
+    // H-192: restar acciones ya otorgadas exige marcarlo de forma explícita
+    const [syncAllowReductions, setSyncAllowReductions] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
     const [syncResult, setSyncResult] = useState<{
         users_synced: number;
         total_shares_credited: number;
+        total_shares_removed?: number;
+        discrepancies_count?: number;
         updated_users: Array<{
             user_id: number;
             user_name: string;
@@ -78,6 +84,11 @@ export const AdminSharesPage: React.FC = () => {
     const [grantLoading, setGrantLoading] = useState(false);
     const [grantError, setGrantError] = useState<string | null>(null);
     const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const minAccountingDate = new Date();
+    minAccountingDate.setFullYear(minAccountingDate.getFullYear() - 1);
+    const minDateStr = minAccountingDate.toISOString().slice(0, 10);
 
     const handleSelectUser = async (u: User) => {
         setSelectedGrantUser(u);
@@ -189,6 +200,21 @@ export const AdminSharesPage: React.FC = () => {
             return;
         }
 
+        if (grantCustomDate) {
+            if (grantCustomDate > todayStr) {
+                setGrantError('La fecha de acreditación/deducción no puede ser futura. El Libro Mayor inmutable solo registra operaciones ya ocurridas.');
+                return;
+            }
+            if (grantCustomDate < minDateStr) {
+                setGrantError(`La fecha no puede ser anterior a ${minDateStr} (período contable cerrado).`);
+                return;
+            }
+            if (grantCustomDate < todayStr && grantReason.trim().length < 15) {
+                setGrantError('Para registrar un asiento contable con fecha retroactiva, debes ingresar una justificación detallada en el motivo (mínimo 15 caracteres).');
+                return;
+            }
+        }
+
         try {
             setGrantLoading(true);
             setGrantError(null);
@@ -290,6 +316,7 @@ export const AdminSharesPage: React.FC = () => {
     const handleOpenSyncModal = () => {
         setSyncStage('confirm');
         setSyncError(null);
+        setSyncAllowReductions(false);
         setIsSyncModalOpen(true);
     };
 
@@ -297,11 +324,13 @@ export const AdminSharesPage: React.FC = () => {
         try {
             setSyncLoading(true);
             setSyncError(null);
-            const res = await shareMarketService.syncLegacyShares();
+            const res = await shareMarketService.syncLegacyShares(syncAllowReductions);
             const details = res.details || {};
             setSyncResult({
                 users_synced: details.users_synced ?? details.synced_users_count ?? 0,
                 total_shares_credited: details.total_shares_credited ?? 0,
+                total_shares_removed: details.total_shares_removed ?? 0,
+                discrepancies_count: details.discrepancies_count ?? 0,
                 updated_users: details.updated_users || []
             });
             setSyncStage('result');
@@ -316,59 +345,62 @@ export const AdminSharesPage: React.FC = () => {
     return (
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* 🏛️ 1. Encabezado de Página (Estándar Soporte en Tickets) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-slate-900 text-white">
-                            Administración Central
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+                        <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
+                            <Layers className="w-6 h-6" />
                         </span>
-                        {pendingOrders.length > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 animate-pulse">
-                                <Clock className="w-3 h-3 text-amber-600" />
-                                {pendingOrders.length} {pendingOrders.length === 1 ? 'Compra pendiente' : 'Compras pendientes'}
-                            </span>
-                        )}
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-montserrat tracking-tight mt-1">
                         Gestión del Mercado de Acciones
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+                    <p className="text-xs text-slate-500 mt-1">
                         Supervisa emisiones, valoración oficial con bitácora obligatoria y aprueba pagos con excedente
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                {/* Acciones y Badges del Header */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                    {pendingOrders.length > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-2xl border border-amber-200 font-montserrat animate-pulse">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            {pendingOrders.length} {pendingOrders.length === 1 ? 'Compra pendiente' : 'Compras pendientes'}
+                        </span>
+                    )}
+
+                    <button
+                        onClick={handleOpenSyncModal}
+                        disabled={syncLoading}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer font-montserrat disabled:opacity-50"
+                        title="Sincronizar retroactivamente las acciones otorgadas por paquetes de inversión existentes"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
+                        <span>Sincronizar Históricas</span>
+                    </button>
+
+                    <button
+                        onClick={handleOpenManualGrantModal}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all shadow-sm cursor-pointer font-montserrat"
+                        title="Asignar o descontar acciones a un usuario manualmente"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Asignar / Descontar</span>
+                    </button>
+
+                    <button
+                        onClick={handleOpenIssuanceModal}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 transition-all cursor-pointer font-montserrat"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Nueva Emisión</span>
+                    </button>
+
                     <button
                         onClick={fetchData}
                         className="p-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
                         title="Actualizar datos"
                     >
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
-                    <button
-                        onClick={handleOpenSyncModal}
-                        disabled={syncLoading}
-                        className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-2xl text-xs font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer font-montserrat disabled:opacity-50"
-                        title="Sincronizar retroactivamente las acciones otorgadas por paquetes de inversión existentes"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
-                        <span>Sincronizar Acciones Históricas</span>
-                    </button>
-                    <button
-                        onClick={handleOpenManualGrantModal}
-                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer font-montserrat"
-                        title="Asignar o descontar acciones a un usuario manualmente"
-                    >
-                        <UserPlus className="w-4 h-4" />
-                        <span>Asignar / Descontar Acciones</span>
-                    </button>
-                    <button
-                        onClick={handleOpenIssuanceModal}
-                        className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer font-montserrat"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Nueva Emisión de Acciones</span>
                     </button>
                 </div>
             </div>
@@ -515,7 +547,7 @@ export const AdminSharesPage: React.FC = () => {
                                     <div className="flex items-center justify-between gap-3 pt-2">
                                         {order.receipt_url && (
                                             <a
-                                                href={order.receipt_url}
+                                                href={getMediaUrl(order.receipt_url)}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
@@ -731,7 +763,7 @@ export const AdminSharesPage: React.FC = () => {
                                         </td>
                                         <td className="p-4 pr-6">
                                             {o.receipt_url && (
-                                                <a href={o.receipt_url} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline font-bold text-[11px] block">
+                                                <a href={getMediaUrl(o.receipt_url)} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline font-bold text-[11px] block">
                                                     Ver Comprobante
                                                 </a>
                                             )}
@@ -759,7 +791,9 @@ export const AdminSharesPage: React.FC = () => {
                         </div>
                         <form onSubmit={handleCreateIssuance} className="space-y-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-700 block mb-1">Título de la Emisión</label>
+                                <label className="text-xs font-bold text-slate-700 block mb-1">
+                                    Título de la Emisión <span className="text-rose-500">*</span>
+                                </label>
                                 <input
                                     type="text"
                                     value={issuanceTitle}
@@ -917,11 +951,25 @@ export const AdminSharesPage: React.FC = () => {
                                         <div className="text-xs text-indigo-950 font-medium space-y-1.5">
                                             <p className="font-bold text-indigo-900">¿Cómo funciona la sincronización?</p>
                                             <p className="text-indigo-800 leading-relaxed">
-                                                El sistema escaneará los contratos de inversión históricos y verificará el paquete adquirido por cada usuario. Se calculará e insertará en la nueva tabla contable (<code className="font-mono bg-white/70 px-1 py-0.5 rounded text-[11px]">user_shares</code> y <code className="font-mono bg-white/70 px-1 py-0.5 rounded text-[11px]">share_movements</code>) la cantidad exacta de acciones estipulada en su paquete.
+                                                El sistema escaneará los contratos de inversión históricos y <strong>acreditará las acciones que falten</strong> según el paquete adquirido por cada usuario. Las acciones ya otorgadas <strong>no se modifican</strong>: si difieren de la definición actual del paquete, solo se informan.
                                             </p>
                                         </div>
                                     </div>
                                 </div>
+
+                                <label className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={syncAllowReductions}
+                                        onChange={(e) => setSyncAllowReductions(e.target.checked)}
+                                        disabled={syncLoading}
+                                        className="mt-0.5 w-4 h-4 accent-amber-600 cursor-pointer"
+                                    />
+                                    <span className="text-xs text-amber-950 font-medium leading-relaxed">
+                                        <strong className="text-amber-900">Permitir RESTAR acciones ya otorgadas.</strong>{' '}
+                                        Si se marca, los saldos se recalculan con la definición ACTUAL de cada paquete y a los usuarios que compraron antes de un cambio se les pueden quitar acciones. Úsalo solo con autorización de negocio.
+                                    </span>
+                                </label>
 
                                 {syncError && (
                                     <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium">
@@ -971,6 +1019,19 @@ export const AdminSharesPage: React.FC = () => {
                                             +{(syncResult?.total_shares_credited || 0).toLocaleString('es-CO')}
                                         </span>
                                     </div>
+                                    {(syncResult?.total_shares_removed || 0) > 0 && (
+                                        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl col-span-2 sm:col-span-3">
+                                            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Acciones Restadas</span>
+                                            <span className="text-xl font-black text-rose-600 font-mono mt-0.5 block">
+                                                -{(syncResult?.total_shares_removed || 0).toLocaleString('es-CO')}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {(syncResult?.discrepancies_count || 0) > 0 && (
+                                        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl col-span-2 sm:col-span-3 text-xs text-amber-900 font-medium">
+                                            <strong>{syncResult?.discrepancies_count}</strong> contrato(s) tienen acciones ya otorgadas distintas a la definición actual de su paquete. No se modificaron; revísalos con negocio.
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Lista de detalle de usuarios actualizados */}
@@ -1260,13 +1321,26 @@ export const AdminSharesPage: React.FC = () => {
                                         </label>
                                         <input
                                             type="date"
+                                            min={minDateStr}
+                                            max={todayStr}
                                             value={grantCustomDate}
                                             onChange={(e) => setGrantCustomDate(e.target.value)}
                                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:ring-2 focus:ring-emerald-500 outline-hidden"
                                         />
-                                        <span className="text-[9px] text-slate-400 block mt-1 leading-tight">
-                                            Fecha registrada en el extracto
-                                        </span>
+                                        <div className="flex items-center justify-between text-[9px] text-slate-400 mt-1">
+                                            <span>Período permitido: {minDateStr} a hoy</span>
+                                            {grantCustomDate && grantCustomDate < todayStr && (
+                                                <span className="font-bold text-amber-600">Retroactivo</span>
+                                            )}
+                                        </div>
+                                        {grantCustomDate && grantCustomDate < todayStr && (
+                                            <div className="mt-1.5 p-2 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-1.5 text-[10px] text-amber-800 leading-tight">
+                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                                <span>
+                                                    <strong>Asiento retroactivo:</strong> Requiere justificación detallada (mínimo 15 caracteres) en el motivo.
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

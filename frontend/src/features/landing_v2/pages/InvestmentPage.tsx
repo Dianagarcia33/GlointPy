@@ -28,7 +28,7 @@ export function InvestmentPage() {
       ========================================================= */}
       <section
         className="relative pt-28 sm:pt-32 md:pt-36 pb-20 md:pb-24 overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
+        style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}
       >
         {/* Fondo decorativo */}
         <div className="absolute inset-0 pointer-events-none opacity-10">
@@ -192,13 +192,13 @@ export function InvestmentPage() {
 
                   <div>
                     <div className="text-[10px] sm:text-xs text-slate-400 tracking-widest">
-                      RENDIMIENTO ACUMULADO
+                      RENTABILIDAD MENSUAL
                     </div>
 
                     <div className="text-2xl sm:text-3xl font-black text-white mt-1">
-                      +34.8%
-                      <span className="text-sm font-normal text-green-400 ml-1">
-                        ↑
+                      3.2% - 4.8%
+                      <span className="text-sm font-normal text-slate-400 ml-1">
+                        / mes
                       </span>
                     </div>
                   </div>
@@ -321,6 +321,20 @@ export function InvestmentPage() {
                       {m}
                     </span>
                   ))}
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-800 grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-[#171614]/60 rounded-lg py-1.5 px-1 border border-slate-800">
+                    <div className="text-[10px] text-slate-400">6 meses</div>
+                    <div className="text-xs font-bold text-white">3.2% <span className="text-[9px] text-slate-400 font-normal">/mes</span></div>
+                  </div>
+                  <div className="bg-[#171614]/60 rounded-lg py-1.5 px-1 border border-slate-800">
+                    <div className="text-[10px] text-slate-400">12 meses</div>
+                    <div className="text-xs font-bold text-white">3.8% <span className="text-[9px] text-slate-400 font-normal">/mes</span></div>
+                  </div>
+                  <div className="bg-[#171614]/60 rounded-lg py-1.5 px-1 border border-slate-800">
+                    <div className="text-[10px] text-slate-400">18 meses</div>
+                    <div className="text-xs font-bold text-white">4.8% <span className="text-[9px] text-slate-400 font-normal">/mes</span></div>
+                  </div>
                 </div>
               </div>
             </FadeUp>

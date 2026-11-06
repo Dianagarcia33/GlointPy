@@ -3,19 +3,19 @@ import React from "react";
 import { motion } from "motion/react";
 import { ShoppingBag, Package, Shield, Truck, Star, ArrowRight, CheckCircle } from "lucide-react";
 import { FadeUp } from "../utils/animations";
-import { DARK, ORANGE } from "../utils/constants";
+import { DARK, GOLD, ORANGE } from "../utils/constants";
 import { SharedFooter } from "../components/SharedFooter";
 
 export function PlacePage() {
   const navigate = useNavigate();
   const categories = [
-    { emoji: "💻", name: "Tecnología Premium", tag: "Exclusivo", color: "#3b82f6" },
+    { emoji: "💻", name: "Tecnología Premium", tag: "Exclusivo", color: "#6B7280" },
     { emoji: "🎧", name: "Accesorios Lifestyle", tag: "Tendencia", color: ORANGE },
     { emoji: "🌿", name: "Wellness & Salud", tag: "Popular", color: "#10b981" },
     { emoji: "🏠", name: "Hogar Inteligente", tag: "Nuevo", color: "#f59e0b" },
     { emoji: "👟", name: "Moda & Calzado", tag: "Exclusivo", color: "#8b5cf6" },
     { emoji: "🧴", name: "Belleza & Cuidado", tag: "Tendencia", color: "#ec4899" },
-    { emoji: "🎮", name: "Gaming & Tech", tag: "Popular", color: "#3b82f6" },
+    { emoji: "🎮", name: "Gaming & Tech", tag: "Popular", color: "#6B7280" },
     { emoji: "🍳", name: "Cocina & Hogar", tag: "Nuevo", color: "#f59e0b" },
   ];
 
@@ -38,7 +38,7 @@ export function PlacePage() {
   return (
     <>
       {/* HERO */}
-      <section className="relative pt-28 sm:pt-32 md:pt-36 pb-24 overflow-hidden" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}>
+      <section className="relative pt-28 sm:pt-32 md:pt-36 pb-24 overflow-hidden" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}>
         <div className="absolute top-1/2 left-1/4 w-52 h-52 md:w-80 md:h-80 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, ${ORANGE}18 0%, transparent 70%)` }} />
         <div className="absolute inset-0 pointer-events-none opacity-10">
           <svg className="w-full h-full" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice">
@@ -61,7 +61,7 @@ export function PlacePage() {
           </FadeUp>
 
           <FadeUp delay={0.3}>
-            <button onClick={goToCatalog} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 inline-flex items-center justify-center gap-2" style={{ background: `linear-gradient(90deg, ${ORANGE}, #ea580c)` }}>Ver catálogo <ArrowRight size={18} /></button>
+            <button onClick={goToCatalog} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90 inline-flex items-center justify-center gap-2" style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`, color: "#140e02" }}>Ver catálogo <ArrowRight size={18} /></button>
           </FadeUp>
         </div>
 
@@ -180,7 +180,7 @@ export function PlacePage() {
             <p className="text-slate-300 mb-9 md:mb-10 leading-relaxed">Únete a miles de compradores que eligen GLOINT Place por su calidad, variedad y servicio.</p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button onClick={goToCatalog} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 inline-flex items-center justify-center gap-2" style={{ background: `linear-gradient(90deg, ${ORANGE}, #ea580c)` }}>Explorar catálogo <ArrowRight size={18} /></button>
+              <button onClick={goToCatalog} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90 inline-flex items-center justify-center gap-2" style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`, color: "#140e02" }}>Explorar catálogo <ArrowRight size={18} /></button>
 
               <button onClick={() => { navigate("/about"); window.scrollTo({ top: 0 }); }} className="w-full sm:w-auto px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90" style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "rgba(255,255,255,0.06)" }}>Conocer GLOINT</button>
             </div>

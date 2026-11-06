@@ -364,7 +364,7 @@ class CRMCalendarService:
 
         ics_body = f"""BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Gloint International Partners//GlointPy CRM//ES
+PRODID:-//Gloint Group//GlointPy CRM//ES
 CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:{uid}

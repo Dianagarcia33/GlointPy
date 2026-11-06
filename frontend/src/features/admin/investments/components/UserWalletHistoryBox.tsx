@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
 import { auditService, WalletTransaction } from '../../../../services/audit';
+import { walletTxLabel, splitTxDescription } from '../../../../utils/walletTransactionLabels';
 
 export const UserWalletHistoryBox: React.FC<{ userId: number }> = ({ userId }) => {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -53,33 +54,41 @@ export const UserWalletHistoryBox: React.FC<{ userId: number }> = ({ userId }) =
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {transactions.map(tx => (
+                {transactions.map(tx => {
+                  // El signo y el color salen del monto (como lo guarda el libro), no del tipo:
+                  // antes todo lo que no era 'ingreso' se pintaba como cargo y con doble '-' (H-168)
+                  const amount = Number(tx.amount) || 0;
+                  const isCredit = amount >= 0;
+                  const { tag, text } = splitTxDescription(tx.description);
+                  return (
                   <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 text-slate-600 font-medium">
                       {new Date(tx.created_at).toLocaleString('es-CO')}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
-                        tx.type === 'ingreso' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                        isCredit ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
                       }`}>
-                        {tx.type === 'ingreso' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                        {tx.type}
+                        {isCredit ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                        {walletTxLabel(tx.type)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {tx.description || tx.reference_type}
+                      {tag && (
+                        <span className="mr-1.5 inline-block px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[9px] font-bold uppercase">{tag}</span>
+                      )}
+                      {text || tx.reference_type}
                     </td>
-                    <td className={`px-4 py-3 text-right font-bold ${
-                      tx.type === 'ingreso' ? 'text-emerald-600' : 'text-red-600'
-                    }`}>
-                      {tx.type === 'ingreso' ? '+' : '-'}
-                      {Number(tx.amount).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                    <td className={`px-4 py-3 text-right font-bold ${isCredit ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {isCredit ? '+' : '-'}
+                      {Math.abs(amount).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-800 font-mono font-medium">
                       {Number(tx.balance_after).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

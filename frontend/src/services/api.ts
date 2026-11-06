@@ -60,16 +60,16 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
 }
 
 async function executeFetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = useAuthStore.getState().accessToken;
-  
   const headers = new Headers(options.headers || {});
   
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.append('Content-Type', 'application/json');
   }
   
-  if (token) {
-    headers.append('Authorization', `Bearer ${token}`);
+  // H-33: la web se autentica solo con la cookie HttpOnly (sin token en JS). Las peticiones que cambian
+  // estado llevan esta cabecera como defensa CSRF (el servidor la exige cuando la sesión viene de la cookie).
+  if (!['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase())) {
+    headers.set('X-Gloint-Client', 'web');
   }
 
   const config: RequestInit = {
@@ -124,7 +124,13 @@ async function executeFetchApi<T = any>(endpoint: string, options: RequestInit =
       if (typeof errorData.detail === 'string') {
         errMsg = errorData.detail;
       } else if (Array.isArray(errorData.detail)) {
-        errMsg = errorData.detail.map((e: any) => `${e.loc?.join('.') || 'Campo'}: ${e.msg}`).join(', ');
+        errMsg = errorData.detail.map((e: any) => {
+          // Los validadores propios del backend ya redactan el mensaje completo en español
+          if (typeof e.msg === 'string' && e.msg.startsWith('Value error, ')) {
+            return e.msg.slice('Value error, '.length);
+          }
+          return `${e.loc?.join('.') || 'Campo'}: ${e.msg}`;
+        }).join(', ');
       } else {
         errMsg = JSON.stringify(errorData.detail);
       }

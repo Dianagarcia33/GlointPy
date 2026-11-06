@@ -2,11 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Investor, getInvestors, deleteInvestor } from '../../../../services/investors';
 import { InvestorModal } from '../components/InvestorModal';
-import { BulkUploadInvestorsModal } from '../components/BulkUploadInvestorsModal';
-import { BulkUploadInvestmentRequestsModal } from '../components/BulkUploadInvestmentRequestsModal';
-import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
-import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
-import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
 import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
@@ -15,8 +10,9 @@ import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInvers
 import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { BulkDocumentModal } from '../components/BulkDocumentModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
-import { formatAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock, ShieldAlert } from 'lucide-react';
+import { formatAccountNumber, maskAccountNumber } from '../../../../utils/format';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock, ShieldAlert, RefreshCw, Search, DollarSign, TrendingUp, FileSpreadsheet } from 'lucide-react';
+import { analyticsService, AdminAnalyticsDashboardData } from '../../../../services/analytics';
 import { Can } from '../../../../components/security/Can';
 import { usePermissions } from '../../../../hooks/usePermissions';
 
@@ -137,17 +133,13 @@ export const AdminInvestorsPage = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
+  const [acceleratedTotal, setAcceleratedTotal] = useState<number | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [hasHistoryFilter, setHasHistoryFilter] = useState<boolean | undefined>(undefined);
 
   const [isMassUploadOpen, setIsMassUploadOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [isBulkReqModalOpen, setIsBulkReqModalOpen] = useState(false);
-  const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
-  const [isBulkWalletModalOpen, setIsBulkWalletModalOpen] = useState(false);
-  const [isBulkTxModalOpen, setIsBulkTxModalOpen] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
@@ -160,6 +152,15 @@ export const AdminInvestorsPage = () => {
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
   const [isBulkDocModalOpen, setIsBulkDocModalOpen] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<AdminAnalyticsDashboardData | null>(null);
+
+  useEffect(() => {
+    if (isAdmin()) {
+      analyticsService.getAdminAnalyticsDashboard()
+        .then(res => setAnalyticsData(res))
+        .catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -197,6 +198,7 @@ export const AdminInvestorsPage = () => {
       });
       setInvestors(response.data);
       setTotal(response.total);
+      if (typeof response.accelerated_total === 'number') setAcceleratedTotal(response.accelerated_total);
       setError(null);
     } catch (err: any) {
       console.error("Ignorando error del servidor para poder pintar el front:", err);
@@ -257,13 +259,117 @@ export const AdminInvestorsPage = () => {
     setEditingInvestor(null);
   };
 
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+    const XLSX = await import('xlsx');
+    try {
+      setIsExportingExcel(true);
+      // Obtener todas las inversiones aplicando los filtros activos si existen
+      const response = await getInvestors({
+        page: 1,
+        limit: 10000,
+        search: search || undefined,
+        has_history: hasHistoryFilter
+      });
+
+      const list = response.data || [];
+      if (list.length === 0) {
+        alert('No hay inversiones para exportar con los filtros seleccionados.');
+        return;
+      }
+
+      const rows = list.map((inv, idx) => ({
+        '#': idx + 1,
+        'ID': inv.id,
+        'CÓDIGO CONTRATO': inv.assigned_code || `#${inv.id}`,
+        'INVERSIONISTA': inv.user?.name || 'N/A',
+        'DOCUMENTO': inv.user?.document_id || 'N/A',
+        'CORREO': inv.user?.email || 'N/A',
+        'TELÉFONO': inv.user?.phone_number || 'N/A',
+        'PAQUETE': inv.package ? `$${Number(inv.package.value).toLocaleString('es-CO')} COP` : 'N/A',
+        'CAPITAL INVERTIDO (COP)': Number(inv.package?.value || 0),
+        'ACCIONES ADQUIRIDAS': Number(inv.package?.granted_shares || 0),
+        'PLAZO (MESES)': inv.period?.months ?? 'N/A',
+        '% RENTABILIDAD MENSUAL': inv.period?.percentage ? `${inv.period.percentage}%` : 'N/A',
+        'FECHA INICIO': inv.start_date ? new Date(inv.start_date).toLocaleDateString('es-CO') : 'N/A',
+        'FECHA VENCIMIENTO': inv.end_date ? new Date(inv.end_date).toLocaleDateString('es-CO') : 'N/A',
+        'ESTADO': inv.is_finalized ? 'FINALIZADO' : 'ACTIVO',
+        'REFERIDO POR': inv.referred_by || 'N/A',
+        'TIENE HISTORIAL': (inv.contract_histories && inv.contract_histories.length > 0) ? 'SÍ' : 'NO',
+        'CONTRATO ACELERADO': inv.is_accelerated ? 'SÍ' : 'NO',
+        'BONO ACELERACIÓN (COP)': Number(inv.total_acceleration_bonus || 0),
+        'DÍAS REDUCIDOS': inv.total_days_reduced || 0,
+        'CAPITAL RETIRADO (COP)': Number(inv.total_capital_withdrawn || 0),
+        'OBSERVACIONES': inv.observations || '',
+        'FECHA CREACIÓN': inv.created_at ? new Date(inv.created_at).toLocaleString('es-CO') : 'N/A'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 6 },  // #
+        { wch: 8 },  // ID
+        { wch: 20 }, // CÓDIGO CONTRATO
+        { wch: 28 }, // INVERSIONISTA
+        { wch: 16 }, // DOCUMENTO
+        { wch: 28 }, // CORREO
+        { wch: 16 }, // TELÉFONO
+        { wch: 22 }, // PAQUETE
+        { wch: 24 }, // CAPITAL INVERTIDO (COP)
+        { wch: 20 }, // ACCIONES ADQUIRIDAS
+        { wch: 16 }, // PLAZO (MESES)
+        { wch: 22 }, // % RENTABILIDAD MENSUAL
+        { wch: 16 }, // FECHA INICIO
+        { wch: 18 }, // FECHA VENCIMIENTO
+        { wch: 14 }, // ESTADO
+        { wch: 20 }, // REFERIDO POR
+        { wch: 16 }, // TIENE HISTORIAL
+        { wch: 18 }, // CONTRATO ACELERADO
+        { wch: 22 }, // BONO ACELERACIÓN (COP)
+        { wch: 16 }, // DÍAS REDUCIDOS
+        { wch: 22 }, // CAPITAL RETIRADO (COP)
+        { wch: 30 }, // OBSERVACIONES
+        { wch: 22 }  // FECHA CREACIÓN
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Inversiones');
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `gloint_inversiones_${dateStr}.xlsx`);
+    } catch (err: any) {
+      console.error('Error exportando inversiones a Excel:', err);
+      alert('Error al descargar el archivo Excel de inversiones: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   const handleSaved = () => {
+    setToast({ message: editingInvestor ? 'Inversión actualizada exitosamente' : 'Inversión creada exitosamente', type: 'success' });
     fetchData();
   };
 
 
 
-  const [activeTab, setActiveTab] = useState<'investments' | 'requests'>('investments');
+  const [activeTab, setActiveTab] = useState<'investments' | 'requests'>(
+    () => (new URLSearchParams(window.location.search).get('tab') === 'requests' ? 'requests' : 'investments')
+  );
+  // Se incrementa al registrar una solicitud para que la pestaña de solicitudes se recargue (H-146)
+  const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
+
+  const pageCapital = investors.reduce((sum, inv) => sum + (inv.package ? Number(inv.package.value || 0) : 0), 0);
+  const acceleratedCount = investors.filter(inv => (inv.accelerations && inv.accelerations.length > 0) || (inv.total_days_reduced && inv.total_days_reduced > 0)).length;
+  const finalizedCount = investors.filter(inv => {
+    const now = new Date().getTime();
+    const start = inv.start_date ? new Date(inv.start_date).getTime() : now;
+    const effectiveDays = inv.effective_days !== undefined
+      ? inv.effective_days
+      : Math.max(1, (inv.period?.days || (inv.period?.months ? inv.period.months * 30 : 0)) - (inv.total_days_reduced || 0));
+    const elapsedDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+    return Boolean(inv.is_finalized || (effectiveDays > 0 && elapsedDays >= effectiveDays) || (now >= new Date(inv.end_date).getTime()));
+  }).length;
 
   if (error) {
       return (
@@ -286,104 +392,217 @@ export const AdminInvestorsPage = () => {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       
-      {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <Users className="w-4 h-4 text-emerald-400" /> {isAdmin() ? 'Control Global de Contratos & Inversiones' : 'Portafolio de Inversionistas Asignados'}
-          </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            {isAdmin() ? 'Gestión de Inversionistas' : 'Mis Inversionistas'}
+      {/* Header Ejecutivo Principal (Estándar Soporte en Tickets) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+            <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs shrink-0">
+              <Users className="w-6 h-6" />
+            </span>
+            <span className="whitespace-nowrap sm:whitespace-normal">
+              {isAdmin() ? 'Gestión de Inversionistas' : 'Portafolio de Inversionistas'}
+            </span>
           </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
+          <p className="text-xs text-slate-500 mt-1 max-w-2xl">
             {isAdmin() 
-              ? 'Administra los contratos activos, rendimientos proyectados, aumentos de capital y solicitudes de inversión globales.'
-              : 'Visualiza los contratos, rendimientos proyectados y solicitudes de inversión de tus clientes asignados.'}
+              ? 'Administra contratos activos, rendimientos proyectados, aumentos de capital y solicitudes de inversión globales.'
+              : 'Visualiza contratos, rendimientos proyectados y solicitudes de inversión de los inversionistas asignados.'}
           </p>
         </div>
         
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <Can permission="admin.investments.solicitud_inversion">
-            <button 
-              onClick={() => setIsNewRequestModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/30 text-sm font-bold cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Solicitud de Inversión</span>
-            </button>
-          </Can>
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
+          <button
+            type="button"
+            onClick={fetchData}
+            title="Actualizar datos"
+            className="p-2 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all shadow-xs cursor-pointer shrink-0"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-600' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            title="Descargar todas las inversiones en archivo Excel (.xlsx)"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0 disabled:opacity-60"
+          >
+            {isExportingExcel ? (
+              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin shrink-0" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            )}
+            <span>{isExportingExcel ? 'Descargando...' : 'Descargar Excel'}</span>
+          </button>
+
           {isAdmin() && (
-            <Can permission="admin.investors.manage">
+            <Can permissions={['admin.investors.generate_documents', 'admin.roles.manage']}>
               <button 
+                type="button"
                 onClick={() => setIsBulkDocModalOpen(true)}
-                className="flex items-center gap-2 px-5 py-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all border border-slate-700/80 shadow-lg text-sm font-bold cursor-pointer shrink-0"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0"
               >
-                <Layers className="w-4 h-4 text-amber-400" />
+                <Layers className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 <span>Generación Masiva</span>
               </button>
             </Can>
           )}
+
+          <Can permission="admin.investments.solicitud_inversion">
+            <button 
+              type="button"
+              onClick={() => setIsNewRequestModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50/80 border border-emerald-200/90 hover:bg-emerald-100/70 text-emerald-800 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Solicitud de Inversión</span>
+            </button>
+          </Can>
+
           <Can permission="admin.investors.create">
             <button 
+              type="button"
               onClick={handleCreate}
-              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 font-montserrat transition-all active:scale-95 cursor-pointer shrink-0"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 shrink-0" />
               <span>Crear Inversión</span>
             </button>
           </Can>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('investments')}
-            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-extrabold text-sm font-montserrat transition-colors cursor-pointer ${
-              activeTab === 'investments'
-                ? 'border-brand-500 text-brand-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            Inversiones (Contratos)
-          </button>
-          <Can permission="admin.investments.solicitud_inversion">
-            <button
-              onClick={() => setActiveTab('requests')}
-              className={`whitespace-nowrap pb-4 px-1 border-b-2 font-extrabold text-sm font-montserrat transition-colors cursor-pointer ${
-                activeTab === 'requests'
-                  ? 'border-brand-500 text-brand-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-              }`}
-            >
-              Solicitud de Inversión
-            </button>
-          </Can>
-        </nav>
+      {/* Tarjetas KPI de Resumen */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Contratos activos: la cifra cuenta contratos, no personas (H-141) */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Contratos Activos
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {analyticsData?.summary_cards?.total_inversionistas ?? total}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            {analyticsData?.summary_cards?.total_inversionistas_inactivos !== undefined && analyticsData.summary_cards.total_inversionistas_inactivos > 0
+              ? `${analyticsData.summary_cards.total_inversionistas_inactivos} contratos finalizados`
+              : 'Registros en plataforma'}
+          </span>
+        </div>
+
+        {/* Capital Gestionado */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Capital Gestionado
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono truncate" title={`$${Number(analyticsData?.summary_cards?.total_invertido ?? pageCapital).toLocaleString('es-CO')}`}>
+            ${Number(analyticsData?.summary_cards?.total_invertido ?? pageCapital).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            {analyticsData?.summary_cards?.total_invertido ? 'Capital total en custodia' : 'Volumen en vista actual'}
+          </span>
+        </div>
+
+        {/* Contratos Acelerados */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Contratos Acelerados
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <Zap className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {acceleratedTotal ?? acceleratedCount}
+          </span>
+          <span className="text-[11px] text-amber-600 font-medium block truncate">
+            Bonos de referidos activos
+          </span>
+        </div>
+
+        {/* Contratos Finalizados / Capital Liquidado */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              {analyticsData?.summary_cards?.total_capital_finalizado ? 'Capital Finalizado' : 'Contratos Finalizados'}
+            </span>
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono truncate">
+            {analyticsData?.summary_cards?.total_capital_finalizado
+              ? `$${Number(analyticsData.summary_cards.total_capital_finalizado).toLocaleString('es-CO', { maximumFractionDigits: 0 })}`
+              : finalizedCount}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            {analyticsData?.summary_cards?.total_capital_finalizado ? 'Total liquidado o al vencimiento' : 'Contratos por liquidar'}
+          </span>
+        </div>
       </div>
 
-      {activeTab === 'requests' ? (
-        <InvestmentRequestsTable />
-      ) : (
-        <>
-          {/* Filters Bar */}
-          <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
-            <div className="flex-1 w-full relative">
+      {/* Pestañas y Filtros */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
+        
+        {/* Pestañas de Vista */}
+        <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/80 overflow-x-auto max-w-full scrollbar-none shrink-0 w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveTab('investments')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap font-montserrat ${
+              activeTab === 'investments'
+                ? 'bg-white text-brand-600 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5 shrink-0" />
+            <span>Inversiones (Contratos)</span>
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-brand-50 text-brand-700 font-extrabold">
+              {total}
+            </span>
+          </button>
+
+          <Can permission="admin.investments.solicitud_inversion">
+            <button
+              type="button"
+              onClick={() => setActiveTab('requests')}
+              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap font-montserrat ${
+                activeTab === 'requests'
+                  ? 'bg-white text-emerald-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+              <span>Solicitudes de Inversión</span>
+            </button>
+          </Can>
+        </div>
+
+        {activeTab === 'investments' && (
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full xl:w-auto">
+            <div className="relative flex-1 min-w-[240px] sm:w-80">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input 
                 type="text" 
                 placeholder="Buscar por código, nombre, correo o documento..." 
-                className="w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                className="w-full pl-10 pr-3.5 py-2 text-xs bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand-500 font-sans"
                 value={searchInput}
-                onChange={(e) => {
-                  setSearchInput(e.target.value);
-                }}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
-            <div className="w-full md:w-64">
+            <div className="flex items-center gap-2 flex-1 sm:flex-initial">
               <select
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all bg-white text-slate-700"
+                className="w-full sm:w-auto px-3.5 py-2 text-xs font-bold font-montserrat text-slate-700 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand-500 cursor-pointer"
                 value={hasHistoryFilter === undefined ? "" : hasHistoryFilter.toString()}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -397,12 +616,18 @@ export const AdminInvestorsPage = () => {
               </select>
             </div>
           </div>
+        )}
+      </div>
 
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200">
-        <div className="overflow-x-auto min-h-[440px] pb-16">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
-              <tr>
+      {activeTab === 'requests' ? (
+        <InvestmentRequestsTable onDataChanged={fetchData} refreshKey={requestsRefreshKey} />
+      ) : (
+        <>
+          <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
+            <div className="overflow-x-auto min-h-[440px] pb-16">
+              <table className="w-full text-left text-sm text-slate-600">
+                <thead className="bg-slate-50/80 text-slate-400 font-bold border-b border-slate-200/80 uppercase text-[10px] tracking-wider font-montserrat">
+                  <tr>
                 <th className="px-3 py-3 w-8"></th>
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Código / Ref.</th>
@@ -630,7 +855,7 @@ export const AdminInvestorsPage = () => {
                               }}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all border cursor-pointer ${
                                 openActionMenuId === investor.id
-                                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                                  ? 'bg-brand-50 text-brand-700 border-brand-200 shadow-xs'
                                   : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200 shadow-2xs'
                               }`}
                             >
@@ -640,7 +865,7 @@ export const AdminInvestorsPage = () => {
                             </button>
 
                             {openActionMenuId === investor.id && (
-                              <div className={`absolute right-0 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
+                              <div className={`absolute right-0 w-64 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
                                 isNearBottom ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'
                               }`}>
                                 
@@ -1024,7 +1249,9 @@ export const AdminInvestorsPage = () => {
                                       </div>
                                       <div className="space-y-1 pl-1">
                                         <div className="text-[9px] text-slate-400 uppercase font-medium tracking-wide">Número de Cuenta</div>
-                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{formatAccountNumber(acc.numero_cuenta)}</div>
+                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">
+                                          {isAdmin() ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta)}
+                                        </div>
                                       </div>
                                     </div>
                                   ))}
@@ -1162,7 +1389,7 @@ export const AdminInvestorsPage = () => {
           <div className="text-slate-500">
             {total > 0 ? (
               <span>
-                Mostrando <strong className="font-bold text-slate-800">{(page - 1) * limit + 1}</strong> a <strong className="font-bold text-slate-800">{Math.min(page * limit, total)}</strong> de <strong className="font-bold text-slate-800">{total}</strong> inversionistas <span className="text-slate-400 font-normal ml-1">(Página {page} de {Math.max(1, Math.ceil(total / limit))})</span>
+                Mostrando <strong className="font-bold text-slate-800">{(page - 1) * limit + 1}</strong> a <strong className="font-bold text-slate-800">{Math.min(page * limit, total)}</strong> de <strong className="font-bold text-slate-800">{total}</strong> contratos <span className="text-slate-400 font-normal ml-1">(Página {page} de {Math.max(1, Math.ceil(total / limit))})</span>
               </span>
             ) : (
               <span>0 inversionistas</span>
@@ -1199,51 +1426,6 @@ export const AdminInvestorsPage = () => {
         investor={editingInvestor}
       />
       
-      <BulkUploadInvestorsModal
-        isOpen={isBulkModalOpen}
-        onClose={() => setIsBulkModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadInvestmentRequestsModal
-        isOpen={isBulkReqModalOpen}
-        onClose={() => setIsBulkReqModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkReqModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadBankAccountsModal
-        isOpen={isBulkBankModalOpen}
-        onClose={() => setIsBulkBankModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkBankModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadWalletsModal
-        isOpen={isBulkWalletModalOpen}
-        onClose={() => setIsBulkWalletModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkWalletModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadWalletTransactionsModal
-        isOpen={isBulkTxModalOpen}
-        onClose={() => setIsBulkTxModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkTxModalOpen(false);
-          fetchData();
-        }}
-      />
-
       <WalletAdjustmentModal
         isOpen={!!walletToAdjust}
         onClose={() => {
@@ -1302,6 +1484,7 @@ export const AdminInvestorsPage = () => {
         onClose={() => {
           setIsNewRequestModalOpen(false);
           fetchData();
+          setRequestsRefreshKey(k => k + 1);
         }}
       />
 

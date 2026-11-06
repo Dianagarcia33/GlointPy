@@ -1,18 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check, Landmark, ArrowDownToLine, ArrowDownLeft } from 'lucide-react';
+import { formatApiDateTime } from '../../../../utils/format';
+import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check, Landmark, ArrowDownToLine, ArrowDownLeft, Receipt } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
-import { Withdrawal, PaginatedWithdrawals } from '../types';
+import { Withdrawal, PaginatedWithdrawals, CompanyTaxLedgerSummary } from '../types';
 import { WithdrawalApprovalModal } from '../components/WithdrawalApprovalModal';
 import { BulkPayoutPreviewModal } from '../components/BulkPayoutPreviewModal';
 import { BulkApprovePreviewModal } from '../components/BulkApprovePreviewModal';
 import { GlobalAccountStatementModal } from '../../users/components/GlobalAccountStatementModal';
+import { CompanyTaxLedgerModal } from '../components/CompanyTaxLedgerModal';
 import { bankAccountsService, DataBank } from '../../../../services/bankAccounts';
 import { Can } from '../../../../components/security/Can';
 import { AdminRechargesManager } from '../components/AdminRechargesManager';
 import { getAllRechargesAdmin } from '../../../../services/wallets';
 
+import { SkeletonTableRows } from '../../../../components/common/Skeleton';
 export const PaymentManagementPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'withdrawals' | 'recharges'>('withdrawals');
+  const [activeTab, setActiveTab] = useState<'withdrawals' | 'recharges'>(
+    () => (new URLSearchParams(window.location.search).get('tab') === 'recharges' ? 'recharges' : 'withdrawals')
+  );
   const [pendingRechargesCount, setPendingRechargesCount] = useState<number>(0);
 
   const [data, setData] = useState<PaginatedWithdrawals | null>(null);
@@ -27,6 +32,8 @@ export const PaymentManagementPage: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isGlobalStatementOpen, setIsGlobalStatementOpen] = useState(false);
+  const [isTaxLedgerOpen, setIsTaxLedgerOpen] = useState(false);
+  const [taxSummary, setTaxSummary] = useState<CompanyTaxLedgerSummary | null>(null);
 
   // Multi-selection states
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -54,11 +61,21 @@ export const PaymentManagementPage: React.FC = () => {
     }
   }, [toast]);
 
+  const loadTaxSummary = async () => {
+    try {
+      const res = await paymentService.getCompanyTaxLedger();
+      setTaxSummary(res);
+    } catch (err) {
+      console.error('Error loading tax summary:', err);
+    }
+  };
+
   const fetchWithdrawals = async () => {
     try {
       setLoading(true);
       const res = await paymentService.getWithdrawals(page, limit, search, statusFilter, startDate, endDate, typeFilter);
       setData(res);
+      loadTaxSummary();
     } catch (error) {
       console.error('Error fetching withdrawals:', error);
     } finally {
@@ -68,6 +85,7 @@ export const PaymentManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchWithdrawals();
+    loadTaxSummary();
   }, [page, statusFilter, typeFilter, startDate, endDate]);
 
   const handleSyncWalletDebits = async () => {
@@ -244,6 +262,120 @@ export const PaymentManagementPage: React.FC = () => {
     }
   };
 
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+    const XLSX = await import('xlsx');
+    try {
+      setIsExportingExcel(true);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const wb = XLSX.utils.book_new();
+
+      if (activeTab === 'withdrawals') {
+        const res = await paymentService.getWithdrawals(1, 10000, search, statusFilter, startDate, endDate, typeFilter);
+        const withdrawalsList = res.data || [];
+        if (withdrawalsList.length === 0) {
+          alert('No hay retiros o pagos para exportar con los filtros actuales.');
+          return;
+        }
+
+        const rows = withdrawalsList.map((w, idx) => ({
+          '#': idx + 1,
+          'ID': w.id,
+          'FECHA SOLICITUD': formatApiDateTime(w.fecha_solicitud, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          'FECHA PAGO': formatApiDateTime(w.fecha_retiro, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          'INVERSIONISTA': w.user?.name || `Usuario inexistente (#${w.user_id})`,
+          'DOCUMENTO': w.user?.document_id || 'N/A',
+          'CORREO': w.user?.email || 'N/A',
+          'BANCO': w.banco || 'N/A',
+          'TIPO CUENTA': w.tipo_cuenta || 'N/A',
+          'NÚMERO CUENTA': w.numero_cuenta || 'N/A',
+          'TIPO RETIRO': w.tipo ? w.tipo.toUpperCase() : 'N/A',
+          'MONTO BRUTO (COP)': Number(w.monto || 0),
+          'RETENCIÓN 3.2% (COP)': Number(w.impuesto || 0),
+          'MONTO NETO (COP)': Number(w.monto_neto || 0),
+          'ESTADO': w.estado ? w.estado.toUpperCase() : 'N/A',
+          'MÉTODO PAGO': w.metodo_pago || 'TRANSFERENCIA',
+          'NOTAS / RECHAZO': w.observaciones || w.motivo_rechazo || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+          { wch: 6 },  // #
+          { wch: 8 },  // ID
+          { wch: 22 }, // FECHA SOLICITUD
+          { wch: 22 }, // FECHA PAGO
+          { wch: 28 }, // INVERSIONISTA
+          { wch: 16 }, // DOCUMENTO
+          { wch: 28 }, // CORREO
+          { wch: 20 }, // BANCO
+          { wch: 16 }, // TIPO CUENTA
+          { wch: 20 }, // NÚMERO CUENTA
+          { wch: 16 }, // TIPO RETIRO
+          { wch: 20 }, // MONTO BRUTO (COP)
+          { wch: 22 }, // RETENCIÓN 3.2% (COP)
+          { wch: 20 }, // MONTO NETO (COP)
+          { wch: 16 }, // ESTADO
+          { wch: 18 }, // MÉTODO PAGO
+          { wch: 30 }  // NOTAS / RECHAZO
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Retiros y Pagos');
+        XLSX.writeFile(wb, `gloint_gestion_pagos_retiros_${dateStr}.xlsx`);
+      } else {
+        const allRecharges = await getAllRechargesAdmin();
+        const rechargesList = allRecharges || [];
+        if (rechargesList.length === 0) {
+          alert('No hay recargas para exportar.');
+          return;
+        }
+
+        const rows = rechargesList.map((r, idx) => ({
+          '#': idx + 1,
+          'ID': r.id,
+          'FECHA SOLICITUD': formatApiDateTime(r.created_at, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          'FECHA REVISIÓN': formatApiDateTime(r.reviewed_at, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          'INVERSIONISTA': r.user_name || 'N/A',
+          'DOCUMENTO': r.user_document || 'N/A',
+          'CORREO': r.user_email || 'N/A',
+          'MONTO (COP)': Number(r.amount || 0),
+          'MÉTODO DE PAGO': r.payment_method || 'N/A',
+          'REFERENCIA': r.reference_number || 'N/A',
+          'ESTADO': r.status ? r.status.toUpperCase() : 'N/A',
+          'NOTAS USUARIO': r.user_notes || '',
+          'NOTAS ADMINISTRADOR': r.admin_notes || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+          { wch: 6 },  // #
+          { wch: 8 },  // ID
+          { wch: 22 }, // FECHA SOLICITUD
+          { wch: 22 }, // FECHA REVISIÓN
+          { wch: 28 }, // INVERSIONISTA
+          { wch: 16 }, // DOCUMENTO
+          { wch: 28 }, // CORREO
+          { wch: 16 }, // TELÉFONO
+          { wch: 18 }, // MONTO (COP)
+          { wch: 20 }, // MÉTODO DE PAGO
+          { wch: 22 }, // REFERENCIA
+          { wch: 16 }, // ESTADO
+          { wch: 30 }, // NOTAS USUARIO
+          { wch: 30 }  // NOTAS ADMINISTRADOR
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Recargas Billetera');
+        XLSX.writeFile(wb, `gloint_gestion_pagos_recargas_${dateStr}.xlsx`);
+      }
+    } catch (err: any) {
+      console.error('Error exportando pagos a Excel:', err);
+      alert('Error al descargar el archivo Excel de pagos: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   // Calculate quick stats (Globales no discriminados por página)
   const totalRequestsCount = data?.summary?.total_count ?? (data?.total || 0);
   const pendingCount = data?.summary?.pending_count ?? (data?.data || []).filter(i => i.estado === 'pendiente').length;
@@ -319,28 +451,78 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header Banner (Estilo Panel Comercial) */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <DollarSign className="w-4 h-4 text-brand-400" /> Tesorería & Pagos
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <span>Gestión de Pagos & Tesorería</span>
+            </h1>
+            <button
+              onClick={() => {
+                fetchWithdrawals();
+                loadTaxSummary();
+              }}
+              disabled={loading}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Pagos & Tesorería
-          </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
-            Supervisión integral de solicitudes de retiro, recargas de billetera de inversionistas, verificación bancaria y auditoría contable.
+          <p className="text-slate-500 text-sm mt-1 font-normal">
+            Supervisión integral de retiros de fondos, dispersión masiva ACH, recargas de billetera y conciliación fiscal contable.
           </p>
         </div>
 
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+        {/* Acciones principales */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+          <button
+            type="button"
+            onClick={handleSyncWalletDebits}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-2xs cursor-pointer disabled:opacity-50 font-montserrat"
+            title="Sincronizar débitos de billetera pendientes"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-brand-600' : ''}`} />
+            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Débitos'}</span>
+          </button>
+
           <button 
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-2xs cursor-pointer disabled:opacity-60 font-montserrat"
+            title="Descargar pagos y solicitudes en archivo Excel (.xlsx)"
+          >
+            {isExportingExcel ? (
+              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            <span>{isExportingExcel ? 'Descargando...' : 'Descargar Excel'}</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => setIsTaxLedgerOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-brand-800 hover:text-brand-900 bg-brand-50/90 hover:bg-brand-100 border border-brand-200/80 rounded-xl transition-all shadow-2xs cursor-pointer font-montserrat"
+            title="Ver Reporte de Impuestos y Recaudos del 3.2%"
+          >
+            <Receipt className="w-3.5 h-3.5 text-brand-600" />
+            <span>Reporte Fiscal (3.2%)</span>
+          </button>
+
+          <button 
+            type="button"
             onClick={() => setIsGlobalStatementOpen(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 rounded-xl transition-all shadow-md shadow-brand-500/20 cursor-pointer font-montserrat"
             title="Ver auditoría financiera y extracto general de la plataforma"
           >
-            <Landmark className="w-4 h-4 text-emerald-400" />
+            <Landmark className="w-3.5 h-3.5" />
             <span>Estado de Cuenta General</span>
           </button>
         </div>
@@ -351,9 +533,9 @@ export const PaymentManagementPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('withdrawals')}
-          className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 py-2 px-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer font-montserrat ${
             activeTab === 'withdrawals'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+              ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
               : 'text-slate-500 hover:text-slate-900'
           }`}
         >
@@ -369,9 +551,9 @@ export const PaymentManagementPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('recharges')}
-          className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 py-2 px-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer font-montserrat ${
             activeTab === 'recharges'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+              ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
               : 'text-slate-500 hover:text-slate-900'
           }`}
         >
@@ -389,66 +571,107 @@ export const PaymentManagementPage: React.FC = () => {
         <AdminRechargesManager onPendingCountChange={setPendingRechargesCount} />
       ) : (
         <>
-      {/* KPI Cards Summary (Globales / Sin discriminar por paginación) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+      {/* KPI Cards Summary (5 Métricas Clave Estandarizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Card 1: Total Solicitudes */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Solicitudes</span>
-            <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100">
-              <Wallet className="w-5 h-5" />
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Total Solicitudes
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-3xl font-extrabold text-slate-900 font-montserrat tracking-tight">{totalRequestsCount}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">Registros en plataforma</p>
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {totalRequestsCount}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Registros en plataforma
+          </span>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        {/* Card 2: Monto Pendiente */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Total Monto Pendiente</span>
-            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
-              <Clock className="w-5 h-5" />
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Monto Pendiente
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-2xl font-extrabold text-amber-600 font-montserrat tracking-tight">{formatCurrency(pendingAmountTotal)}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              <strong className="font-bold text-amber-700">{pendingCount}</strong> {pendingCount === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'} por revisar
-            </p>
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
+            {formatCurrency(pendingAmountTotal)}
+          </span>
+          <span className="text-[11px] text-amber-700 font-medium block truncate">
+            <strong className="font-bold">{pendingCount}</strong> pendientes por dispersar
+          </span>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        {/* Card 3: Aprobados / Procesados */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Aprobados / Procesados</span>
-            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
-              <CheckCircle2 className="w-5 h-5" />
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Aprobados / Proc.
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-3xl font-extrabold text-emerald-600 font-montserrat tracking-tight">{approvedCount}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">Desembolsos autorizados</p>
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {approvedCount}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Desembolsos autorizados
+          </span>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        {/* Card 4: Desembolsado */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Desembolsado a la Fecha</span>
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
-              <DollarSign className="w-5 h-5" />
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Desembolsado
+            </span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+              <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-2xl font-extrabold text-slate-900 font-montserrat tracking-tight">{formatCurrency(totalAmountPaid)}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">Suma acumulada desembolsada</p>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {formatCurrency(totalAmountPaid)}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Suma acumulada pagada
+          </span>
+        </div>
+
+        {/* Card 5: Caja Fiscal (3.2%) */}
+        <div 
+          onClick={() => setIsTaxLedgerOpen(true)}
+          className="bg-brand-50/30 hover:bg-brand-50/50 border border-brand-200/90 hover:border-brand-300 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 cursor-pointer transition-all group"
+          title="Abrir Libro Fiscal de Retenciones 3.2%"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-brand-800 font-bold uppercase tracking-wider block font-montserrat">
+              Caja Fiscal (3.2%)
+            </span>
+            <div className="p-2 bg-brand-100 text-brand-700 rounded-xl shrink-0 group-hover:scale-105 transition-transform">
+              <Receipt className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-brand-900 block tracking-tight font-mono">
+            {formatCurrency(taxSummary?.current_balance ?? 0)}
+          </span>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+            <span>{taxSummary?.total_transactions || 0} recaudos</span>
+            <span className="text-brand-700 underline font-bold group-hover:text-brand-900">Ver libro &rarr;</span>
           </div>
         </div>
       </div>
 
-      {/* Control Bar: Filters & Search (Estilo Responsivo Estandarizado) */}
-      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+      {/* Control Bar: Filters & Search */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
           
           {/* Búsqueda */}
           <form onSubmit={handleSearch} className="w-full lg:w-80 relative">
@@ -458,35 +681,35 @@ export const PaymentManagementPage: React.FC = () => {
               placeholder="Buscar por usuario, cédula o correo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs sm:text-sm font-medium"
+              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs sm:text-sm font-medium"
             />
           </form>
 
           {/* Rangos de Fecha Responsivos */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-2.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-semibold w-full lg:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50/80 p-1.5 sm:p-2 rounded-xl border border-slate-200/80 text-xs font-semibold w-full lg:w-auto">
             <div className="flex items-center gap-2 flex-1">
-              <span className="text-slate-500 font-bold px-1 uppercase tracking-wider text-[10px] shrink-0">Desde:</span>
+              <span className="text-slate-500 font-bold px-1 uppercase tracking-wider text-[10px] shrink-0 font-montserrat">Desde:</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
+                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
               />
             </div>
             <div className="flex items-center gap-2 flex-1">
-              <span className="text-slate-500 font-bold px-1 uppercase tracking-wider text-[10px] shrink-0">Hasta:</span>
+              <span className="text-slate-500 font-bold px-1 uppercase tracking-wider text-[10px] shrink-0 font-montserrat">Hasta:</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
+                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
               />
             </div>
             {(startDate || endDate) && (
               <button
                 type="button"
                 onClick={() => { setStartDate(''); setEndDate(''); }}
-                className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 self-end sm:self-center"
+                className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors cursor-pointer shrink-0 self-end sm:self-center font-montserrat"
                 title="Limpiar rango de fechas"
               >
                 Limpiar
@@ -498,8 +721,8 @@ export const PaymentManagementPage: React.FC = () => {
         {/* Filtros Combinados: Tipo de Retiro y Estado */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
           {/* Filtro por Tipo / Origen */}
-          <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
-            <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0"><Filter className="w-3.5 h-3.5" /> Tipo:</span>
+          <div className="flex items-center gap-1.5 bg-slate-50/80 p-1.5 rounded-xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
+            <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0 font-montserrat text-[11px]"><Filter className="w-3.5 h-3.5" /> Tipo:</span>
             {[
               { id: 'todos', label: 'Todos' },
               { id: 'rendimiento', label: 'Rendimientos' },
@@ -514,9 +737,9 @@ export const PaymentManagementPage: React.FC = () => {
                   setPage(1);
                   clearSelection();
                 }}
-                className={`py-1.5 px-3 rounded-xl transition-all shrink-0 cursor-pointer text-xs font-bold ${
+                className={`py-1 px-3 rounded-lg transition-all shrink-0 cursor-pointer text-xs font-bold font-montserrat ${
                   typeFilter === t.id 
-                    ? 'bg-brand-600 text-white shadow-xs' 
+                    ? 'bg-brand-600 text-white shadow-2xs' 
                     : 'text-slate-600 hover:bg-slate-200/60'
                 }`}
               >
@@ -526,9 +749,9 @@ export const PaymentManagementPage: React.FC = () => {
           </div>
 
           {/* Filtro por Estado */}
-          <div className="flex items-center justify-between gap-1.5 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
+          <div className="flex items-center justify-between gap-1.5 bg-slate-50/80 p-1.5 rounded-xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
             <div className="flex items-center gap-1.5 overflow-x-auto">
-              <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0"><CheckCircle2 className="w-3.5 h-3.5" /> Estado:</span>
+              <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0 font-montserrat text-[11px]"><CheckCircle2 className="w-3.5 h-3.5" /> Estado:</span>
               {['todos', 'pendiente', 'aprobado', 'procesado', 'rechazado'].map((st) => (
                 <button
                   key={st}
@@ -538,9 +761,9 @@ export const PaymentManagementPage: React.FC = () => {
                     setPage(1);
                     clearSelection();
                   }}
-                  className={`py-1.5 px-3 rounded-xl transition-all capitalize shrink-0 cursor-pointer text-xs font-bold ${
+                  className={`py-1 px-2.5 rounded-lg transition-all capitalize shrink-0 cursor-pointer text-xs font-bold font-montserrat ${
                     statusFilter === st 
-                      ? 'bg-slate-900 text-white shadow-xs' 
+                      ? 'bg-slate-900 text-white shadow-2xs' 
                       : 'text-slate-600 hover:bg-slate-200/60'
                   }`}
                 >
@@ -556,7 +779,7 @@ export const PaymentManagementPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsBulkModalOpen(true)}
-                    className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                    className="px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 font-montserrat"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5" />
                     Disp. ({selectedIds.size})
@@ -566,7 +789,7 @@ export const PaymentManagementPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsBulkApproveModalOpen(true)}
-                    className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                    className="px-3 py-1 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 font-montserrat"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Aprobar ({selectedIds.size})
@@ -578,11 +801,11 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Table Container (Estilo Panel Comercial) */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+      {/* Main Table Container */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[11px] tracking-widest">
+            <thead className="bg-slate-50/80 border-b border-slate-200/80 text-slate-400 font-bold uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-4 py-4 w-12 text-center">
                   <button
@@ -619,12 +842,7 @@ export const PaymentManagementPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading && !data ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-brand-600 mx-auto" />
-                    <p className="mt-2 text-slate-500 font-medium text-sm">Cargando solicitudes de retiro...</p>
-                  </td>
-                </tr>
+                <SkeletonTableRows rows={7} cols={7} label="Cargando solicitudes de retiro…" />
               ) : filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">
@@ -672,7 +890,7 @@ export const PaymentManagementPage: React.FC = () => {
                         <div className="text-slate-500 text-xs font-medium mt-0.5">{withdrawal.fecha_solicitud}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900">{withdrawal.user?.name || 'N/A'}</div>
+                        <div className="font-bold text-slate-900">{withdrawal.user?.name || `Usuario inexistente (#${withdrawal.user_id})`}</div>
                         {withdrawal.user?.document_id && (
                           <div className="text-slate-500 text-xs font-mono">Doc: {withdrawal.user.document_id}</div>
                         )}
@@ -686,7 +904,14 @@ export const PaymentManagementPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="font-black text-slate-900 text-base">{formatCurrency(withdrawal.monto_neto)}</div>
-                        <div className="text-slate-400 text-xs font-medium mt-0.5" title="Monto Bruto">Bruto: {formatCurrency(withdrawal.monto)}</div>
+                        <div className="flex items-center justify-end gap-1.5 text-xs mt-0.5">
+                          <span className="text-slate-400" title="Monto Bruto Solicitado">Bruto: {formatCurrency(withdrawal.monto)}</span>
+                          {Number(withdrawal.impuesto || 0) > 0 && (
+                            <span className="text-rose-600 font-bold bg-rose-50 px-1.5 py-0.5 rounded text-[11px]" title="Retención del 3.2% aplicada">
+                              -{formatCurrency(withdrawal.impuesto)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         {getStatusBadge(withdrawal.estado)}
@@ -696,14 +921,14 @@ export const PaymentManagementPage: React.FC = () => {
                           {withdrawal.estado === 'pendiente' ? (
                             <button 
                               onClick={(e) => { e.stopPropagation(); setSelectedWithdrawal(withdrawal); }}
-                              className="px-4 py-1.5 text-xs font-extrabold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                              className="px-3.5 py-1.5 text-xs font-semibold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80 rounded-xl transition-all shadow-2xs cursor-pointer font-montserrat"
                             >
                               Revisar
                             </button>
                           ) : withdrawal.estado === 'procesado' ? (
                             <button 
                               onClick={(e) => { e.stopPropagation(); setSelectedWithdrawal(withdrawal); }}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-blue-800 hover:text-blue-900 bg-blue-50 hover:bg-blue-100/80 border border-blue-200/80 rounded-xl transition-all shadow-2xs cursor-pointer font-montserrat"
                               title="Aprobar Solicitud Procesada"
                             >
                               <CheckCircle2 size={14} className="text-blue-600" />
@@ -723,7 +948,7 @@ export const PaymentManagementPage: React.FC = () => {
                                   window.open(`${baseUrl}/withdrawals/${withdrawal.id}/receipt`, '_blank');
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 rounded-xl transition-all shadow-2xs cursor-pointer font-montserrat"
                               title="Ver Comprobante de Transferencia"
                             >
                               <FileText size={14} />
@@ -816,6 +1041,15 @@ export const PaymentManagementPage: React.FC = () => {
       <GlobalAccountStatementModal
         isOpen={isGlobalStatementOpen}
         onClose={() => setIsGlobalStatementOpen(false)}
+      />
+
+      {/* Modal Libro Fiscal & Caja de Impuestos (3.2%) */}
+      <CompanyTaxLedgerModal
+        isOpen={isTaxLedgerOpen}
+        onClose={() => {
+          setIsTaxLedgerOpen(false);
+          loadTaxSummary();
+        }}
       />
     </div>
   );

@@ -168,6 +168,26 @@ export function InvestmentChatbot() {
     return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const renderFormattedText = (content: string) => {
+    return content.split('\n').map((line, lIdx) => {
+      const parts = line.split(/(\*\*.*?\*\*)/g);
+      return (
+        <span key={lIdx} className="block min-h-[1.1rem]">
+          {parts.map((part, pIdx) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return (
+                <strong key={pIdx} className="font-bold text-slate-900">
+                  {part.slice(2, -2)}
+                </strong>
+              );
+            }
+            return part;
+          })}
+        </span>
+      );
+    });
+  };
+
   // Cálculo real con la fórmula oficial de Gloint
   const calculateRealProjection = (monto: number, periodo: PeriodItem, pkg: PackageItem): RealCalculation => {
     const percentage = Number(periodo.percentage) || 0;
@@ -201,26 +221,12 @@ export function InvestmentChatbot() {
         {
           id: 'welcome-1',
           sender: 'bot',
-          text: '¡Hola! Te doy la bienvenida al Concierge de Inversión de GLOINT. 👋',
+          text: '¡Hola! Te doy la bienvenida a GLOINT. 👋\n\nSoy tu asesor patrimonial con Inteligencia Artificial. Puedo resolver todas tus dudas sobre nuestro modelo, rentabilidades, garantías, contratos e inversiones. ¿En qué te puedo asesorar hoy?',
           timestamp: getTimeString(),
           type: 'text'
-        },
-        {
-          id: 'welcome-2',
-          sender: 'bot',
-          text: 'Soy tu asistente de inversión. Te ayudaré a proyectar los rendimientos de nuestros paquetes predefinidos y a coordinar una reunión privada con uno de nuestros directivos de inversión.',
-          timestamp: getTimeString(),
-          type: 'text'
-        },
-        {
-          id: 'welcome-3',
-          sender: 'bot',
-          text: 'Por favor selecciona a continuación el paquete de inversión que deseas consultar:',
-          timestamp: getTimeString(),
-          type: 'options_packages'
         }
       ]);
-    }, 500);
+    }, 400);
   };
 
   // Usuario selecciona un paquete oficial
@@ -438,8 +444,8 @@ export function InvestmentChatbot() {
     }
   };
 
-  // Motor de respuesta libre estricto y sin datos inventados
-  const processFreeTextInput = (text: string) => {
+  // Motor conversacional inteligente con Google Gemini AI
+  const processFreeTextInput = async (text: string) => {
     const raw = text.trim();
     if (!raw) return;
 
@@ -450,123 +456,47 @@ export function InvestmentChatbot() {
       timestamp: getTimeString(),
       type: 'text'
     };
+
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      setIsTyping(false);
-      const lower = raw.toLowerCase();
+    try {
+      // Historial previo para contexto conversacional en Gemini
+      const historyPayload = messages
+        .filter(m => m.type === 'text' && m.text)
+        .map(m => ({
+          role: (m.sender === 'user' ? 'user' : 'model') as 'user' | 'model',
+          content: m.text || ''
+        }));
 
-      // 1. Si el usuario escribe una cifra o monto
-      const cleanDigits = lower.replace(/[^\d]/g, '');
-      const hasNumberWord = lower.includes('millon') || lower.includes('palo') || lower.includes('monto') || cleanDigits.length >= 6;
-      
-      if (hasNumberWord) {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: `bot-pkgs-only-${Date.now()}`,
-            sender: 'bot',
-            text: 'En GLOINT operamos exclusivamente con **paquetes de inversión predefinidos**. Por favor selecciona a continuación el paquete oficial que más se adapte a tu capital:',
-            timestamp: getTimeString(),
-            type: 'options_packages'
-          }
-        ]);
-        return;
-      }
+      const res = await crmService.sendChatbotAIMessage(raw, historyPayload);
 
-      // 2. Consulta de tasas y periodos reales
-      if (
-        lower.includes('rentabilidad') || 
-        lower.includes('rendimiento') || 
-        lower.includes('tasa') || 
-        lower.includes('porcentaje') ||
-        lower.includes('plazo') ||
-        lower.includes('tiempo')
-      ) {
-        if (periods.length > 0) {
-          const periodList = periods.map(p => `• **${p.name}**: ${p.percentage}% mensual (${p.months} meses)`).join('\n');
-          setMessages(prev => [
-            ...prev,
-            {
-              id: `bot-real-rates-${Date.now()}`,
-              sender: 'bot',
-              text: `Actualmente en el sistema contamos con los siguientes plazos y porcentajes de rentabilidad mensual:\n\n${periodList}\n\nPuedes seleccionar un paquete para ver el cálculo exacto de rendimiento mensual:`,
-              timestamp: getTimeString(),
-              type: 'options_packages'
-            }
-          ]);
-        } else {
-          setMessages(prev => [
-            ...prev,
-            {
-              id: `bot-rates-general-${Date.now()}`,
-              sender: 'bot',
-              text: 'Nuestras tasas de rentabilidad mensual dependen del paquete y plazo de contrato que elijas. Puedes consultar nuestros paquetes disponibles a continuación:',
-              timestamp: getTimeString(),
-              type: 'options_packages'
-            }
-          ]);
-        }
-        return;
-      }
-
-      // 3. Consulta de paquetes predefinidos
-      if (lower.includes('paquete') || lower.includes('cuanto') || lower.includes('cuánto')) {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: `bot-pkgs-${Date.now()}`,
-            sender: 'bot',
-            text: 'Aquí tienes los paquetes de inversión predefinidos en la plataforma:',
-            timestamp: getTimeString(),
-            type: 'options_packages'
-          }
-        ]);
-        return;
-      }
-
-      // 4. Contacto directo con directivo
-      if (lower.includes('directivo') || lower.includes('asesor') || lower.includes('hablar') || lower.includes('contacto') || lower.includes('reunion') || lower.includes('cita')) {
-        handleProceedToLocation();
-        return;
-      }
-
-      // 5. Consulta sobre garantías / contratos
-      if (lower.includes('garantia') || lower.includes('garantía') || lower.includes('contrato') || lower.includes('legal') || lower.includes('seguridad')) {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: `bot-legal-${Date.now()}`,
-            sender: 'bot',
-            text: 'Todas las inversiones en GLOINT se formalizan a través de un contrato formal con términos y rendimientos estipulados. Tu directivo de inversión asignado te presentará la documentación completa y resolverá tus preguntas puntuales.',
-            timestamp: getTimeString(),
-            type: 'text'
-          },
-          {
-            id: `bot-legal-action-${Date.now()}`,
-            sender: 'bot',
-            text: '¿Deseas elegir un paquete o agendar directamente con un directivo?',
-            timestamp: getTimeString(),
-            type: 'options_packages'
-          }
-        ]);
-        return;
-      }
-
-      // Respuesta por defecto orientando hacia la selección de paquete o directivo
       setMessages(prev => [
         ...prev,
         {
-          id: `bot-default-${Date.now()}`,
+          id: `bot-ai-${Date.now()}`,
           sender: 'bot',
-          text: 'Para darte la información exacta y personalizada de tu caso, te contactaremos en privado con un directivo de inversión. Puedes seleccionar tu paquete de interés a continuación:',
+          text: res?.reply || '¿En qué más te puedo asesorar sobre las inversiones de GLOINT?',
           timestamp: getTimeString(),
-          type: 'options_packages'
+          type: 'text'
         }
       ]);
-    }, 500);
+    } catch (err: any) {
+      console.error('Error comunicando con Gemini AI:', err);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `bot-ai-error-${Date.now()}`,
+          sender: 'bot',
+          text: 'Lo siento, ocurrió una intermitencia temporal con el servicio de IA. Mientras tanto, puedes explorar los paquetes arriba o solicitar una reunión directa con nuestros Directivos de Inversión.',
+          timestamp: getTimeString(),
+          type: 'text'
+        }
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleResetChat = () => {
@@ -594,7 +524,7 @@ export function InvestmentChatbot() {
               initial={{ opacity: 0, x: 20, scale: 0.9 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-xl border border-amber-500/30 flex items-center gap-3 cursor-pointer group"
+              className="bg-[#171614]/95 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-xl border border-amber-500/30 flex items-center gap-3 cursor-pointer group"
               onClick={() => {
                 setIsOpen(true);
                 setHasPrompted(false);
@@ -605,11 +535,11 @@ export function InvestmentChatbot() {
               </div>
               <div>
                 <p className="text-xs font-bold group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
-                  <span>Asesor Directivo de Inversión</span>
+                  <span>Concierge IA de Inversión</span>
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 </p>
                 <p className="text-[11px] text-slate-300">
-                  Simula tu rentabilidad y agenda en privado
+                  Resuelve tus dudas en vivo o simula tu rentabilidad
                 </p>
               </div>
               <button 
@@ -657,13 +587,13 @@ export function InvestmentChatbot() {
             className="fixed bottom-24 right-4 sm:right-6 w-[94vw] sm:w-[420px] h-[640px] max-h-[84vh] bg-slate-50 rounded-3xl shadow-2xl border border-slate-200/80 z-50 flex flex-col overflow-hidden font-sans"
           >
             {/* Header del Concierge */}
-            <div className="bg-slate-950 text-white p-4 border-b border-slate-800 flex items-center justify-between shrink-0 relative overflow-hidden">
+            <div className="bg-[#0A0908] text-white p-4 border-b border-slate-800 flex items-center justify-between shrink-0 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
               
               <div className="flex items-center gap-3 relative z-10">
                 <div className="relative">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 p-0.5 shadow-md">
-                    <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center text-amber-400 font-bold font-montserrat text-sm">
+                    <div className="w-full h-full bg-[#0A0908] rounded-[10px] flex items-center justify-center text-amber-400 font-bold font-montserrat text-sm">
                       G
                     </div>
                   </div>
@@ -672,11 +602,11 @@ export function InvestmentChatbot() {
 
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-bold font-montserrat text-white tracking-wide">Mesa Directiva Gloint</h3>
+                    <h3 className="text-xs font-bold font-montserrat text-white tracking-wide">Concierge IA Gloint</h3>
                     <Crown size={12} className="text-amber-400" />
                   </div>
                   <p className="text-[11px] text-amber-400/90 font-medium">
-                    Concierge & Asesor Patrimonial
+                    Asesor Patrimonial Inteligente
                   </p>
                 </div>
               </div>
@@ -698,41 +628,6 @@ export function InvestmentChatbot() {
               </div>
             </div>
 
-            {/* Chips de Preguntas Frecuentes Rápidas */}
-            <div className="bg-slate-900/90 border-b border-slate-800/80 px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 text-[11px]">
-              <button
-                onClick={() => processFreeTextInput('¿Cuáles son las rentabilidades y plazos?')}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-1 cursor-pointer"
-              >
-                <TrendingUp size={12} className="text-amber-400" />
-                <span>Rentabilidades</span>
-              </button>
-
-              <button
-                onClick={() => processFreeTextInput('¿Qué paquetes de inversión hay?')}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-1 cursor-pointer"
-              >
-                <Coins size={12} className="text-emerald-400" />
-                <span>Paquetes</span>
-              </button>
-
-              <button
-                onClick={() => processFreeTextInput('¿Cómo es el contrato de inversión?')}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-1 cursor-pointer"
-              >
-                <ShieldCheck size={12} className="text-sky-400" />
-                <span>Contratos</span>
-              </button>
-
-              <button
-                onClick={() => handleProceedToLocation()}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition-colors border border-amber-500/40 flex items-center gap-1 cursor-pointer font-semibold"
-              >
-                <User size={12} />
-                <span>Hablar con Directivo</span>
-              </button>
-            </div>
-
             {/* Cuerpo del Chat */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3.5 text-xs">
               {messages.map((msg) => (
@@ -741,7 +636,7 @@ export function InvestmentChatbot() {
                   {/* Mensaje de Usuario */}
                   {msg.sender === 'user' && (
                     <div className="flex justify-end">
-                      <div className="bg-slate-900 text-white rounded-2xl rounded-tr-xs px-3.5 py-2.5 text-xs max-w-[82%] shadow-sm leading-relaxed">
+                      <div className="bg-[#171614] text-white rounded-2xl rounded-tr-xs px-3.5 py-2.5 text-xs max-w-[82%] shadow-sm leading-relaxed">
                         {msg.text}
                       </div>
                     </div>
@@ -750,15 +645,15 @@ export function InvestmentChatbot() {
                   {/* Mensaje del Bot */}
                   {msg.sender === 'bot' && (
                     <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold shadow-xs mt-0.5">
+                      <div className="w-7 h-7 rounded-full bg-[#0A0908] text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold shadow-xs mt-0.5">
                         G
                       </div>
 
                       <div className="flex-1 max-w-[88%] space-y-2">
                         {/* Texto regular */}
                         {msg.text && (
-                          <div className="bg-white border border-slate-200/90 rounded-2xl rounded-tl-xs p-3.5 shadow-xs text-slate-800 leading-relaxed whitespace-pre-line">
-                            {msg.text}
+                          <div className="bg-white border border-slate-200/90 rounded-2xl rounded-tl-xs p-3.5 shadow-xs text-slate-800 leading-relaxed text-xs space-y-1">
+                            {renderFormattedText(msg.text)}
                           </div>
                         )}
 
@@ -945,7 +840,7 @@ export function InvestmentChatbot() {
                               type="button"
                               disabled={!finalCity}
                               onClick={handleConfirmLocation}
-                              className="w-full py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-amber-400 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                              className="w-full py-2 bg-[#171614] hover:bg-slate-800 disabled:opacity-50 text-amber-400 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <span>Confirmar Ubicación</span>
                               <ChevronRight size={14} />
@@ -1114,7 +1009,7 @@ export function InvestmentChatbot() {
               {/* Indicador de escritura */}
               {isTyping && (
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold">
+                  <div className="w-7 h-7 rounded-full bg-[#0A0908] text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold">
                     G
                   </div>
                   <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs px-4 py-2.5 shadow-xs flex items-center gap-1.5">
@@ -1140,7 +1035,7 @@ export function InvestmentChatbot() {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Pregunta sobre paquetes o escribe tu duda..."
+                  placeholder="Pregunta sobre rentabilidades, garantías, contratos..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   className="flex-1 px-3.5 py-2 bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-amber-500 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors"
@@ -1148,7 +1043,7 @@ export function InvestmentChatbot() {
                 <button
                   type="submit"
                   disabled={!inputText.trim()}
-                  className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-amber-400 flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-xs"
+                  className="w-9 h-9 rounded-xl bg-[#171614] hover:bg-slate-800 disabled:opacity-40 text-amber-400 flex items-center justify-center transition-all cursor-pointer shrink-0 shadow-xs"
                   aria-label="Enviar mensaje"
                 >
                   <Send size={15} />

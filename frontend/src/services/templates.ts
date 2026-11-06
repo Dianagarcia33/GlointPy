@@ -59,6 +59,13 @@ export const templatesService = {
         });
     },
 
+    checkVariables: async (htmlContent: string): Promise<{ unknown_variables: string[] }> => {
+        return await fetchApi('/templates/check-variables', {
+            method: 'POST',
+            body: JSON.stringify({ html_content: htmlContent })
+        });
+    },
+
     uploadAsset: async (file: File): Promise<{ url: string; filename: string }> => {
         const formData = new FormData();
         formData.append('file', file);

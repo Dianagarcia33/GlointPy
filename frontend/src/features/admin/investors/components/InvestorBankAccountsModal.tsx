@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Landmark, CreditCard, Copy, Check, X } from 'lucide-react';
-import { formatAccountNumber } from '../../../../utils/format';
+import { Landmark, CreditCard, Copy, Check, X, ShieldAlert } from 'lucide-react';
+import { formatAccountNumber, maskAccountNumber } from '../../../../utils/format';
+import { usePermissions } from '../../../../hooks/usePermissions';
 
 interface BankAccount {
   id: number;
@@ -28,13 +29,15 @@ export const InvestorBankAccountsModal: React.FC<InvestorBankAccountsModalProps>
   documentId,
   bankAccounts
 }) => {
+  const { isAdmin } = usePermissions();
+  const adminMode = isAdmin();
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   if (!isOpen) return null;
 
   const handleCopy = (id: number, text: string) => {
-    const formatted = formatAccountNumber(text);
-    navigator.clipboard.writeText(formatted);
+    const textToCopy = adminMode ? formatAccountNumber(text) : maskAccountNumber(text);
+    navigator.clipboard.writeText(textToCopy);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -83,7 +86,7 @@ export const InvestorBankAccountsModal: React.FC<InvestorBankAccountsModalProps>
               </div>
 
               {bankAccounts.map((acc) => {
-                const formattedNum = formatAccountNumber(acc.numero_cuenta);
+                const displayNum = adminMode ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta);
                 return (
                   <div 
                     key={acc.id} 
@@ -100,18 +103,23 @@ export const InvestorBankAccountsModal: React.FC<InvestorBankAccountsModalProps>
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                             {acc.tipo_cuenta}
                           </span>
+                          {!adminMode && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                              <ShieldAlert className="w-2.5 h-2.5" /> Protegido PII
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-400 font-medium">Número:</span>
                           <span className="font-mono text-base font-bold text-slate-800 tracking-wider">
-                            {formattedNum}
+                            {displayNum}
                           </span>
                           
                           <button
                             onClick={() => handleCopy(acc.id, acc.numero_cuenta)}
                             className="p-1 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                            title="Copiar número de cuenta"
+                            title={adminMode ? "Copiar número de cuenta" : "Copiar número enmascarado"}
                           >
                             {copiedId === acc.id ? (
                               <Check className="w-4 h-4 text-emerald-600 animate-in zoom-in" />

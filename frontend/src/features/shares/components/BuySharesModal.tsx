@@ -7,7 +7,8 @@ interface BuySharesModalProps {
     isOpen: boolean;
     onClose: () => void;
     listing: ShareListing | null;
-    userWalletBalance: number;
+    /** null = saldo oculto por permiso o no disponible (no es $0) */
+    userWalletBalance: number | null;
     onSuccess: () => void;
 }
 
@@ -23,6 +24,8 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Solo se usa cuando el saldo es desconocido: el servidor valida el saldo real al comprar
+    const [unknownBalanceMethod, setUnknownBalanceMethod] = useState<'wallet' | 'surplus'>('wallet');
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
     const handleCopy = (text: string, field: string) => {
@@ -38,10 +41,12 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
     const totalCost = (quantity || 0) * unitPrice;
 
     // Cálculo de saldo vs excedente
-    const canPayFullWallet = userWalletBalance >= totalCost;
+    const balanceKnown = userWalletBalance !== null && userWalletBalance !== undefined;
+    const knownBalance = balanceKnown ? (userWalletBalance as number) : 0;
+    const canPayFullWallet = balanceKnown ? knownBalance >= totalCost : unknownBalanceMethod === 'wallet';
     const walletToUse = canPayFullWallet 
         ? totalCost 
-        : (useAllWallet ? Math.min(userWalletBalance, totalCost) : 0);
+        : (balanceKnown && useAllWallet ? Math.min(knownBalance, totalCost) : 0);
     const surplusToPay = Math.max(0, totalCost - walletToUse);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -167,10 +172,30 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                                 <span>Tu Saldo en Billetera:</span>
                             </div>
                             <span className="font-bold font-mono text-emerald-400">
-                                ${userWalletBalance.toLocaleString('es-CO')} COP
+                                {balanceKnown ? `$${knownBalance.toLocaleString('es-CO')} COP` : 'Saldo no disponible'}
                             </span>
                         </div>
                     </div>
+
+                    {/* Saldo oculto: el usuario elige el medio de pago; el servidor valida el saldo real */}
+                    {!balanceKnown && (
+                        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Medio de pago">
+                            <button
+                                type="button"
+                                onClick={() => setUnknownBalanceMethod('wallet')}
+                                className={`px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${unknownBalanceMethod === 'wallet' ? 'bg-emerald-50 border-emerald-400 text-emerald-800' : 'bg-white border-slate-200 text-slate-600'}`}
+                            >
+                                Pagar con mi billetera
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setUnknownBalanceMethod('surplus')}
+                                className={`px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${unknownBalanceMethod === 'surplus' ? 'bg-amber-50 border-amber-400 text-amber-800' : 'bg-white border-slate-200 text-slate-600'}`}
+                            >
+                                Pagar por transferencia
+                            </button>
+                        </div>
+                    )}
 
                     {/* Payment Mode Resolution */}
                     {canPayFullWallet ? (
@@ -179,7 +204,7 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                             <div>
                                 <h4 className="text-xs font-bold text-emerald-900 font-montserrat">Liquidación Inmediata en Tiempo Real</h4>
                                 <p className="text-[11px] text-emerald-700 font-medium mt-0.5">
-                                    Tu saldo disponible cubre el 100% del valor. Las acciones se acreditarán a tu portafolio instantáneamente.
+                                    {balanceKnown ? 'Tu saldo disponible cubre el 100% del valor.' : 'Se descontará el 100% del valor de tu billetera; el sistema verifica que tengas fondos suficientes.'} Las acciones se acreditarán a tu portafolio instantáneamente.
                                 </p>
                             </div>
                         </div>

@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User, Percent, Edit3, RotateCcw, Sparkles, Package as PackageIcon } from 'lucide-react';
 import { commercialService, CommercialClientCheckResponse, SearchClientResult } from '../../../services/commercial';
 import { packagesService, Package } from '../../../services/packages';
 import { useAuthStore } from '../../../store/authStore';
 import { getColombiaToday } from '../../../utils/format';
+
+// Montos en pesos enteros: la API envía Decimal como '30000000.0' y el campo mostraba '30000000,0' (H-154)
+const toAmountString = (value: unknown): string => String(Math.round(Number(value) || 0));
 
 interface RegisterCommercialSaleModalProps {
   isOpen: boolean;
@@ -51,11 +54,15 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [isLoadingAdvisorData, setIsLoadingAdvisorData] = useState<boolean>(false);
   const [isAmountLocked, setIsAmountLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Bloqueo síncrono contra doble clic / doble Enter: el estado isSubmitting tarda un render en
+  // deshabilitar el botón y permitía enviar la misma venta dos veces (H-153)
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   // Estados para personalización manual de porcentaje por el Administrador
   const [isCustomRateActive, setIsCustomRateActive] = useState<boolean>(false);
   const [customRatePct, setCustomRatePct] = useState<string>('');
+  const [customRateReason, setCustomRateReason] = useState<string>('');
 
   const shouldShowAsesorSelect = isTrueAdmin;
 
@@ -77,6 +84,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     setError(null);
     setIsCustomRateActive(false);
     setCustomRatePct('');
+    setCustomRateReason('');
     setSelectedPackageId('');
   };
 
@@ -104,9 +112,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       const prevVal = Number(clientInfo?.previous_package_amount || 0);
       if (saleType === 'reinversion' && prevVal > 0) {
         const diff = Math.max(0, pkgVal - prevVal);
-        setAmount(diff > 0 ? diff.toString() : pkgVal.toString());
+        setAmount(toAmountString(diff > 0 ? diff : pkgVal));
       } else {
-        setAmount(pkgVal.toString());
+        setAmount(toAmountString(pkgVal));
       }
     }
   };
@@ -122,18 +130,34 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     }
   }, [shouldShowAsesorSelect, isOpen]);
 
-  // Cargar el acumulado mensual vigente del asesor seleccionado
+  // Cargar el acumulado mensual vigente del asesor seleccionado según la fecha de venta seleccionada
   useEffect(() => {
     if (!isOpen) return;
 
     const fetchAdvisorAccum = async () => {
       setIsLoadingAdvisorData(true);
       try {
+        let yearParam: number | undefined;
+        let monthParam: number | undefined;
+        if (saleDate && saleDate.includes('-')) {
+          const parts = saleDate.split('-');
+          if (parts.length >= 2) {
+            yearParam = parseInt(parts[0], 10);
+            monthParam = parseInt(parts[1], 10);
+          }
+        }
+
+        const queryParams = {
+          month: monthParam,
+          year: yearParam,
+          target_date: saleDate || undefined,
+        };
+
         if (shouldShowAsesorSelect && targetCommercialId) {
-          const summary = await commercialService.getAdvisorSummary(targetCommercialId);
+          const summary = await commercialService.getAdvisorSummary(targetCommercialId, queryParams);
           setAdvisorAccumulatedDirect(summary.direct_accumulated || 0);
         } else if (!shouldShowAsesorSelect) {
-          const summary = await commercialService.getMySummary();
+          const summary = await commercialService.getMySummary(queryParams);
           setAdvisorAccumulatedDirect(summary.direct_accumulated || 0);
         } else {
           setAdvisorAccumulatedDirect(currentAccumulatedDirect);
@@ -146,7 +170,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     };
 
     fetchAdvisorAccum();
-  }, [isOpen, targetCommercialId, shouldShowAsesorSelect, currentAccumulatedDirect]);
+  }, [isOpen, targetCommercialId, shouldShowAsesorSelect, currentAccumulatedDirect, saleDate]);
 
   useEffect(() => {
     if (searchTerm.trim().length >= 2) {
@@ -165,16 +189,26 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
   const selectSearchResult = (item: SearchClientResult) => {
     // Resetear inmediatamente estados dependientes del cliente anterior
-    setClientInfo(null);
+    setClientInfo(item.is_existing_client ? {
+      client_document: item.document_id || item.assigned_code || '',
+      client_exists: true,
+      is_existing_client: true,
+      client_name: item.name,
+      allowed_types: ['reinversion', 'referido'],
+      forced_type: item.forced_type || 'referido'
+    } as CommercialClientCheckResponse : null);
     setAmount('');
     setReferrerCode('');
-    setSaleType('contrato_nuevo');
+    // H-154: respetar desde ya lo que devolvió search-clients (is_existing_client / forced_type),
+    // sin esperar a check-client, para no dejar "Contrato Nuevo" activo a un cliente existente.
+    setSaleType((item.forced_type as any) || (item.is_existing_client ? 'referido' : 'contrato_nuevo'));
     setError(null);
 
     const effectiveDoc = item.document_id || item.assigned_code || searchTerm;
     setClientDocument(effectiveDoc);
     setClientName(item.name);
-    setSearchTerm(`${item.name} (${item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || ''})`);
+    const ref = item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || '';
+    setSearchTerm(ref ? `${item.name} (${ref})` : item.name);
     setSearchResults([]);
 
     const queryKey = item.assigned_code || item.document_id || searchTerm;
@@ -190,7 +224,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         
         const finalMonto = (res.monto && res.monto > 0) ? res.monto : (item.monto && item.monto > 0 ? item.monto : 0);
         if (finalMonto > 0) {
-          setAmount(finalMonto.toString());
+          setAmount(toAmountString(finalMonto));
         } else {
           setAmount('');
         }
@@ -207,7 +241,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         });
         setSaleType('referido');
         if (item.monto && item.monto > 0) {
-          setAmount(item.monto.toString());
+          setAmount(toAmountString(item.monto));
         } else {
           setAmount('');
         }
@@ -230,7 +264,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       }
       if (res.client_name) setClientName(res.client_name);
       if (res.monto && res.monto > 0) {
-        setAmount(res.monto.toString());
+        setAmount(toAmountString(res.monto));
       } else {
         setAmount('');
       }
@@ -243,6 +277,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
   const numericAmount = Number(amount) || 0;
   const THRESHOLD = 36000000;
+  // Rango permitido para el % manual del administrador = tarifas vigentes (1,8 % referido a 3,5 % marginal) (H-154)
+  const MIN_MANUAL_RATE = 0.018;
+  const MAX_MANUAL_RATE = 0.035;
 
   // 1. Cálculo sugerido por el sistema según reglas comerciales
   let systemSuggestedRate = 0.03;
@@ -292,6 +329,17 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       setError('Por favor ingresa un monto mayor a cero');
       return;
     }
+    if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '' &&
+        (!(effectiveRate >= MIN_MANUAL_RATE - 1e-9) || !(effectiveRate <= MAX_MANUAL_RATE + 1e-9))) {
+      setError(`El porcentaje de comisión manual debe estar entre ${(MIN_MANUAL_RATE * 100).toFixed(1)}% y ${(MAX_MANUAL_RATE * 100).toFixed(1)}% (tarifas vigentes).`);
+      return;
+    }
+    if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '' && customRateReason.trim().length < 10) {
+      setError('Indica el motivo (mínimo 10 caracteres) para aplicar un porcentaje de comisión manual.');
+      return;
+    }
+    if (submittingRef.current) return;
+    submittingRef.current = true;
 
     setIsSubmitting(true);
     setError(null);
@@ -310,6 +358,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '') {
         payload.custom_commission_rate = effectiveRate;
         payload.custom_commission_amount = estimatedCommission;
+        payload.custom_rate_reason = customRateReason.trim();
       }
 
       if (isTrueAdmin && targetCommercialId) {
@@ -323,28 +372,29 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     } catch (err: any) {
       setError(err.message || 'Error al adjudicar la venta comercial');
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-950/60 backdrop-blur-xs" style={{ margin: 0 }}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-brand-100 text-brand-700 rounded-xl">
+            <div className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
               <Calculator className="w-5 h-5 text-brand-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Registrar Venta Comercial</h3>
+              <h3 className="text-lg font-bold text-slate-900 font-montserrat">Registrar Venta Comercial</h3>
               <p className="text-xs text-slate-500">Clasificación Obligatoria • Comisiones Marginales</p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -499,11 +549,15 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('contrato_nuevo')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                  saleType === 'contrato_nuevo'
-                    ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                disabled={Boolean(clientInfo?.is_existing_client)}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  clientInfo?.is_existing_client
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
+                    : saleType === 'contrato_nuevo'
+                    ? 'bg-brand-500 text-white border-brand-500 shadow-sm cursor-pointer'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 cursor-pointer'
                 }`}
+                title={clientInfo?.is_existing_client ? "No disponible: el cliente ya es un inversionista existente en la plataforma" : ""}
               >
                 📄 Contrato Nuevo
               </button>
@@ -532,6 +586,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                 👥 Referido
               </button>
             </div>
+            {clientInfo?.is_existing_client && (
+              <p className="mt-1 text-[11px] text-amber-700 font-medium">
+                * Para clientes existentes solo aplica Referido (1.8%) o Reinversión. Contrato Nuevo queda deshabilitado para evitar doble comisión.
+              </p>
+            )}
           </div>
 
           {/* Seleccionar Paquete de Inversión (Opcional - Catálogo) */}
@@ -660,11 +719,13 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
               {saleType !== 'referido' && (
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-[11px] text-slate-500 pb-1 gap-1 border-b border-slate-200/60">
-                  <span>Acumulado Previo del Asesor (Mes en Curso):</span>
+                  <span>
+                    Acumulado Previo del Asesor ({saleDate ? `Periodo ${saleDate.slice(0, 7)}` : 'Mes en Curso'}):
+                  </span>
                   <span className="font-mono font-bold text-slate-700">
                     ${advisorAccumulatedDirect.toLocaleString('es-CO')} COP
                     {advisorAccumulatedDirect >= THRESHOLD ? (
-                      <span className="ml-1.5 text-emerald-700 font-extrabold">(Superó $36M → Sugerido 3.5%)</span>
+                      <span className="ml-1.5 text-emerald-700 font-extrabold">(Superó $36M → Comisión Plana 3.5%)</span>
                     ) : (
                       <span className="ml-1.5 text-amber-700 font-semibold">(Faltan ${(THRESHOLD - advisorAccumulatedDirect).toLocaleString('es-CO')} para 3.5%)</span>
                     )}
@@ -708,8 +769,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                         <input
                           type="number"
                           step="0.01"
-                          min="0"
-                          max="100"
+                          min={(MIN_MANUAL_RATE * 100).toFixed(1)}
+                          max={(MAX_MANUAL_RATE * 100).toFixed(1)}
                           value={customRatePct}
                           onChange={(e) => setCustomRatePct(e.target.value)}
                           placeholder={(systemSuggestedRate * 100).toFixed(2)}
@@ -741,21 +802,46 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               {isCustomRateActive && (
                 <p className="text-[11px] text-brand-700 bg-brand-50/80 border border-brand-200 p-2 rounded-lg font-medium flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 shrink-0 text-brand-600" />
-                  <span>Se aplicará el <strong>{(effectiveRate * 100).toFixed(2)}%</strong> configurado manualmente por el Administrador.</span>
+                  <span>Se aplicará el <strong>{(effectiveRate * 100).toFixed(2)}%</strong> configurado manualmente por el Administrador (permitido: {(MIN_MANUAL_RATE * 100).toFixed(1)}% a {(MAX_MANUAL_RATE * 100).toFixed(1)}%; el motivo queda en la auditoría).</span>
                 </p>
+              )}
+
+              {/* Motivo obligatorio: queda en la auditoría junto con el % aplicado (H-154) */}
+              {isCustomRateActive && (
+                <textarea
+                  value={customRateReason}
+                  onChange={(e) => setCustomRateReason(e.target.value)}
+                  rows={2}
+                  required
+                  minLength={10}
+                  placeholder="Motivo del porcentaje manual (obligatorio, queda en la auditoría)"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                />
               )}
 
               {saleType !== 'referido' && !isCustomRateActive && (tramoA > 0 || tramoB > 0) && (
                 <div className="space-y-1 text-[11px] bg-white p-2.5 rounded-lg border border-slate-200/70 mt-1">
-                  {tramoA > 0 && (
+                  {tramoA > 0 && tramoB > 0 && (
+                    <>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Tramo Base (3.0% hasta $36M):</span>
+                        <span className="font-mono font-bold">${tramoA.toLocaleString('es-CO')} COP</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-semibold">
+                        <span>Tramo Excedente (3.5% superando $36M):</span>
+                        <span className="font-mono font-bold">${tramoB.toLocaleString('es-CO')} COP</span>
+                      </div>
+                    </>
+                  )}
+                  {tramoA > 0 && tramoB === 0 && (
                     <div className="flex justify-between text-slate-600">
                       <span>Tramo Base (3.0% hasta $36M):</span>
                       <span className="font-mono font-bold">${tramoA.toLocaleString('es-CO')} COP</span>
                     </div>
                   )}
-                  {tramoB > 0 && (
+                  {tramoA === 0 && tramoB > 0 && (
                     <div className="flex justify-between text-emerald-700 font-semibold">
-                      <span>Tramo Excedente (3.5% superando $36M):</span>
+                      <span>Comisión Plana (3.5% tras superar $36M en el periodo):</span>
                       <span className="font-mono font-bold">${tramoB.toLocaleString('es-CO')} COP</span>
                     </div>
                   )}
@@ -777,14 +863,14 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               type="button"
               onClick={handleClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer font-montserrat"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting || numericAmount <= 0}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 rounded-2xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer font-montserrat"
             >
               {isSubmitting ? (
                 <>

@@ -1,9 +1,21 @@
+from src.services.audit_trail_service import audit_in_tx
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from src.models.security import Role, Permission
+from src.models.user import User
 from src.schemas.security import RoleCreate, RoleUpdate
+
+SYSTEM_ROLE_NAMES = {
+    "admin", "superadmin", "super_admin", "super admin", "superuser",
+    "cliente", "inversionista", "operaciones",
+    "directivo_de_inversiones", "directivo_inversion",
+    "contabilidad", "contabilidad_", "administrativo"
+}
 
 class SecurityService:
 
@@ -21,17 +33,18 @@ class SecurityService:
         )
         role = result.scalars().first()
         if not role:
-            raise HTTPException(status_code=404, detail="Role not found")
+            raise HTTPException(status_code=404, detail="Rol no encontrado")
         return role
 
     @staticmethod
-    async def create_role(db: AsyncSession, role_data: RoleCreate):
-        # Verificar nombre duplicado
-        existing = await db.execute(select(Role).where(Role.name == role_data.name))
+    async def create_role(db: AsyncSession, role_data: RoleCreate, actor=None):
+        clean_name = role_data.name.strip().lower()
+        # Verificar nombre duplicado (case-insensitive)
+        existing = await db.execute(select(Role).where(func.lower(Role.name) == clean_name))
         if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Role name already exists")
+            raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso. Por favor elige otro nombre.")
 
-        new_role = Role(name=role_data.name, description=role_data.description)
+        new_role = Role(name=clean_name, description=role_data.description)
         
         # Asignar permisos si vienen en el request
         if role_data.permission_ids:
@@ -40,8 +53,19 @@ class SecurityService:
             )
             new_role.permissions = perms_result.scalars().all()
 
-        db.add(new_role)
-        await db.commit()
+        try:
+            db.add(new_role)
+            await db.flush()
+            await audit_in_tx(
+                db, "ROLE_CREATE", "security", actor, "Role", new_role.id,
+                f"Creación del rol '{clean_name}'",
+                {"role_id": new_role.id, "nombre": clean_name,
+                 "permisos": sorted(p.name for p in (new_role.permissions or []))},
+            )
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso. Por favor elige otro nombre.")
         
         # Recargar con relaciones para evitar MissingGreenlet
         result = await db.execute(
@@ -50,18 +74,33 @@ class SecurityService:
         return result.scalars().first()
 
     @staticmethod
-    async def update_role(db: AsyncSession, role_id: int, role_data: RoleUpdate):
+    async def update_role(db: AsyncSession, role_id: int, role_data: RoleUpdate, current_user: Optional[User] = None):
         role = await SecurityService.get_role(db, role_id)
         
-        if role.is_system_role == "1" and role_data.name and role_data.name != role.name:
-            raise HTTPException(status_code=403, detail="Cannot rename system roles")
+        # Blindaje contra escalada de privilegios (H-150 / H-35):
+        # El rol SuperAdmin no puede ser alterado a menos que quien ejecuta la acción sea un superusuario real.
+        is_super_role = role.name and role.name.lower() in ["superadmin", "super admin", "superuser"]
+        if is_super_role:
+            caller_is_super = current_user and (getattr(current_user, 'is_superuser', False) or any(
+                r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (current_user.roles or [])
+            ))
+            if not caller_is_super:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="No tienes permisos para modificar el rol SuperAdmin. Acción reservada exclusivamente para el Superusuario del sistema."
+                )
+
+        is_protected = str(role.is_system_role).strip().lower() in ("1", "true") or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
+        if is_protected and role_data.name and role_data.name.strip().lower() != role.name.strip().lower():
+            raise HTTPException(status_code=403, detail="No se pueden renombrar roles protegidos del sistema")
 
         if role_data.name is not None:
-            # Check duplicate
-            existing = await db.execute(select(Role).where(Role.name == role_data.name, Role.id != role_id))
+            clean_name = role_data.name.strip().lower()
+            # Check duplicate case-insensitive
+            existing = await db.execute(select(Role).where(func.lower(Role.name) == clean_name, Role.id != role_id))
             if existing.scalars().first():
-                raise HTTPException(status_code=400, detail="Role name already exists")
-            role.name = role_data.name
+                raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso. Por favor elige otro nombre.")
+            role.name = clean_name
             
         if role_data.description is not None:
             role.description = role_data.description
@@ -75,7 +114,11 @@ class SecurityService:
                 )
                 role.permissions = perms_result.scalars().all()
 
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso. Por favor elige otro nombre.")
         
         # Recargar con relaciones para evitar MissingGreenlet
         result = await db.execute(
@@ -84,13 +127,13 @@ class SecurityService:
         return result.scalars().first()
 
     @staticmethod
-    async def delete_role(db: AsyncSession, role_id: int):
+    async def delete_role(db: AsyncSession, role_id: int, actor=None):
         role = await SecurityService.get_role(db, role_id)
-        if role.is_system_role == "1":
-            raise HTTPException(status_code=403, detail="Cannot delete system roles")
+        is_protected = str(role.is_system_role).strip().lower() in ("1", "true") or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
+        if is_protected:
+            raise HTTPException(status_code=403, detail="No se pueden eliminar roles protegidos del sistema")
         
         # Verificar si hay usuarios con este rol
-        from sqlalchemy import select, func
         from src.models.security import user_roles
         
         users_count_query = select(func.count()).select_from(user_roles).where(user_roles.c.role_id == role_id)
@@ -100,16 +143,27 @@ class SecurityService:
         if count > 0:
             raise HTTPException(status_code=400, detail="No se puede eliminar el rol porque hay usuarios que lo tienen asignado")
             
+        await audit_in_tx(
+            db, "ROLE_DELETE", "security", actor, "Role", role_id,
+            f"Eliminación del rol '{role.name}'",
+            {"role_id": role_id, "nombre": role.name},
+        )
         await db.delete(role)
         await db.commit()
 
     @staticmethod
     async def get_all_permissions(db: AsyncSession):
         result = await db.execute(select(Permission).order_by(Permission.module, Permission.name))
-        return result.scalars().all()
+        perms = result.scalars().all()
+        for p in perms:
+            if "." in p.name:
+                p.name = p.name.replace(".", ":")
+            elif p.name == "manage_system_events":
+                p.name = "admin:system_events:manage"
+        return perms
 
     @staticmethod
-    async def sync_all_system_permissions(db: AsyncSession):
+    async def sync_all_system_permissions(db: AsyncSession, actor=None):
         from src.models.security import role_permissions
         from sqlalchemy import insert, delete
 
@@ -132,50 +186,52 @@ class SecurityService:
 
             # Módulo Acciones
             {"name": "shares:access", "description": "Acceso a compra y venta en el mercado de acciones", "module": "Acciones"},
-            {"name": "admin.shares.manage", "description": "Administrar emisiones, fijar precio oficial y auditar órdenes", "module": "Acciones"},
+            {"name": "admin:shares:manage", "description": "Administrar emisiones, fijar precio oficial y auditar órdenes", "module": "Acciones"},
 
             # Módulo Comercial & Directivo
             {"name": "commercial:view", "description": "Acceso a la mesa de trabajo comercial y ventas", "module": "Comercial"},
-            {"name": "director.dashboard.view", "description": "Panel de control y seguimiento del directivo de inversiones", "module": "Comercial"},
-            {"name": "admin.commercial.manage", "description": "Gestionar, auditar y adjudicar ventas del equipo comercial", "module": "Comercial"},
-            {"name": "admin.commissions.settle", "description": "Liquidar y procesar comisiones del equipo comercial", "module": "Comercial"},
+            {"name": "director:dashboard:view", "description": "Panel de control y seguimiento del directivo de inversiones", "module": "Comercial"},
+            {"name": "admin:commercial:manage", "description": "Gestionar, auditar y adjudicar ventas del equipo comercial", "module": "Comercial"},
+            {"name": "admin:commissions:settle", "description": "Liquidar y procesar comisiones del equipo comercial", "module": "Comercial"},
 
             # Módulo Inversionistas
-            {"name": "admin.investors.manage", "description": "Acceso y consulta de la tabla general de inversionistas", "module": "Inversionistas"},
-            {"name": "admin.investors.create", "description": "Crear nuevos contratos e inversionistas (Crear Inversión)", "module": "Inversionistas"},
-            {"name": "admin.investors.wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Herramienta Lápiz)", "module": "Inversionistas"},
-            {"name": "admin.investors.capital_increase", "description": "Gestionar aumentos de capital a contratos (+ Capital)", "module": "Inversionistas"},
-            {"name": "admin.investors.delete", "description": "Eliminar contratos de inversión e inversionistas", "module": "Inversionistas"},
+            {"name": "admin:investors:manage", "description": "Acceso y consulta de la tabla general de inversionistas", "module": "Inversionistas"},
+            {"name": "admin:investors:view_all", "description": "Ver todos los inversionistas y contratos de la plataforma (sin este permiso, un asesor solo ve sus clientes asignados)", "module": "Inversiones"},
+            {"name": "admin:investors:generate_documents", "description": "Generar certificados, contratos y pagarés de inversionistas (individual y masivo)", "module": "Inversionistas"},
+            {"name": "admin:investors:create", "description": "Crear nuevos contratos e inversionistas (Crear Inversión)", "module": "Inversionistas"},
+            {"name": "admin:investors:wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Herramienta Lápiz)", "module": "Inversionistas"},
+            {"name": "admin:investors:capital_increase", "description": "Gestionar aumentos de capital a contratos (+ Capital)", "module": "Inversionistas"},
+            {"name": "admin:investors:delete", "description": "Eliminar contratos de inversión e inversionistas", "module": "Inversionistas"},
 
             # Módulo Inversiones
-            {"name": "admin.investments.manage", "description": "Administrar y auditar la totalidad de solicitudes de inversión", "module": "Inversiones"},
-            {"name": "admin.investments.solicitud_inversion", "description": "Permiso para abrir el formulario de nueva solicitud", "module": "Inversiones"},
-            {"name": "admin.investments.approve", "description": "Aprobar solicitudes de inversión y formalizar contratos", "module": "Inversiones"},
-            {"name": "admin.investments.reject", "description": "Rechazar solicitudes de inversión con justificación", "module": "Inversiones"},
+            {"name": "admin:investments:manage", "description": "Administrar y auditar la totalidad de solicitudes de inversión", "module": "Inversiones"},
+            {"name": "admin:investments:solicitud_inversion", "description": "Permiso para abrir el formulario de nueva solicitud", "module": "Inversiones"},
+            {"name": "admin:investments:approve", "description": "Aprobar solicitudes de inversión y formalizar contratos", "module": "Inversiones"},
+            {"name": "admin:investments:reject", "description": "Rechazar solicitudes de inversión con justificación", "module": "Inversiones"},
 
             # Módulo Pagos & Auditoría
-            {"name": "admin.payments.manage", "description": "Gestionar la pasarela de pagos y depósitos bancarios", "module": "Pagos"},
-            {"name": "admin.withdrawals.manage", "description": "Auditar y autorizar solicitudes de retiro de fondos", "module": "Pagos"},
-            {"name": "admin.audits.manage", "description": "Auditoría integral, cálculo y corte de rendimientos", "module": "Auditoría"},
+            {"name": "admin:payments:manage", "description": "Gestionar la pasarela de pagos y depósitos bancarios", "module": "Pagos"},
+            {"name": "admin:withdrawals:manage", "description": "Auditar y autorizar solicitudes de retiro de fondos", "module": "Pagos"},
+            {"name": "admin:audits:manage", "description": "Auditoría integral, cálculo y corte de rendimientos", "module": "Auditoría"},
 
             # Módulo Administración
-            {"name": "admin.roles.manage", "description": "Gestionar roles de usuario y matriz de permisos PBAC", "module": "Administración"},
-            {"name": "admin.users.manage", "description": "Gestionar usuarios, estados de cuenta y vinculaciones parentales", "module": "Administración"},
-            {"name": "admin.periods.manage", "description": "Crear y administrar periodos fiscales de inversión", "module": "Administración"},
-            {"name": "admin.packages.manage", "description": "Crear, parametrizar y activar paquetes de inversión", "module": "Administración"},
-            {"name": "admin.rankings.manage", "description": "Administrar rangos, clubes de beneficios y niveles", "module": "Administración"},
-            {"name": "admin.referrals.manage", "description": "Administrar referidos comerciales, asignaciones y conversiones", "module": "Administración"},
-            {"name": "admin.external_apps.manage", "description": "Gestionar integraciones API, apps externas y pasarela Gloint Pay", "module": "Administración"},
-            {"name": "admin.events.manage", "description": "Crear y administrar eventos oficiales corporativos", "module": "Administración"},
-            {"name": "admin.notifications.manage", "description": "Emitir comunicados masivos y notificaciones push", "module": "Administración"},
-            {"name": "admin.templates.manage", "description": "Administrar plantillas contractuales y documentos", "module": "Administración"},
-            {"name": "manage_system_events", "description": "Gestionar calendario y eventos del sistema", "module": "Administración"},
+            {"name": "admin:roles:manage", "description": "Gestionar roles de usuario y matriz de permisos PBAC", "module": "Administración"},
+            {"name": "admin:users:manage", "description": "Gestionar usuarios, estados de cuenta y vinculaciones parentales", "module": "Administración"},
+            {"name": "admin:periods:manage", "description": "Crear y administrar periodos fiscales de inversión", "module": "Administración"},
+            {"name": "admin:packages:manage", "description": "Crear, parametrizar y activar paquetes de inversión", "module": "Administración"},
+            {"name": "admin:rankings:manage", "description": "Administrar rangos, clubes de beneficios y niveles", "module": "Administración"},
+            {"name": "admin:referrals:manage", "description": "Administrar referidos comerciales, asignaciones y conversiones", "module": "Administración"},
+            {"name": "admin:external_apps:manage", "description": "Gestionar integraciones API, apps externas y pasarela Gloint Pay", "module": "Administración"},
+            {"name": "admin:events:manage", "description": "Crear y administrar eventos oficiales corporativos", "module": "Administración"},
+            {"name": "admin:notifications:manage", "description": "Emitir comunicados masivos y notificaciones push", "module": "Administración"},
+            {"name": "admin:templates:manage", "description": "Administrar plantillas contractuales y documentos", "module": "Administración"},
+            {"name": "admin:system_events:manage", "description": "Gestionar calendario y eventos del sistema", "module": "Administración"},
             {"name": "sarlaft:check", "description": "Ejecutar validación de listas restrictivas Sarlaft", "module": "Administración"},
 
             # Módulo Chat
             {"name": "chat:view", "description": "Acceder y visualizar el módulo de chat corporativo", "module": "Chat"},
             {"name": "chat:send", "description": "Enviar mensajes y archivos en salas de chat", "module": "Chat"},
-            {"name": "admin.chat.manage", "description": "Moderar, supervisar y administrar salas de chat", "module": "Chat"},
+            {"name": "admin:chat:manage", "description": "Moderar, supervisar y administrar salas de chat", "module": "Chat"},
 
             # Módulo CRM, Bandeja de Correos y Calendario
             {"name": "crm:view", "description": "CRM / Proyectos: Acceso a la vista de embudos y prospectos", "module": "CRM"},
@@ -187,8 +243,77 @@ class SecurityService:
             {"name": "crm:inbox:send", "description": "Bandeja de Correos: Redactar y enviar correos comerciales a clientes y prospectos", "module": "CRM"},
             {"name": "crm:calendar:view", "description": "Calendario / Agenda: Consultar eventos, citas y reuniones programadas", "module": "CRM"},
             {"name": "crm:calendar:manage", "description": "Calendario / Agenda: Crear, editar, agendar y sincronizar citas", "module": "CRM"},
-            {"name": "admin.crm.manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
+            {"name": "admin:crm:manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
+
+            # Módulo Inventario e Insumos de Oficina
+            {"name": "inventory:view", "description": "Acceso general y consulta del catálogo de inventario e insumos", "module": "Inventario"},
+            {"name": "inventory:create", "description": "Dar de alta nuevos productos comerciales o insumos de oficina", "module": "Inventario"},
+            {"name": "inventory:edit", "description": "Editar precios, unidades y umbrales de stock mínimo de artículos", "module": "Inventario"},
+            {"name": "inventory:delete", "description": "Desactivar artículos del catálogo de inventario", "module": "Inventario"},
+            {"name": "inventory:dispatch", "description": "Registrar salidas y consumo interno de insumos de oficina (Gasto de negocio)", "module": "Inventario"},
+            {"name": "inventory:adjust", "description": "Realizar ajustes de stock por auditoría o conteo físico", "module": "Inventario"},
+            {"name": "inventory:kardex", "description": "Visualizar la bitácora completa de movimientos detallados (Kardex)", "module": "Inventario"},
+
+            # Módulo Proveedores
+            {"name": "suppliers:view", "description": "Acceso general y consulta del directorio de proveedores", "module": "Proveedores"},
+            {"name": "suppliers:create", "description": "Dar de alta nuevos proveedores y datos de facturación", "module": "Proveedores"},
+            {"name": "suppliers:edit", "description": "Editar información comercial, bancaria y de contacto del proveedor", "module": "Proveedores"},
+            {"name": "suppliers:delete", "description": "Desactivar proveedores del directorio", "module": "Proveedores"},
+
+            # Módulo Órdenes de Compra
+            {"name": "purchase_orders:view", "description": "Consultar listado, detalle y estados de órdenes de compra", "module": "Órdenes de Compra"},
+            {"name": "purchase_orders:create", "description": "Crear borradores y solicitudes de órdenes de compra", "module": "Órdenes de Compra"},
+            {"name": "purchase_orders:approve", "description": "Aprobar órdenes de compra para proceder con la adquisición", "module": "Órdenes de Compra"},
+            {"name": "purchase_orders:receive", "description": "Registrar recepción física de mercancía e incrementar inventario/Kardex", "module": "Órdenes de Compra"},
+            {"name": "purchase_orders:cancel", "description": "Anular órdenes de compra no completadas", "module": "Órdenes de Compra"},
+
+            # Módulo Control de Activos Fijos
+            {"name": "assets:view", "description": "Consultar inventario de activos fijos, equipos y mobiliario", "module": "Activos Fijos"},
+            {"name": "assets:create", "description": "Dar de alta nuevos activos corporativos con placa y serial", "module": "Activos Fijos"},
+            {"name": "assets:edit", "description": "Editar ficha técnica, ubicación o estado del activo", "module": "Activos Fijos"},
+            {"name": "assets:assign", "description": "Asignar, reasignar o recibir custodia de activos a colaboradores", "module": "Activos Fijos"},
+            {"name": "assets:delete", "description": "Dar de baja o desincorporar activos de la empresa", "module": "Activos Fijos"},
+
+            # Módulo Créditos Fintech
+            {"name": "credits:view", "description": "Acceso a la línea de crédito y consulta de cuotas propias", "module": "Créditos"},
+            {"name": "credits:request", "description": "Solicitar nueva línea de crédito a la plataforma", "module": "Créditos"},
+            {"name": "credits:pay", "description": "Pagar o abonar a cuotas de créditos activos", "module": "Créditos"},
+            {"name": "admin:credits:manage", "description": "Aprobar, parametrizar, desembolsar vía Yoint y auditar créditos", "module": "Créditos"},
         ]
+
+        # 0. Migración in-place de permisos con separador punto (.) o formato legado a dos puntos (:)
+        all_current = (await db.execute(select(Permission))).scalars().all()
+        for p in all_current:
+            canonical = p.name
+            if "." in canonical:
+                canonical = canonical.replace(".", ":")
+            elif canonical == "manage_system_events":
+                canonical = "admin:system_events:manage"
+            elif canonical == "accounting.dashboard.view":
+                canonical = "accounting:dashboard:view"
+
+            if canonical != p.name:
+                conflict = (await db.execute(select(Permission).where(Permission.name == canonical))).scalars().first()
+                if not conflict:
+                    p.name = canonical
+                else:
+                    existing_role_ids = (await db.execute(
+                        select(role_permissions.c.role_id).where(role_permissions.c.permission_id == conflict.id)
+                    )).scalars().all()
+                    if existing_role_ids:
+                        await db.execute(
+                            delete(role_permissions).where(
+                                (role_permissions.c.permission_id == p.id) &
+                                (role_permissions.c.role_id.in_(existing_role_ids))
+                            )
+                        )
+                    await db.execute(
+                        role_permissions.update()
+                        .where(role_permissions.c.permission_id == p.id)
+                        .values(permission_id=conflict.id)
+                    )
+                    await db.delete(p)
+        await db.flush()
 
         # 1. Sincronizar permisos en la tabla
         all_perms_map = {}
@@ -222,30 +347,48 @@ class SecurityService:
                 "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
                 "wallets:view", "wallets:view_balance", "wallets:view_history", "wallets:request_withdrawal", "wallets:new_investment",
                 "bank_accounts:manage", "beneficiaries:view", "referrals:view", "shares:access",
-                "chat:view", "chat:send"
+                "chat:view", "chat:send",
+                "credits:view", "credits:request", "credits:pay"
             ],
             "cliente": [
                 "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
                 "wallets:view", "wallets:view_balance", "wallets:view_history", "wallets:request_withdrawal", "wallets:new_investment",
                 "bank_accounts:manage", "beneficiaries:view", "referrals:view", "shares:access",
-                "chat:view", "chat:send"
+                "chat:view", "chat:send",
+                "credits:view", "credits:request", "credits:pay"
             ],
             "directivo_de_inversiones": [
-                "commercial:view", "director.dashboard.view", "referrals:view", "admin.referrals.manage",
+                "commercial:view", "director:dashboard:view", "referrals:view", "admin:referrals:manage",
+                "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
+                "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
+                "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
+                "chat:view", "chat:send"
+            ],
+            "directivo_inversion": [
+                "commercial:view", "director:dashboard:view", "referrals:view", "admin:referrals:manage",
                 "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
                 "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
                 "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
                 "chat:view", "chat:send"
             ],
             "operaciones": [
-                "admin.investors.manage", "admin.investors.create", "admin.investors.capital_increase", "admin.investors.wallet_adjust",
-                "admin.investments.manage", "admin.investments.solicitud_inversion", "admin.investments.approve", "admin.investments.reject",
-                "admin.packages.manage", "admin.periods.manage", "sarlaft:check",
+                "admin:investors:manage", "admin:investors:create", "admin:investors:capital_increase", "admin:investors:wallet_adjust", "admin:investors:generate_documents",
+                "admin:investments:manage", "admin:investments:solicitud_inversion", "admin:investments:approve", "admin:investments:reject",
+                "admin:packages:manage", "admin:periods:manage", "sarlaft:check",
                 "chat:view", "chat:send"
             ],
+            "contabilidad": [
+                "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
+                "wallets:view", "bank_accounts:manage", "chat:view", "chat:send"
+            ],
             "contabilidad_": [
-                "accounting.dashboard.view", "admin.payments.manage", "admin.withdrawals.manage", "admin.audits.manage", "admin.commissions.settle", "admin.investments.manage",
-                "chat:view", "chat:send"
+                "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
+                "wallets:view", "bank_accounts:manage", "chat:view", "chat:send"
+            ],
+            "administrativo": [
+                "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
+                "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
+                "chat:view", "chat:send", "rooms:view", "rooms:reserve"
             ]
         }
 
@@ -253,14 +396,29 @@ class SecurityService:
         roles = roles_res.scalars().all()
 
         for role in roles:
-            r_name = role.name.lower()
-            is_admin = "super" in r_name or "admin" in r_name
+            r_name = role.name.lower().strip()
+            is_super = r_name in ["superadmin", "super_admin", "super admin", "admin"]
+
+            # Marcar como rol del sistema protegido (H-127)
+            if is_super or r_name in DEFAULT_ROLE_PERMS or r_name in SYSTEM_ROLE_NAMES:
+                role.is_system_role = "1"
 
             perms_to_add = []
-            if is_admin:
+            if is_super:
                 perms_to_add = list(all_perms_map.values())
             elif r_name in DEFAULT_ROLE_PERMS:
                 perms_to_add = [all_perms_map[p] for p in DEFAULT_ROLE_PERMS[r_name] if p in all_perms_map]
+                # Revocar de inmediato permisos no autorizados para el rol estándar (H-126)
+                allowed_names = set(DEFAULT_ROLE_PERMS[r_name])
+                curr_res = await db.execute(
+                    select(Permission).join(role_permissions).where(role_permissions.c.role_id == role.id)
+                )
+                for curr_p in curr_res.scalars().all():
+                    if curr_p.name not in allowed_names:
+                        await db.execute(delete(role_permissions).where(
+                            (role_permissions.c.role_id == role.id) & 
+                            (role_permissions.c.permission_id == curr_p.id)
+                        ))
 
             for perm in perms_to_add:
                 check = await db.execute(select(role_permissions).where(
@@ -273,6 +431,11 @@ class SecurityService:
                         permission_id=perm.id
                     ))
 
+        await audit_in_tx(
+            db, "ROLE_PERMISSIONS_SYNC", "security", actor, "Role", "bulk",
+            "Sincronización de permisos del sistema y de los roles base",
+            {"total_permisos": len(all_perms_map)},
+        )
         await db.commit()
         return {
             "message": "Permisos del sistema sincronizados exitosamente",

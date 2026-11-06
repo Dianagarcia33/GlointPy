@@ -1,3 +1,5 @@
+from src.core.errors import public_error_detail
+from src.core.search import like_contains, LIKE_ESCAPE
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, case
 from sqlalchemy.orm import selectinload
@@ -11,6 +13,7 @@ from src.schemas.withdrawal import WithdrawalCreate, WithdrawalUpdate
 from src.services.pdf_service import PDFService
 from datetime import datetime
 from fastapi import HTTPException
+from src.services.audit_trail_service import audit_in_tx
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +34,11 @@ class WithdrawalService:
         base_filters = []
         
         if search:
-            search_pattern = f"%{search}%"
+            search_pattern = like_contains(search)
             search_filter = or_(
-                User.name.ilike(search_pattern),
-                User.email.ilike(search_pattern),
-                User.document_id.ilike(search_pattern)
+                User.name.ilike(search_pattern, escape=LIKE_ESCAPE),
+                User.email.ilike(search_pattern, escape=LIKE_ESCAPE),
+                User.document_id.ilike(search_pattern, escape=LIKE_ESCAPE)
             )
             filters.append(search_filter)
             base_filters.append(search_filter)
@@ -117,7 +120,7 @@ class WithdrawalService:
                 data_res.append(WithdrawalResponse.model_validate(w))
             except Exception as e:
                 logger.error(f"Validation error on withdrawal {w.id}: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error validando retiro {w.id}: {str(e)}")
+                raise HTTPException(status_code=500, detail=public_error_detail(f"Error validando el retiro #{w.id}", e))
         
         return {
             "data": data_res,
@@ -142,47 +145,6 @@ class WithdrawalService:
         await db.commit()
         await db.refresh(db_withdrawal)
         return db_withdrawal
-
-    @staticmethod
-    async def bulk_create_withdrawals(db: AsyncSession, withdrawals_in: List[WithdrawalCreate]) -> List[Withdrawal]:
-        # Validate that users exist to avoid foreign key errors
-        users_result = await db.execute(select(User.id))
-        valid_user_ids = set(users_result.scalars().all())
-
-        # Fetch existing withdrawal IDs to skip duplicates
-        existing_result = await db.execute(select(Withdrawal.id))
-        existing_ids = set(existing_result.scalars().all())
-        
-        valid_withdrawals = []
-        skipped_user_ids = set()
-        for w in withdrawals_in:
-            if w.id is not None and w.id in existing_ids:
-                continue # Skip already registered
-                
-            if w.user_id in valid_user_ids:
-                if w.aprobado_por and w.aprobado_por not in valid_user_ids:
-                    w.aprobado_por = None
-                if w.procesado_por and w.procesado_por not in valid_user_ids:
-                    w.procesado_por = None
-                valid_withdrawals.append(Withdrawal(**w.model_dump()))
-            else:
-                skipped_user_ids.add(w.user_id)
-                logger.warning(f"Skipping withdrawal for invalid user_id: {w.user_id}")
-                
-        if skipped_user_ids:
-            # Revert the entire batch if there are missing users so the user knows
-            from fastapi import HTTPException
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Los siguientes user_id en el Excel no existen en la base de datos: {list(skipped_user_ids)[:10]}..."
-            )
-
-        if not valid_withdrawals:
-            return []
-
-        db.add_all(valid_withdrawals)
-        await db.commit()
-        return valid_withdrawals
 
     @staticmethod
     async def approve_withdrawal(db: AsyncSession, withdrawal_id: int, admin_id: int, file_path: Optional[str] = None) -> Withdrawal:
@@ -229,6 +191,19 @@ class WithdrawalService:
         if withdrawal.estado not in [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSED]:
             raise HTTPException(status_code=400, detail="Solo se pueden rechazar retiros en estado pendiente o procesado")
 
+        # Validar si tiene una dispersión en vuelo o aprobada en Yoint
+        from src.models.yoint_dispersion import YointDispersion
+        d_res = await db.execute(
+            select(YointDispersion).where(YointDispersion.withdrawal_id == withdrawal.id)
+        )
+        dispersions = d_res.scalars().all()
+        active_disp = [d for d in dispersions if d.status in ["PROCESSING", "APPROVED"]]
+        if active_disp:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No se puede rechazar el retiro #{withdrawal.id} manualmente porque se encuentra en proceso con Yoint (Estado: {active_disp[0].status}, Order ID: {active_disp[0].order_id or 'N/A'}). Debes esperar la resolución del banco o la conciliación de Yoint para evitar duplicidad de desembolsos."
+            )
+
         withdrawal.estado = WithdrawalStatus.REJECTED
         withdrawal.motivo_rechazo = motivo_rechazo
         withdrawal.aprobado_por = admin_id
@@ -251,6 +226,13 @@ class WithdrawalService:
                 )
                 db.add(tx)
 
+        # Revertir el 3.2% de retención de la Billetera Corporativa si fue acreditado
+        try:
+            from src.services.company_wallet_service import CompanyWalletService
+            await CompanyWalletService.refund_tax_retention(db, withdrawal)
+        except Exception as cw_err:
+            logger.warning(f"Aviso al revertir retención en Billetera Corporativa para retiro #{withdrawal.id}: {cw_err}")
+
         await db.commit()
         await db.refresh(withdrawal)
 
@@ -272,7 +254,7 @@ class WithdrawalService:
         return withdrawal
 
     @staticmethod
-    async def sync_wallet_debits(db: AsyncSession, admin_id: int) -> Dict[str, Any]:
+    async def sync_wallet_debits(db: AsyncSession, admin_id: int, actor=None) -> Dict[str, Any]:
         """
         Sincroniza retroactivamente todas las transacciones de débito de billetera que no tengan un registro en la tabla de retiros.
         """
@@ -298,6 +280,8 @@ class WithdrawalService:
         rows = tx_result.all()
 
         synced_count = 0
+        synced_ids = []
+        synced_total = Decimal("0")
 
         for tx, user_id in rows:
             monto_abs = abs(Decimal(str(tx.amount)))
@@ -356,7 +340,15 @@ class WithdrawalService:
             tx.reference_type = "withdrawal"
             tx.reference_id = withdrawal.id
             synced_count += 1
+            synced_ids.append(withdrawal.id)
+            synced_total += monto_abs
 
+        await audit_in_tx(
+            db, "WITHDRAWAL_SYNC_WALLET_DEBITS", "withdrawals", actor, "Withdrawal", "bulk",
+            f"Sincronización de débitos de billetera: {synced_count} retiros creados",
+            {"admin_id": admin_id, "cantidad": synced_count, "monto_total": float(synced_total),
+             "withdrawal_ids": synced_ids[:200]},
+        )
         await db.commit()
         return {
             "message": f"Sincronización completada exitosamente. Se registraron {synced_count} retiros.",
@@ -364,7 +356,7 @@ class WithdrawalService:
         }
 
     @staticmethod
-    async def bulk_process_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int) -> Dict[str, Any]:
+    async def bulk_process_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int, actor=None) -> Dict[str, Any]:
         """
         Actualiza masivamente una lista de retiros al estado 'procesado'.
         """
@@ -402,6 +394,13 @@ class WithdrawalService:
             updated_count += 1
             user_notifications.append((w.user_id, w.id, w.monto_neto or w.monto))
 
+        await audit_in_tx(
+            db, "WITHDRAWAL_BULK_PROCESS", "withdrawals", actor, "Withdrawal", "bulk",
+            f"Procesamiento masivo de {updated_count} retiros",
+            {"cantidad": updated_count, "withdrawal_ids": [w.id for w in withdrawals][:200],
+             "estado_antes": "PENDING", "estado_despues": "PROCESSED",
+             "monto_total": float(sum((w.monto_neto or w.monto or 0) for w in withdrawals))},
+        )
         await db.commit()
 
         # Generar notificaciones push internas en background o bloque protegido
@@ -426,7 +425,7 @@ class WithdrawalService:
         }
 
     @staticmethod
-    async def bulk_approve_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int) -> Dict[str, Any]:
+    async def bulk_approve_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int, actor=None) -> Dict[str, Any]:
         """
         Aprueba masivamente una lista de retiros que estén en estado 'procesado' o 'pendiente'.
         """
@@ -444,15 +443,38 @@ class WithdrawalService:
         now = datetime.utcnow()
         updated_count = 0
         user_notifications = []
+        emails_to_send = []
 
+        approved_detail = []
         for w in withdrawals:
             if w.estado in [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSED]:
+                approved_detail.append({"id": w.id, "estado_antes": str(getattr(w.estado, "value", w.estado)), "monto_neto": float(w.monto_neto or w.monto or 0)})
                 w.estado = WithdrawalStatus.APPROVED
                 w.aprobado_por = admin_id
                 w.fecha_aprobacion = now
                 updated_count += 1
                 user_notifications.append((w.user_id, w.id, w.monto_neto or w.monto))
+                if w.user and w.user.email:
+                    emails_to_send.append({
+                        "to_email": w.user.email,
+                        "user_name": w.user.name or "Inversionista",
+                        "amount": float(w.monto_neto or w.monto),
+                        "method": w.metodo_pago or "Transferencia Bancaria",
+                        "bank": w.banco or "Entidad Bancaria Registrada",
+                        "account_number": w.numero_cuenta or "N/A",
+                        "tax": float(w.impuesto or 0),
+                        "gross_amount": float(w.monto or 0),
+                        "account_type": w.tipo_cuenta,
+                        "withdrawal_id": w.id
+                    })
 
+        await audit_in_tx(
+            db, "WITHDRAWAL_BULK_APPROVE", "withdrawals", actor, "Withdrawal", "bulk",
+            f"Aprobación masiva de {updated_count} retiros",
+            {"cantidad": updated_count, "estado_despues": "APPROVED", "retiros": approved_detail[:200],
+             "monto_total": float(sum(d["monto_neto"] for d in approved_detail)),
+             "solicitados": len(withdrawal_ids), "omitidos": len(withdrawals) - updated_count},
+        )
         await db.commit()
 
         try:
@@ -469,6 +491,13 @@ class WithdrawalService:
                 )
         except Exception as err:
             logger.warning(f"Error generando notificaciones de retiros aprobados en lote: {err}")
+
+        try:
+            from src.services.email_service import EmailService
+            for item in emails_to_send:
+                EmailService.send_withdrawal_approval_email(**item)
+        except Exception as mail_err:
+            logger.warning(f"Error enviando correos de retiros aprobados en lote: {mail_err}")
 
         return {
             "message": f"Se aprobaron exitosamente {updated_count} retiros.",

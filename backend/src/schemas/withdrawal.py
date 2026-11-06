@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from typing import Optional, Any, List
 from datetime import datetime, date
 from decimal import Decimal
@@ -41,6 +41,22 @@ class WithdrawalBase(BaseModel):
 class WithdrawalCreate(WithdrawalBase):
     id: Optional[int] = None
 
+    @model_validator(mode="after")
+    def validate_amounts(self) -> 'WithdrawalCreate':
+        """Coherencia contable al crear o importar retiros (H-162): 0 <= retención <= monto y neto = monto - retención."""
+        ref = f"Retiro{f' #{self.id}' if self.id else ''} de ${self.monto:,.2f}"
+        if self.monto <= 0:
+            raise ValueError(f"{ref}: el monto debe ser mayor a cero.")
+        if self.impuesto < 0 or self.impuesto > self.monto:
+            raise ValueError(f"{ref}: la retención (${self.impuesto:,.2f}) debe estar entre $0 y el monto del retiro.")
+        # Tolerancia de $1 por redondeo (hay retiros históricos con diferencias de centavos)
+        if abs(self.monto - self.impuesto - self.monto_neto) > Decimal("1"):
+            raise ValueError(
+                f"{ref}: el neto (${self.monto_neto:,.2f}) debe ser el monto menos la retención "
+                f"(${self.monto - self.impuesto:,.2f})."
+            )
+        return self
+
 class WithdrawalUpdate(BaseModel):
     estado: Optional[WithdrawalStatus] = None
     motivo_rechazo: Optional[str] = None
@@ -79,6 +95,7 @@ class WithdrawalPaginatedResponse(BaseModel):
 class WithdrawalRejectRequest(BaseModel):
     motivo_rechazo: str
 
+    @field_validator('motivo_rechazo')
     @classmethod
     def validate_motivo(cls, v: str) -> str:
         clean = (v or "").strip()
@@ -88,10 +105,6 @@ class WithdrawalRejectRequest(BaseModel):
         if len(set(clean.lower().replace(" ", ""))) < 4:
             raise ValueError("Por favor ingrese un motivo de rechazo válido y descriptivo para el usuario.")
         return clean
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.motivo_rechazo = self.validate_motivo(self.motivo_rechazo)
 
 class WithdrawalBulkProcessRequest(BaseModel):
     withdrawal_ids: List[int]

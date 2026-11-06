@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -26,9 +26,8 @@ import {
   Landmark,
   Percent
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { usersService, GlobalAccountStatement } from '../../../../services/users';
-import { formatTransactionType } from '../../../../utils/format';
+import { formatTransactionType, formatApiDateTime, formatApiCalendarDay } from '../../../../utils/format';
 
 interface GlobalAccountStatementModalProps {
   isOpen: boolean;
@@ -64,7 +63,12 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
     }
   }, [isOpen]);
 
+  // Solo la consulta más reciente puede pintar el extracto: al cambiar de periodo rápido,
+  // una respuesta lenta (p. ej. "Todo") no debe pisar la del último periodo elegido (H-160)
+  const latestRequestRef = useRef(0);
+
   const fetchStatement = async (start?: string, end?: string) => {
+    const requestId = ++latestRequestRef.current;
     try {
       setLoading(true);
       setError(null);
@@ -72,12 +76,14 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
         startDate: start ?? startDate,
         endDate: end ?? endDate
       });
+      if (requestId !== latestRequestRef.current) return;
       setStatement(data);
     } catch (err: any) {
+      if (requestId !== latestRequestRef.current) return;
       console.error('Error fetching global statement:', err);
       setError(err.message || 'Error al obtener el estado de cuenta global.');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
     }
   };
 
@@ -117,32 +123,13 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
     }).format(amount || 0);
   };
 
-  const formatDateTime = (isoString?: string | null) => {
-    if (!isoString) return 'N/A';
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatDate = (isoString?: string | null) => {
-    if (!isoString) return 'N/A';
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit'
-    });
-  };
+  // H-152: fechas en hora de Colombia (America/Bogota), sin depender de la zona del navegador.
+  const formatDateTime = (isoString?: string | null) => formatApiDateTime(isoString);
 
   // Export to Excel Multi-Sheet
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+    const XLSX = await import('xlsx');
     if (!statement) return;
 
     try {
@@ -160,7 +147,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
         ['Total Débitos / Salidas (-)', statement.summary.total_debits],
         ['Total Retiros Desembolsados a Bancos', statement.summary.total_withdrawn_paid],
         ['Total Retiros Pendientes por Desembolso', statement.summary.total_withdrawn_pending],
-        ['Total Retención Impuesto GMF (4x1000)', statement.summary.total_gmf_tax],
+        ['Total Retención 3,2 %', statement.summary.total_retencion],
         ['Total Capital Invertido Activo', statement.summary.total_capital_active],
         ['Total Capital Invertido Finalizado', statement.summary.total_capital_finished],
         ['Total Inversionistas con Capital Activo', statement.summary.active_investors_count]
@@ -193,7 +180,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
         'TIPO DE CUENTA': w.account_type,
         'NÚMERO DE CUENTA': w.account_number,
         'MONTO SOLICITADO': w.amount,
-        'RETENCIÓN GMF (4x1000)': w.gmf_tax,
+        'RETENCIÓN 3,2 %': w.retencion,
         'MONTO NETO A TRANSFERIR': w.net_amount,
         'ESTADO': w.status.toUpperCase()
       }));
@@ -209,7 +196,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
         'CAPITAL': inv.capital,
         '% MENSUAL': `${inv.porcentaje_mensual}%`,
         'PLAZO (MESES)': inv.meses,
-        'FECHA INICIO': formatDate(inv.fecha_inicio),
+        'FECHA INICIO': formatApiCalendarDay(inv.fecha_inicio),
         'ESTADO': inv.estado
       }));
       const wsInv = XLSX.utils.json_to_sheet(invRows);
@@ -431,11 +418,11 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
 
                 <div className="bg-purple-50/60 p-4 rounded-2xl border border-purple-200/80 space-y-1">
                   <div className="flex items-center justify-between text-purple-800 mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Retención GMF (4x1000)</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Retención 3,2 %</span>
                     <Percent className="w-4 h-4 text-purple-600" />
                   </div>
                   <p className="text-lg sm:text-xl font-black font-montserrat tracking-tight text-purple-700">
-                    {formatCurrency(statement.summary.total_gmf_tax)}
+                    {formatCurrency(statement.summary.total_retencion)}
                   </p>
                   <span className="text-[10px] text-slate-500 font-medium block">Impuesto liquidado</span>
                 </div>
@@ -568,7 +555,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
                           <th className="py-3 px-4">Banco Destino</th>
                           <th className="py-3 px-4">Cuenta</th>
                           <th className="py-3 px-4 text-right">Monto Bruto</th>
-                          <th className="py-3 px-4 text-right">4x1000 (GMF)</th>
+                          <th className="py-3 px-4 text-right">Retención 3,2 %</th>
                           <th className="py-3 px-4 text-right">Neto a Pagar</th>
                           <th className="py-3 px-4 text-center">Estado</th>
                         </tr>
@@ -602,7 +589,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
                                   {formatCurrency(w.amount)}
                                 </td>
                                 <td className="py-3 px-4 text-right font-mono text-purple-700 font-bold">
-                                  -{formatCurrency(w.gmf_tax)}
+                                  -{formatCurrency(w.retencion)}
                                 </td>
                                 <td className="py-3 px-4 text-right font-mono font-extrabold text-blue-700">
                                   {formatCurrency(w.net_amount)}
@@ -671,7 +658,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
                                 {inv.meses} meses
                               </td>
                               <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">
-                                {formatDate(inv.fecha_inicio)}
+                                {formatApiCalendarDay(inv.fecha_inicio)}
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${

@@ -148,7 +148,7 @@ export const BulkApprovePreviewModal: React.FC<BulkApprovePreviewModalProps> = (
                           #{w.id}
                         </td>
                         <td className="py-2.5 px-3 font-bold text-slate-800">
-                          {w.user?.name || 'N/A'}
+                          {w.user?.name || `Usuario inexistente (#${w.user_id})`}
                         </td>
                         <td className="py-2.5 px-3 font-mono text-slate-600">
                           {w.user?.document_id || 'N/A'}

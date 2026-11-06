@@ -1,3 +1,4 @@
+from src.core.timezone import colombia_timestamps
 import json
 import logging
 from datetime import datetime, timezone
@@ -83,6 +84,14 @@ class ConnectionManager:
             self.user_connections[u_id] = set()
         self.user_connections[u_id].add(websocket)
 
+    async def close_user_connections(self, user_id: int, reason: str = "Sesión revocada"):
+        """Cierra todos los WebSockets abiertos del usuario (el token solo se valida al conectar)."""
+        for ws in list(self.user_connections.get(int(user_id), set())):
+            try:
+                await ws.close(code=1008, reason=reason)
+            except Exception:
+                pass
+
     def disconnect_user_only(self, websocket: WebSocket, user_id: int):
         """Desconecta un WebSocket del pool de notificaciones del usuario."""
         u_id = int(user_id)
@@ -98,7 +107,7 @@ class ConnectionManager:
             to_remove = set()
             for connection in self.room_connections[r_id]:
                 try:
-                    await connection.send_text(json.dumps(message_data))
+                    await connection.send_text(json.dumps(colombia_timestamps(message_data)))  # hora Colombia (H-152)
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:
@@ -113,7 +122,7 @@ class ConnectionManager:
                 if exclude_websocket and connection == exclude_websocket:
                     continue
                 try:
-                    await connection.send_text(json.dumps(message_data))
+                    await connection.send_text(json.dumps(colombia_timestamps(message_data)))  # hora Colombia (H-152)
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:
@@ -126,7 +135,7 @@ class ConnectionManager:
             to_remove = set()
             for connection in self.user_connections[u_id]:
                 try:
-                    await connection.send_text(json.dumps(message_data))
+                    await connection.send_text(json.dumps(colombia_timestamps(message_data)))  # hora Colombia (H-152)
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:

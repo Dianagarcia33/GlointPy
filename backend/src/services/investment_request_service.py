@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 import csv
 import io
 import logging
@@ -13,6 +14,13 @@ from typing import Dict, Any, Optional
 
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
 from src.models.user import User
+from src.models.investor import Investor
+from src.models.package import Package
+from src.models.period import Period
+from src.services.audit_trail_service import audit_in_tx
+
+# Los bonos por referido (aceleración de contratos) están desactivados por decisión de negocio (H-140)
+REFERRAL_ACCELERATION_ENABLED = False
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +38,12 @@ class InvestmentRequestService:
         )
         
         if search:
-            search_pattern = f"%{search}%"
+            search_pattern = like_contains(search)
             query = query.join(InvestmentRequest.user).filter(
                 or_(
-                    User.name.ilike(search_pattern),
-                    User.email.ilike(search_pattern),
-                    User.document_id.ilike(search_pattern)
+                    User.name.ilike(search_pattern, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_pattern, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_pattern, escape=LIKE_ESCAPE)
                 )
             )
             
@@ -44,9 +52,9 @@ class InvestmentRequestService:
         if search:
             count_query = count_query.join(InvestmentRequest.user).filter(
                 or_(
-                    User.name.ilike(search_pattern),
-                    User.email.ilike(search_pattern),
-                    User.document_id.ilike(search_pattern)
+                    User.name.ilike(search_pattern, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_pattern, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_pattern, escape=LIKE_ESCAPE)
                 )
             )
             
@@ -133,153 +141,8 @@ class InvestmentRequestService:
                 return None
 
     @staticmethod
-    async def bulk_create_investment_requests(db: AsyncSession, csv_text: str) -> Dict[str, Any]:
-        if csv_text.startswith('\ufeff'):
-            csv_text = csv_text[1:]
-            
-        lines = csv_text.splitlines()
-        first_line = lines[0] if lines else ""
-        
-        # Detect delimiter (Tab, Semicolon, or Comma)
-        if first_line.count('\t') > first_line.count(';') and first_line.count('\t') > first_line.count(','):
-            delim = '\t'
-        elif first_line.count(';') >= first_line.count(','):
-            delim = ';'
-        else:
-            delim = ','
-        
-        # Split line manually to normalize field names (handle BOM and spaces)
-        raw_fieldnames = first_line.strip().split(delim)
-        fieldnames = [f.replace('\ufeff', '').strip(' "') for f in raw_fieldnames]
-        
-        reader = csv.DictReader(io.StringIO(csv_text), delimiter=delim, fieldnames=fieldnames)
-        
-        # Skip the first row since we provided fieldnames manually
-        next(reader, None)
-        
-        # Read all rows into memory to do bulk validation
-        rows_data = list(reader)
-        
-        # Collect all user IDs to check existence
-        user_ids_to_check = set()
-        for row in rows_data:
-            u_id = str(row.get("user_id", "")).strip(' "')
-            r_by = str(row.get("reviewed_by", "")).strip(' "')
-            if u_id.isdigit(): user_ids_to_check.add(int(u_id))
-            if r_by.isdigit(): user_ids_to_check.add(int(r_by))
-            
-        valid_users = set()
-        if user_ids_to_check:
-            user_query = select(User.id).where(User.id.in_(user_ids_to_check))
-            user_result = await db.execute(user_query)
-            valid_users = set(user_result.scalars().all())
-        
-        success_count = 0
-        errors = []
-        
-        for i, row in enumerate(rows_data, start=1):
-            try:
-                # Normalizamos las claves del diccionario por si alguna vino con espacios
-                # y convertimos 'NULL' o '\N' a strings vacíos
-                clean_row = {}
-                for k, v in row.items():
-                    if k is not None:
-                        clean_k = k.strip(' "')
-                        clean_v = str(v).strip() if v is not None else ""
-                        if clean_v.upper() in ('NULL', '\\N', 'NONE'):
-                            clean_v = ""
-                        clean_row[clean_k] = clean_v
-                row = clean_row
-                
-                # Si toda la fila está vacía, ignorarla (por si Excel deja filas extra al final)
-                if not any(v for v in row.values()):
-                    continue
-                    
-                user_id_str = row.get("user_id", "")
-                paquete_id_str = row.get("paquete_inversion_id", "")
-                monto_str = row.get("monto", "")
-                
-                if not user_id_str or not paquete_id_str or not monto_str:
-                    errors.append(f"Fila {i}: 'user_id', 'paquete_inversion_id' y 'monto' son obligatorios.")
-                    continue
-                    
-                try:
-                    u_id = int(user_id_str)
-                    if u_id not in valid_users:
-                        errors.append(f"Fila {i}: El usuario con ID {u_id} no existe en el sistema. Fila omitida.")
-                        continue
-                except ValueError:
-                    pass
-                    
-                status_str = row.get("status", "")
-                if not status_str:
-                    status_str = "pending"
-                    
-                req = InvestmentRequest(
-                    user_id=int(user_id_str),
-                    paquete_inversion_id=int(paquete_id_str),
-                    monto=float(monto_str),
-                    status=InvestmentRequestStatus(status_str)
-                )
-                
-                req_id_str = row.get("id", "")
-                if req_id_str:
-                    req.id = int(req_id_str)
-                
-                # Campos opcionales numéricos
-                inv_id = row.get("investor_id", "")
-                if inv_id: req.investor_id = int(inv_id)
-                
-                prosp_id = row.get("prospecto_id", "")
-                if prosp_id: req.prospecto_id = int(prosp_id)
-                
-                rev_by = row.get("reviewed_by", "")
-                if rev_by: 
-                    try:
-                        r_id = int(rev_by)
-                        if r_id in valid_users:
-                            req.reviewed_by = r_id
-                        else:
-                            req.reviewed_by = None # Si el revisor no existe, lo dejamos nulo en vez de fallar toda la tabla
-                    except ValueError:
-                        pass
-                
-                # Campos opcionales de texto
-                req.comprobante_path = row.get("comprobante_path", "") or None
-                req.rejection_reason = row.get("rejection_reason", "") or None
-                req.extra_data = row.get("extra_data", "") or None
-                
-                # Fechas
-                if "reviewed_at" in row:
-                    req.reviewed_at = InvestmentRequestService.parse_datetime(row.get("reviewed_at", ""))
-                if "created_at" in row:
-                    req.created_at = InvestmentRequestService.parse_datetime(row.get("created_at", ""))
-                if "updated_at" in row:
-                    req.updated_at = InvestmentRequestService.parse_datetime(row.get("updated_at", ""))
-                if "deleted_at" in row:
-                    req.deleted_at = InvestmentRequestService.parse_datetime(row.get("deleted_at", ""))
-                    
-                db.add(req)
-                success_count += 1
-                
-            except Exception as e:
-                errors.append(f"Fila {i}: {str(e)}")
-                
-        try:
-            await db.commit()
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.error(f"Database error during bulk upload: {e}")
-            errors.append("Error fatal al guardar los registros en la base de datos.")
-            success_count = 0
-            
-        return {"success": success_count, "errors": errors}
-
-    @staticmethod
-    async def approve_request(db: AsyncSession, request_id: int, user_id: int, override_commercial_id: Optional[int] = None) -> InvestmentRequest:
+    async def approve_request(db: AsyncSession, request_id: int, user_id: int, override_commercial_id: Optional[int] = None, actor=None) -> InvestmentRequest:
         import random
-        from src.models.investor import Investor
-        from src.models.period import Period
         from src.models.acceleration import Acceleration
         from sqlalchemy.orm import selectinload
         from fastapi import HTTPException
@@ -297,6 +160,7 @@ class InvestmentRequestService:
             raise HTTPException(status_code=400, detail="La solicitud ya fue aprobada")
 
         # 2. Update request status
+        prev_status = str(getattr(req.status, "value", req.status))
         req.status = InvestmentRequestStatus.approved
         req.reviewed_by = user_id
         req.reviewed_at = datetime.utcnow()
@@ -434,19 +298,15 @@ class InvestmentRequestService:
             db.add(history)
 
             # 4. Actualizar contrato existente
-            from src.models.package import Package
             from src.services.share_market_service import ShareMarketService
-            prev_pkg_shares = 0
-            if existing_investor.package_id:
-                old_pkg_res = await db.execute(select(Package).where(Package.id == existing_investor.package_id))
-                old_pkg = old_pkg_res.scalar_one_or_none()
-                if old_pkg and old_pkg.granted_shares:
-                    prev_pkg_shares = old_pkg.granted_shares
+            # H-192: lo ya otorgado es el valor congelado del contrato, no la definición viva del paquete anterior
+            prev_pkg_shares = await ShareMarketService.get_contract_frozen_shares(db, existing_investor)
 
             new_pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
             new_pkg = new_pkg_res.scalar_one_or_none()
             new_pkg_shares = new_pkg.granted_shares if new_pkg and new_pkg.granted_shares else 0
             shares_diff = new_pkg_shares - prev_pkg_shares
+            existing_investor.shares_granted_frozen = prev_pkg_shares + max(0, shares_diff)
             if shares_diff > 0:
                 pkg_val = f"${new_pkg.value:,.0f} COP" if new_pkg and new_pkg.value else ""
                 desc = f"Otorgamiento de {shares_diff} acciones adicionales por aumento de capital a Paquete ({pkg_val}) - Contrato #{existing_investor.assigned_code}"
@@ -499,10 +359,11 @@ class InvestmentRequestService:
                 await db.flush()
 
             # Acreditar acciones otorgadas por el paquete de inversión si aplica
-            from src.models.package import Package
             from src.services.share_market_service import ShareMarketService
             pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
             pkg = pkg_res.scalar_one_or_none()
+            # H-192: se congelan las acciones que otorga el paquete en el momento de la compra
+            investor.shares_granted_frozen = pkg.granted_shares if (pkg and pkg.granted_shares and pkg.granted_shares > 0) else 0
             if pkg and pkg.granted_shares and pkg.granted_shares > 0:
                 pkg_val = f"${pkg.value:,.0f} COP" if pkg.value else ""
                 desc = f"Otorgamiento de {pkg.granted_shares} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{code}"
@@ -517,8 +378,77 @@ class InvestmentRequestService:
                     created_at=investor.start_date or investor.created_at or req.created_at or datetime.utcnow()
                 )
 
-        # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)
-        if referred_code:
+            # --- LIQUIDACIÓN RETROACTIVA AUTOMÁTICA DE DÍAS ACUMULADOS ---
+            # Si el contrato inició en una fecha anterior a hoy (por tiempo transcurrido entre radicación y aprobación),
+            # liquidar de inmediato los rendimientos acumulados entre start_date y hoy para no deberle días al inversionista.
+            from src.core.timezone import get_colombia_today
+            from src.services.yield_calculator import calculate_investment_yield
+
+            start_d = contract_start_date.date() if isinstance(contract_start_date, datetime) else contract_start_date
+            today_cot = get_colombia_today()
+
+            if start_d and start_d < today_cot:
+                if not investor.package:
+                    investor.package = pkg
+                if not investor.period:
+                    p_res = await db.execute(select(Period).where(Period.id == period_id))
+                    investor.period = p_res.scalar_one_or_none()
+                if not hasattr(investor, 'withdrawals') or investor.withdrawals is None:
+                    investor.withdrawals = []
+                if not hasattr(investor, 'accelerations') or investor.accelerations is None:
+                    investor.accelerations = []
+
+                yield_calc = calculate_investment_yield(investor, start_d, today_cot)
+                initial_yield = yield_calc.total_yield
+
+                if initial_yield and initial_yield > Decimal("0.00"):
+                    prev_bal = wallet.balance or Decimal("0.00")
+                    wallet.balance = prev_bal + initial_yield
+
+                    tx_desc = f"Rendimiento del {start_d} al {today_cot} (Inv. {code})"
+                    tx = WalletTransaction(
+                        wallet_id=wallet.id,
+                        amount=initial_yield,
+                        type="ingreso",
+                        reference_type="rendimiento_inversion",
+                        reference_id=investor.id,
+                        description=tx_desc,
+                        balance_after=wallet.balance
+                    )
+                    db.add(tx)
+                    await db.flush()
+
+                    try:
+                        batch_code = f"INIT_ACCRUED_{code}_{start_d.strftime('%Y%m%d')}_{today_cot.strftime('%Y%m%d')}"
+                        await db.execute(text("""
+                            INSERT INTO auto_transfer_logs (batch_id, investor_id, user_id, type, amount, status, message, metadata, created_at)
+                            VALUES (:batch_id, :investor_id, :user_id, :type, :amount, :status, :message, :metadata, NOW())
+                        """), {
+                            "batch_id": batch_code,
+                            "investor_id": investor.id,
+                            "user_id": req.user_id,
+                            "type": "rendimiento_inversion",
+                            "amount": float(initial_yield),
+                            "status": "COMPLETED",
+                            "message": tx_desc[:255],
+                            "metadata": json.dumps({
+                                "transaction_id": tx.id,
+                                "wallet_id": wallet.id,
+                                "balance_before": float(prev_bal),
+                                "balance_after": float(wallet.balance),
+                                "assigned_code": code,
+                                "retroactive_days": (today_cot - start_d).days
+                            })
+                        })
+                    except Exception as e:
+                        logger.warning(f"Error registrando auto_transfer_log retroactivo para #{code}: {e}")
+
+                    logger.info(f"✅ Liquidación retroactiva automática aplicada a #{code}: ${initial_yield:,.2f} COP por {(today_cot - start_d).days} días ({start_d} al {today_cot}).")
+
+
+        # 4. Aceleración de Contrato por Referido (Bono del 5%): DESACTIVADA. Ya no se otorgan bonos
+        # nuevos; las aceleraciones existentes se conservan y se siguen respetando en los cálculos (H-140).
+        if referred_code and REFERRAL_ACCELERATION_ENABLED:
             # Buscar el contrato del referente por su assigned_code
             referrer_res = await db.execute(
                 select(Investor)
@@ -624,19 +554,73 @@ class InvestmentRequestService:
                     await register_commercial_sale(
                         db,
                         commercial_id=int(c_id),
-                        sale_data=c_sale_create
+                        sale_data=c_sale_create,
+                        investor_id=req.investor_id,
+                        investment_request_id=req.id
                     )
                     logger.info(f"Venta comercial de ${sale_amount} (Aumento neto / Venta) adjudicada automáticamente al Directivo #{c_id}")
             except Exception as e:
                 logger.error(f"Error al adjudicar venta comercial automática al Directivo #{c_id}: {e}")
 
+        await audit_in_tx(
+            db, "INVESTMENT_REQUEST_APPROVE", "investments", actor, "InvestmentRequest", req.id,
+            f"Aprobación de la solicitud de inversión #{req.id} por ${float(req.monto):,.0f}",
+            {"request_id": req.id, "usuario_id": req.user_id, "monto": float(req.monto),
+             "paquete_id": req.paquete_inversion_id, "estado_antes": prev_status, "estado_despues": "approved",
+             "es_aumento_capital": bool(is_upgrade and existing_investor is not None),
+             "contrato_id": req.investor_id, "reviewed_by": user_id},
+        )
         await db.commit()
         await db.refresh(req)
+
+        # Enviar correo corporativo de Inversión / Aumento de Capital Activada
+        try:
+            if investor_user and investor_user.email:
+                from src.services.email_service import EmailService
+                
+                if is_upgrade and existing_investor:
+                    c_code = existing_investor.assigned_code or f"CON-{existing_investor.id}"
+                    c_amount = float(new_pkg.value or req.monto) if (new_pkg and new_pkg.value) else float(req.monto)
+                    c_pkg_name = new_pkg.name if (new_pkg and getattr(new_pkg, 'name', None)) else f"Paquete ${c_amount:,.0f} COP"
+                    c_period = f"{existing_investor.period.months} meses ({existing_investor.period.percentage}% mensual)" if existing_investor.period else "12 meses"
+                    c_shares = shares_diff if ('shares_diff' in locals() and shares_diff > 0) else 0
+                    c_yield = accrued_yield if ('accrued_yield' in locals() and accrued_yield > 0) else 0.0
+                else:
+                    c_code = investor.assigned_code if ('investor' in locals() and investor) else (req.investor.assigned_code if getattr(req, 'investor', None) else f"CON-{req.id}")
+                    c_amount = float(req.monto)
+                    c_pkg_name = pkg.name if ('pkg' in locals() and pkg and getattr(pkg, 'name', None)) else f"Paquete ${c_amount:,.0f} COP"
+                    c_period = f"{period.months} meses ({period.percentage}% mensual)" if ('period' in locals() and period) else "12 meses"
+                    c_shares = pkg.granted_shares if ('pkg' in locals() and pkg and getattr(pkg, 'granted_shares', None)) else 0
+                    c_yield = 0.0
+
+                # Identificar si vino confirmado por Yoint
+                yoint_method = None
+                if req.extra_data and isinstance(req.extra_data, dict):
+                    if req.extra_data.get("yoint_payment_method"):
+                        yoint_method = f"Pasarela Yoint ({req.extra_data.get('yoint_payment_method')})"
+                    elif req.extra_data.get("auto_approved_by") == "YOINT_GATEWAY":
+                        yoint_method = "Pasarela en línea Yoint"
+
+                EmailService.send_investment_activated_email(
+                    to_email=investor_user.email,
+                    user_name=investor_user.name or "Inversionista",
+                    contract_code=c_code,
+                    amount=c_amount,
+                    package_name=c_pkg_name,
+                    period_info=c_period,
+                    is_upgrade=is_upgrade,
+                    granted_shares=c_shares,
+                    accrued_yield_paid=c_yield,
+                    payment_method=yoint_method
+                )
+        except Exception as mail_err:
+            logger.error(f"Error enviando correo corporativo de activación de contrato para solicitud #{req.id}: {mail_err}")
+
         return req
 
 
     @staticmethod
-    async def reject_request(db: AsyncSession, request_id: int, user_id: int, reason: str) -> InvestmentRequest:
+    async def reject_request(db: AsyncSession, request_id: int, user_id: int, reason: str, actor=None) -> InvestmentRequest:
         from fastapi import HTTPException
         from decimal import Decimal
         from src.models.wallet import Wallet, WalletStatus, WalletTransaction
@@ -652,6 +636,8 @@ class InvestmentRequestService:
         if req.status == InvestmentRequestStatus.rejected:
             raise HTTPException(status_code=400, detail="La solicitud ya fue rechazada")
 
+        prev_status = str(getattr(req.status, "value", req.status))
+        refunded = 0.0
         req.status = InvestmentRequestStatus.rejected
         req.rejection_reason = reason
         req.reviewed_by = user_id
@@ -682,8 +668,16 @@ class InvestmentRequestService:
                     balance_after=Decimal(str(new_balance))
                 )
                 db.add(tx)
+                refunded = monto_billetera
                 logger.info(f"Reembolso de ${monto_billetera} devuelto a la billetera del usuario #{req.user_id} por rechazo de solicitud #{req.id}")
 
+        await audit_in_tx(
+            db, "INVESTMENT_REQUEST_REJECT", "investments", actor, "InvestmentRequest", req.id,
+            f"Rechazo de la solicitud de inversión #{req.id}",
+            {"request_id": req.id, "usuario_id": req.user_id, "monto": float(req.monto),
+             "estado_antes": prev_status, "estado_despues": "rejected", "motivo": (reason or "")[:300],
+             "reembolso_billetera": refunded},
+        )
         await db.commit()
         await db.refresh(req)
         return req

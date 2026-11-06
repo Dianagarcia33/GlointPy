@@ -1,3 +1,4 @@
+import { useCookieConsentStore } from "../../../store/cookieConsentStore";
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
@@ -24,21 +25,12 @@ export function Footer() {
 
 
   return (
-    <footer style={{ background: "#080e1b" }} className="pt-16 pb-8">
+    <footer style={{ background: "#080807" }} className="pt-16 pb-8">
       <div className="max-w-6xl mx-auto px-6">
-        <div className="grid md:grid-cols-4 gap-10 mb-12">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
           <div className="md:col-span-1">
-            <div
-              className="text-2xl font-black tracking-widest mb-4"
-              style={{
-                background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              GLOINT
-            </div>
+            <img src="/logos/brand/wordmark.png" alt="GLOINT Group" className="h-11 w-auto mb-4 -ml-1" />
             <p className="text-slate-500 text-sm leading-relaxed mb-6">
               Ecosistema empresarial de inversión, comercio digital y tecnología.
             </p>
@@ -95,11 +87,14 @@ export function Footer() {
                   <button onClick={() => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); }} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button>
                 </li>
               ))}
+              <li>
+                <button type="button" onClick={() => useCookieConsentStore.getState().openPreferences()} className="text-slate-500 text-sm hover:text-white transition-colors text-left">Configurar cookies</button>
+              </li>
             </ul>
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <Mail size={13} style={{ color: GOLD }} />
-                <a href={`mailto:${emailDisplay}`} className="hover:underline">{emailDisplay}</a>
+                <a href={`mailto:${emailDisplay}`} className="hover:underline break-all">{emailDisplay}</a>
               </div>
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <Phone size={13} style={{ color: GOLD }} />

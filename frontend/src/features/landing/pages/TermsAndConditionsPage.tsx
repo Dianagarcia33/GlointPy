@@ -32,7 +32,7 @@ const sections = [
             "Recepción del pago",
             "Creación de la cuenta del inversionista",
             "Aceptación del contrato",
-            "Emisión y activación del pagaré"
+            "Formalización y firma del contrato de inversión"
         ]
     },
     {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -23,9 +23,8 @@ import {
   Briefcase,
   Layers
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { usersService, UserAccountStatement } from '../../../../services/users';
-import { formatTransactionType } from '../../../../utils/format';
+import { formatTransactionType, formatApiDateTime, formatApiCalendarDay } from '../../../../utils/format';
 
 interface UserAccountStatementModalProps {
   isOpen: boolean;
@@ -47,19 +46,32 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
   // Date filters
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [rangeError, setRangeError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'movements' | 'withdrawals' | 'investments' | 'shares'>('movements');
 
-  const fetchStatement = async () => {
+  // Solo la consulta más reciente puede pintar el extracto (evita que una respuesta tardía pise a la última)
+  const latestRequestRef = useRef(0);
+
+  // Recibe las fechas como parámetros para que "Ver Todo" pueda recargar sin esperar a que se actualice el estado
+  const fetchStatement = async (start: string = startDate, end: string = endDate) => {
+    if (start && end && start > end) {
+      setRangeError("Rango inválido: la fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.");
+      return;
+    }
+    setRangeError(null);
+    const requestId = ++latestRequestRef.current;
     try {
       setLoading(true);
       setError(null);
-      const data = await usersService.getUserStatement(userId, startDate || undefined, endDate || undefined);
+      const data = await usersService.getUserStatement(userId, start || undefined, end || undefined);
+      if (requestId !== latestRequestRef.current) return;
       setStatement(data);
     } catch (err: any) {
+      if (requestId !== latestRequestRef.current) return;
       console.error('Error fetching statement:', err);
       setError(err.message || 'Error al cargar el estado de cuenta.');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
     }
   };
 
@@ -80,31 +92,15 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
     }).format(num || 0);
   };
 
-  const formatDate = (dateStr?: string | null) => {
-    if (!dateStr) return 'N/A';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('es-CO', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric' 
-    });
-  };
+  // H-152: fechas en hora de Colombia (America/Bogota), sin depender de la zona del navegador.
+  const formatDate = (dateStr?: string | null) =>
+    formatApiDateTime(dateStr, { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const formatDateTime = (dateStr?: string | null) => {
-    if (!dateStr) return 'N/A';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('es-CO', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDateTime = (dateStr?: string | null) => formatApiDateTime(dateStr);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+    const XLSX = await import('xlsx');
     if (!statement) return;
     try {
       const wb = XLSX.utils.book_new();
@@ -126,6 +122,10 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
         ['RESUMEN FINANCIERO'],
         ['Saldo Inicial Periodo', statement.summary.opening_balance],
         ['Total Abonos / Ingresos (+)', statement.summary.total_credits],
+        ['   Rendimientos', statement.summary.total_yields ?? 0],
+        ['   Ajustes Administrativos', statement.summary.total_adjustments ?? 0],
+        ['   Reembolsos', statement.summary.total_refunds ?? 0],
+        ['   Otros Abonos', statement.summary.total_other_credits ?? 0],
         ['Total Débitos / Salidas (-)', statement.summary.total_debits],
         ['Saldo Final Periodo', statement.summary.closing_balance],
         ['Total Retiros Pagados', statement.summary.total_withdrawn_paid],
@@ -163,7 +163,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
         'TIPO CUENTA': w.tipo_cuenta,
         'NÚMERO CUENTA': w.numero_cuenta,
         'MONTO BRUTO': w.monto_bruto,
-        'RETENCIÓN / 4x1000': w.retencion,
+        'RETENCIÓN 3,2 %': w.retencion,
         'MONTO NETO PAGADO': w.monto_neto,
         'ESTADO': w.estado
       }));
@@ -177,7 +177,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
         'CAPITAL INVERTIDO': i.capital,
         'TASA MENSUAL (%)': `${i.porcentaje_mensual}%`,
         'PLAZO (MESES)': `${i.meses} meses`,
-        'FECHA INICIO': formatDate(i.fecha_inicio),
+        'FECHA INICIO': formatApiCalendarDay(i.fecha_inicio),
         'ESTADO': i.estado,
         'OBSERVACIONES': i.observaciones
       }));
@@ -301,7 +301,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
             </div>
             <button
               type="button"
-              onClick={fetchStatement}
+              onClick={() => fetchStatement()}
               disabled={loading}
               className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
@@ -314,11 +314,18 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                 onClick={() => {
                   setStartDate('');
                   setEndDate('');
+                  fetchStatement('', '');
                 }}
                 className="px-2 py-1 text-slate-500 hover:text-slate-800 font-bold underline cursor-pointer"
               >
                 Ver Todo
               </button>
+            )}
+            {rangeError && (
+              <span className="flex items-center gap-1 text-rose-600 font-semibold">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {rangeError}
+              </span>
             )}
           </div>
 
@@ -399,13 +406,23 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
 
                 <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200/80">
                   <div className="flex items-center justify-between text-emerald-800 mb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Abonos / Rendimientos</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Rendimientos</span>
                     <TrendingUp className="w-4 h-4 text-emerald-600" />
                   </div>
                   <p className="text-xl font-black text-emerald-700 font-montserrat">
-                    +{formatCurrency(statement.summary.total_credits)}
+                    +{formatCurrency(statement.summary.total_yields ?? statement.summary.total_credits)}
                   </p>
                   <span className="text-[10px] text-slate-500 font-medium">Generado en el periodo</span>
+                  {/* Otros abonos que no son rendimientos (H-129) */}
+                  {[
+                    { label: 'Ajustes', value: statement.summary.total_adjustments },
+                    { label: 'Reembolsos', value: statement.summary.total_refunds },
+                    { label: 'Otros abonos', value: statement.summary.total_other_credits },
+                  ].filter(item => (item.value || 0) > 0).map(item => (
+                    <span key={item.label} className="block text-[10px] text-slate-600 font-semibold">
+                      {item.label}: +{formatCurrency(item.value || 0)}
+                    </span>
+                  ))}
                 </div>
 
                 <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-200/80">
@@ -655,7 +672,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                                   {inv.meses} meses
                                 </td>
                                 <td className="py-3 px-4 text-slate-600 font-mono">
-                                  {formatDate(inv.fecha_inicio)}
+                                  {formatApiCalendarDay(inv.fecha_inicio)}
                                 </td>
                                 <td className="py-3 px-4 text-center">
                                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
@@ -760,6 +777,8 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                                           ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                           : sm.movement_type === 'market_sell'
                                             ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                            : sm.movement_type === 'package_revoke' || sm.movement_type === 'package_grant_reverted'
+                                              ? 'bg-slate-100 text-slate-500 border border-slate-300'
                                             : sm.movement_type === 'admin_adjustment'
                                               ? 'bg-purple-50 text-purple-700 border border-purple-200'
                                               : 'bg-slate-50 text-slate-700 border border-slate-200'
@@ -835,7 +854,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
           <div className="border-b-2 border-slate-900 pb-3 mb-3 flex items-start justify-between">
             <div className="flex items-center gap-3">
               <img 
-                src="/logo.png" 
+                src="/logo-light.png" 
                 alt="Gloint" 
                 className="h-10 w-auto object-contain" 
                 onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} 
@@ -927,7 +946,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                   <span className="text-xs font-black font-mono text-slate-800">{formatCurrency(statement.summary.opening_balance)}</span>
                 </div>
                 <div className="border border-emerald-300 rounded-lg p-2 bg-emerald-50/50">
-                  <span className="text-[8px] text-emerald-800 font-bold uppercase block">Abonos / Rendimientos (+)</span>
+                  <span className="text-[8px] text-emerald-800 font-bold uppercase block">Total Abonos (+)</span>
                   <span className="text-xs font-black font-mono text-emerald-700">+{formatCurrency(statement.summary.total_credits)}</span>
                 </div>
                 <div className="border border-rose-300 rounded-lg p-2 bg-rose-50/50">
@@ -1043,7 +1062,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                   <th className="py-1.5 px-2 border-r border-slate-300 w-24">Fecha Solicitud</th>
                   <th className="py-1.5 px-2 border-r border-slate-300">Banco & Cuenta Destino</th>
                   <th className="py-1.5 px-2 border-r border-slate-300 text-right w-20">Monto Bruto</th>
-                  <th className="py-1.5 px-2 border-r border-slate-300 text-right w-20">GMF / Ret.</th>
+                  <th className="py-1.5 px-2 border-r border-slate-300 text-right w-20">Retención</th>
                   <th className="py-1.5 px-2 border-r border-slate-300 text-right w-20">Neto Pagado</th>
                   <th className="py-1.5 px-2 text-center w-20">Estado</th>
                 </tr>
@@ -1139,7 +1158,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                         {inv.meses} meses
                       </td>
                       <td className="py-1 px-2 border-r border-slate-200 font-mono text-[8.5px] text-slate-600">
-                        {formatDate(inv.fecha_inicio)}
+                        {formatApiCalendarDay(inv.fecha_inicio)}
                       </td>
                       <td className="py-1 px-2 text-center font-bold uppercase text-[8.5px]">
                         <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">

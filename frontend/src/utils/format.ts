@@ -48,13 +48,19 @@ export const getColombiaToday = (): string => {
 };
 
 /**
+ * True si la fecha ISO ya trae zona ('Z' o '+hh:mm' / '-hh:mm'). La API entrega las marcas de
+ * tiempo en hora Colombia con '-05:00' (H-152): no hay que añadirles 'Z'.
+ */
+export const hasTimezoneSuffix = (dateStr: string): boolean => /(Z|[+-]\d{2}:?\d{2})$/.test(dateStr.trim());
+
+/**
  * Formatea una fecha o timestamp a formato local colombiano DD/MM/YYYY respetando la zona horaria America/Bogota.
  */
 export const formatColombiaDate = (dateStr: string | Date | null | undefined): string => {
     if (!dateStr) return 'N/A';
     let d: Date;
     if (typeof dateStr === 'string') {
-        if (!dateStr.includes('Z') && !dateStr.includes('+') && dateStr.includes('T')) {
+        if (!hasTimezoneSuffix(dateStr) && dateStr.includes('T')) {
             d = new Date(dateStr + 'Z');
         } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
             const [y, m, day] = dateStr.split('-').map(Number);
@@ -71,6 +77,62 @@ export const formatColombiaDate = (dateStr: string | Date | null | undefined): s
 };
 
 /**
+ * Formatea una fecha de la API con el formato dado sin desfasar el día (H-203). Las fechas sin hora
+ * ('2026-09-28') son días calendario: se leen como tal y no como medianoche UTC, que en Colombia
+ * caería el día anterior. Los timestamps se muestran en hora de Colombia.
+ */
+export const formatApiDate = (
+    dateStr: string | null | undefined,
+    options: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' },
+): string => {
+    if (!dateStr) return '-';
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
+    if (dateOnly) {
+        const d = new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+        return d.toLocaleDateString('es-CO', options);
+    }
+    const d = !hasTimezoneSuffix(dateStr) && dateStr.includes('T') ? new Date(dateStr + 'Z') : new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('es-CO', { ...options, timeZone: 'America/Bogota' });
+};
+
+/**
+ * Fecha y hora de una marca de tiempo de la API SIEMPRE en hora de Colombia (America/Bogota),
+ * sin depender de la zona del navegador (H-152). Sin zona ('2026-09-24T23:52:36') se asume UTC,
+ * que es como guarda el servidor; con zona ('...-05:00') se respeta. Un valor de solo día
+ * ('2026-09-28') no es un instante: se muestra el día sin hora y sin desplazarlo.
+ */
+export const formatApiDateTime = (
+    dateStr: string | null | undefined,
+    options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' },
+): string => {
+    if (!dateStr) return 'N/A';
+    const clean = dateStr.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+        const { hour, minute, second, hour12, timeStyle, ...dayOptions } = options as Intl.DateTimeFormatOptions & { timeStyle?: string };
+        void hour; void minute; void second; void hour12; void timeStyle;
+        return formatApiDate(clean, dayOptions);
+    }
+    const d = !hasTimezoneSuffix(clean) && clean.includes('T') ? new Date(clean + 'Z') : new Date(clean);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleString('es-CO', { ...options, timeZone: 'America/Bogota' });
+};
+
+/**
+ * Día calendario de un campo de negocio que puede venir con hora sin zona (p. ej. fecha de inicio
+ * de contrato '2026-10-16T20:37:40'): se toma el día tal como está escrito, sin convertir de zona,
+ * para no moverlo de día (H-152).
+ */
+export const formatApiCalendarDay = (
+    dateStr: string | null | undefined,
+    options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' },
+): string => {
+    if (!dateStr) return 'N/A';
+    const day = /^(\d{4}-\d{2}-\d{2})/.exec(dateStr.trim());
+    return day ? formatApiDate(day[1], options) : dateStr;
+};
+
+/**
  * Parsea una fecha de chat asegurando que los timestamps UTC de MySQL sin sufijo 'Z'
  * sean interpretados correctamente como UTC.
  */
@@ -79,7 +141,7 @@ export const parseChatDate = (dateStr?: string | Date | null): Date | null => {
     let d: Date;
     if (typeof dateStr === 'string') {
         const clean = dateStr.trim();
-        if (!clean.includes('Z') && !clean.includes('+') && clean.includes('T')) {
+        if (!hasTimezoneSuffix(clean) && clean.includes('T')) {
             d = new Date(clean + 'Z');
         } else {
             d = new Date(clean);

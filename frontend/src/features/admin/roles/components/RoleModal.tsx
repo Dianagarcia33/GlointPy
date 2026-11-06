@@ -41,18 +41,45 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     }
   }, [isOpen, role]);
 
+  const ROLE_NAME_REGEX = /^[a-z][a-z0-9_]{2,49}$/;
+
+  const sanitizeRoleName = (val: string): string => {
+    return val
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Elimina acentos/tildes
+      .replace(/ñ/g, 'n')              // Convierte ñ a n
+      .replace(/[\s\-]+/g, '_')        // Espacios y guiones a guión bajo
+      .replace(/[^a-z0-9_]/g, '');     // Elimina signos y caracteres no alfanuméricos
+  };
+
+  const isEditingSystemRole = Boolean(
+    role && (
+      String(role.is_system_role) === '1' ||
+      String(role.is_system_role).toLowerCase() === 'true' ||
+      ['admin', 'superadmin', 'super_admin', 'super admin', 'superuser', 'inversionista', 'cliente', 'directivo_inversion', 'directivo_de_inversiones', 'contabilidad', 'contabilidad_', 'administrativo', 'operaciones'].includes((role.name || '').toLowerCase().trim())
+    )
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError('Por favor ingresa el nombre interno del rol');
+    const cleanName = sanitizeRoleName(name).trim();
+    if (!cleanName) {
+      setError('Por favor ingresa el nombre interno del rol.');
       return;
     }
+
+    if (!ROLE_NAME_REGEX.test(cleanName)) {
+      setError('El nombre interno debe estar en formato snake_case (ej. operador_crm), iniciar con una letra minúscula, contener únicamente letras minúsculas (sin signos ni tildes), números o guiones bajos, y tener entre 3 y 50 caracteres.');
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
 
     try {
       const data = {
-        name: name.trim(),
+        name: cleanName,
         description: description.trim(),
         permission_ids: selectedPermissions,
         is_active: true
@@ -61,7 +88,37 @@ export const RoleModal: React.FC<RoleModalProps> = ({
       await onSave(data);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error al guardar el rol');
+      let msg = err.message || 'Error al guardar el rol';
+      if (Array.isArray(err.detail)) {
+        msg = err.detail.map((d: any) => d.msg || d.message).join(', ');
+      } else if (typeof err.detail === 'string') {
+        msg = err.detail;
+      }
+
+      if (msg.includes('Value error,')) {
+        msg = msg.split('Value error,')[1].trim();
+      }
+
+      if (
+        msg.includes('Role name already exists') ||
+        msg.includes('already exists') ||
+        msg.includes('ya está en uso')
+      ) {
+        msg = 'El nombre del rol ya está en uso. Por favor elige otro nombre.';
+      } else if (
+        msg.includes('Cannot rename system roles') ||
+        msg.includes('renombrar roles')
+      ) {
+        msg = 'No se pueden renombrar roles protegidos del sistema.';
+      } else if (
+        msg.includes('String should match pattern') ||
+        msg.includes('pattern') ||
+        msg.includes('snake_case')
+      ) {
+        msg = 'El nombre interno debe cumplir el formato snake_case (ej. operador_crm) de 3 a 50 caracteres.';
+      }
+
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -94,12 +151,27 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     }
   };
 
+  // Helper para normalizar identificador de permiso a la convención canónica con dos puntos
+  const formatPermName = (name: string) => {
+    if (!name) return '';
+    if (name === 'manage_system_events') return 'admin:system_events:manage';
+    return name.replace(/\./g, ':');
+  };
+
   // Filtrar y agrupar permisos por módulo
   const filteredPermissions = allPermissions.filter(p => {
     if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
+    const termWithColon = term.replace(/\./g, ':');
+    const termWithDot = term.replace(/:/g, '.');
+    const canonicalName = formatPermName(p.name).toLowerCase();
+    const rawName = p.name.toLowerCase();
+
     return (
-      p.name.toLowerCase().includes(term) ||
+      rawName.includes(term) ||
+      canonicalName.includes(term) ||
+      canonicalName.includes(termWithColon) ||
+      rawName.includes(termWithDot) ||
       (p.description && p.description.toLowerCase().includes(term)) ||
       (p.module && p.module.toLowerCase().includes(term))
     );
@@ -158,10 +230,26 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                 type="text"
                 required
                 value={name}
-                onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-mono"
-                placeholder="ej: super_admin"
+                disabled={isEditingSystemRole}
+                pattern="^[a-z][a-z0-9_]{2,49}$"
+                maxLength={50}
+                onChange={(e) => {
+                  const sanitized = sanitizeRoleName(e.target.value);
+                  setName(sanitized);
+                  if (error) setError(null);
+                }}
+                className={`w-full px-4 py-2.5 rounded-xl border border-slate-200 transition-all outline-none text-sm font-mono ${
+                  isEditingSystemRole
+                    ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
+                    : 'bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                }`}
+                placeholder="ej: operador_crm"
               />
+              <p className="text-[11px] text-slate-400">
+                {isEditingSystemRole
+                  ? 'El identificador técnico de un rol protegido del sistema no se puede modificar.'
+                  : 'Formato snake_case (3 a 50 caracteres): ej. operador_crm'}
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -269,8 +357,8 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                                 className="mt-0.5 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer shrink-0"
                               />
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs font-semibold text-slate-800 truncate">
-                                  {perm.action || perm.name}
+                                <div className="text-xs font-semibold text-slate-800 truncate font-mono">
+                                  {formatPermName(perm.action || perm.name)}
                                 </div>
                                 {perm.description && (
                                   <p className="text-[11px] text-slate-500 mt-0.5 leading-tight line-clamp-2">{perm.description}</p>

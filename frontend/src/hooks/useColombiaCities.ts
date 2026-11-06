@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchApi } from '../services/api';
 
 export interface Department {
   id: number;
@@ -60,9 +61,8 @@ export function useColombiaCities() {
     const fetchDepartments = async () => {
       try {
         setLoadingDepartments(true);
-        const response = await fetch('https://api-colombia.com/api/v1/Department');
-        if (!response.ok) throw new Error('API error');
-        const data = await response.json();
+        // Catálogo servido por el backend (con caché): el navegador ya no llama a api-colombia.com (H-148)
+        const data: any[] = await fetchApi('/locations/departments');
         const sorted = data.sort((a: any, b: any) => a.name.localeCompare(b.name));
         if (mounted) setDepartments(sorted);
       } catch (err) {
@@ -87,9 +87,7 @@ export function useColombiaCities() {
 
     try {
       setLoadingCities(true);
-      const response = await fetch(`https://api-colombia.com/api/v1/Department/${deptId}/cities`);
-      if (!response.ok) throw new Error('API error');
-      const data = await response.json();
+      const data: any[] = await fetchApi(`/locations/departments/${deptId}/cities`);
       const sorted = data.sort((a: any, b: any) => a.name.localeCompare(b.name));
       setCities([...sorted, { id: 9999, name: 'Otra' }]);
     } catch (err) {

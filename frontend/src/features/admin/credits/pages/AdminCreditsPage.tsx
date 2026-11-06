@@ -1,0 +1,688 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  CreditCard, 
+  Search, 
+  Filter, 
+  Clock, 
+  CheckCircle2, 
+  XCircle, 
+  X,
+  AlertCircle, 
+  Zap, 
+  Percent, 
+  Settings, 
+  RefreshCw, 
+  Eye, 
+  ExternalLink, 
+  User, 
+  Landmark, 
+  DollarSign, 
+  Calendar,
+  Loader2,
+  FileText,
+  ChevronRight,
+  ShieldCheck
+} from 'lucide-react';
+import { 
+  Credit, 
+  CreditConfig, 
+  getAdminCredits, 
+  getCreditConfig, 
+  rejectCredit, 
+  getPendingReviewInstallments, 
+  reviewInstallment 
+} from '../../../../services/credits';
+import { ApproveCreditModal } from '../components/ApproveCreditModal';
+import { CreditConfigModal } from '../components/CreditConfigModal';
+
+import { SkeletonTable } from '../../../../components/common/Skeleton';
+export const AdminCreditsPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'ACTIVE' | 'REVIEW_INSTALLMENTS' | 'HISTORY'>('PENDING');
+  const [credits, setCredits] = useState<Credit[]>([]);
+  const [totalCredits, setTotalCredits] = useState<number>(0);
+  const [config, setConfig] = useState<CreditConfig | null>(null);
+  const [pendingInstallments, setPendingInstallments] = useState<any[]>([]);
+
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [search, setSearch] = useState<string>('');
+
+  // Modales
+  const [approvingCredit, setApprovingCredit] = useState<Credit | null>(null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
+  const [rejectingCredit, setRejectingCredit] = useState<Credit | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>('');
+  const [isRejecting, setIsRejecting] = useState<boolean>(false);
+
+  // Detalle de crédito seleccionado (drawer o modal)
+  const [inspectingCredit, setInspectingCredit] = useState<Credit | null>(null);
+
+  // Visualizador de comprobante
+  const [viewingReceiptUrl, setViewingReceiptUrl] = useState<string | null>(null);
+  const [reviewingInstallmentId, setReviewingInstallmentId] = useState<number | null>(null);
+  const [isProcessingReview, setIsProcessingReview] = useState<boolean>(false);
+
+  const loadData = async () => {
+    try {
+      const [creditsResult, configResult, pendingInstResult] = await Promise.allSettled([
+        getAdminCredits({
+          status: activeTab === 'REVIEW_INSTALLMENTS' ? 'ALL' : (activeTab === 'HISTORY' ? 'PAID' : activeTab),
+          search: search.trim() || undefined
+        }),
+        getCreditConfig(),
+        getPendingReviewInstallments()
+      ]);
+
+      if (creditsResult.status === 'fulfilled') {
+        setCredits(creditsResult.value.items);
+        setTotalCredits(creditsResult.value.total);
+      } else {
+        console.warn('Error cargando créditos admin:', creditsResult.reason);
+      }
+
+      if (configResult.status === 'fulfilled') {
+        setConfig(configResult.value);
+      } else {
+        console.warn('Error cargando configuración de créditos:', configResult.reason);
+      }
+
+      if (pendingInstResult.status === 'fulfilled') {
+        setPendingInstallments(pendingInstResult.value);
+      } else {
+        console.warn('Error cargando cuotas pendientes de revisión:', pendingInstResult.reason);
+      }
+    } catch (err) {
+      console.error('Error cargando créditos admin:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [activeTab, search]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectingCredit || !rejectReason.trim()) return;
+
+    try {
+      setIsRejecting(true);
+      await rejectCredit(rejectingCredit.id, rejectReason.trim());
+      setRejectingCredit(null);
+      setRejectReason('');
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Error al rechazar el crédito');
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  const handleReviewInstallment = async (installmentId: number, approve: boolean) => {
+    let rejectionReason: string | undefined = undefined;
+    if (!approve) {
+      const reason = window.prompt('Indica el motivo de rechazo del comprobante:');
+      if (!reason || !reason.trim()) return;
+      rejectionReason = reason.trim();
+    }
+
+    try {
+      setIsProcessingReview(true);
+      await reviewInstallment(installmentId, { approve, rejection_reason: rejectionReason });
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Error al procesar la revisión');
+    } finally {
+      setIsProcessingReview(false);
+    }
+  };
+
+  const pendingCount = credits.filter(c => c.status === 'PENDING').length;
+  const activeCount = credits.filter(c => c.status === 'ACTIVE').length;
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300 pb-12 font-inter">
+      
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <span>Gestión de Créditos & Fintech</span>
+            </h1>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
+          </div>
+          <p className="text-slate-500 text-sm mt-1 font-normal">
+            Evaluación crediticia, dispersión en 1 clic y auditoría de cartera bajo tope de usura legal.
+          </p>
+        </div>
+
+        {/* Acciones principales */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs font-montserrat">
+            <Zap className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+            <span>Dispersión Inmediata ACH</span>
+          </div>
+
+          <button
+            onClick={() => setIsConfigModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs font-montserrat uppercase tracking-wider shadow-sm transition-all cursor-pointer active:scale-95"
+          >
+            <Settings className="w-4 h-4 text-amber-400" />
+            <span>Tasa de Usura & Config</span>
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Solicitudes por Evaluar */}
+        <div 
+          onClick={() => setActiveTab('PENDING')}
+          className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 transition-all cursor-pointer ${
+            activeTab === 'PENDING' ? 'border-amber-500/90 ring-2 ring-amber-500/10' : 'border-slate-200/90 hover:border-amber-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Solicitudes por Evaluar
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
+            {pendingCount}
+          </span>
+          <span className="text-[11px] text-amber-700 font-medium block truncate">
+            {pendingCount > 0 ? `${pendingCount} requieren desembolso o revisión` : 'Todo al día'}
+          </span>
+        </div>
+
+        {/* Cartera Activa */}
+        <div 
+          onClick={() => setActiveTab('ACTIVE')}
+          className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 transition-all cursor-pointer ${
+            activeTab === 'ACTIVE' ? 'border-emerald-500/90 ring-2 ring-emerald-500/10' : 'border-slate-200/90 hover:border-emerald-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Créditos Vigentes
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <CreditCard className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {activeCount}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Cartera activa en amortización
+          </span>
+        </div>
+
+        {/* Cuotas por Validar */}
+        <div 
+          onClick={() => setActiveTab('REVIEW_INSTALLMENTS')}
+          className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 transition-all cursor-pointer ${
+            activeTab === 'REVIEW_INSTALLMENTS' ? 'border-sky-500/90 ring-2 ring-sky-500/10' : 'border-slate-200/90 hover:border-sky-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-sky-700 font-bold uppercase tracking-wider block font-montserrat">
+              Cuotas por Validar
+            </span>
+            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl shrink-0">
+              <FileText className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-sky-600 block tracking-tight font-mono">
+            {pendingInstallments.length}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Comprobantes de pago adjuntos
+          </span>
+        </div>
+
+        {/* Tope Legal de Usura */}
+        <div 
+          onClick={() => setIsConfigModalOpen(true)}
+          className="bg-white border border-slate-200/90 hover:border-purple-300 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 transition-all cursor-pointer"
+          title="Ver o editar configuración de usura"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-purple-700 font-bold uppercase tracking-wider block font-montserrat">
+              Tasa Usura Legal
+            </span>
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl shrink-0">
+              <Percent className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {config?.max_usury_rate_monthly || 1.98}% <span className="text-xs font-normal text-slate-400">M.V.</span>
+          </span>
+          <span className="text-[11px] text-purple-700 font-medium block truncate">
+            Tope Anual: {config?.max_usury_rate_ea || 26.50}% E.A.
+          </span>
+        </div>
+      </div>
+
+      {/* Control Bar: Pestañas en Cápsula & Buscador */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-2xs overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('PENDING')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'PENDING'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Solicitudes Pendientes ({pendingCount})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('ACTIVE')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'ACTIVE'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Créditos Activos & Cartera ({activeCount})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('REVIEW_INSTALLMENTS')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'REVIEW_INSTALLMENTS'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Cuotas por Revisar ({pendingInstallments.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('HISTORY')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'HISTORY'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Historial / Liquidados
+            </button>
+          </div>
+
+          {/* Buscador */}
+          <div className="relative w-full lg:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por cliente, cédula o cuenta..."
+              className="w-full pl-10 pr-4 py-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido según Pestaña */}
+      {loading ? (
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
+          <SkeletonTable rows={5} label="Cargando créditos…" />
+        </div>
+      ) : activeTab === 'REVIEW_INSTALLMENTS' ? (
+        /* Pestaña: Cuotas por Validar */
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
+          {pendingInstallments.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 space-y-2">
+              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700">No hay cuotas pendientes de validación</p>
+              <p className="text-xs text-slate-400">Todos los comprobantes han sido procesados.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 font-montserrat uppercase tracking-wider border-b border-slate-200/80">
+                  <tr>
+                    <th className="py-3 px-4">Cuota / Crédito</th>
+                    <th className="py-3 px-4">Cliente</th>
+                    <th className="py-3 px-4">Fecha Vence</th>
+                    <th className="py-3 px-4">Total Cuota</th>
+                    <th className="py-3 px-4">Abono Wallet</th>
+                    <th className="py-3 px-4">Transferencia</th>
+                    <th className="py-3 px-4">Comprobante</th>
+                    <th className="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {pendingInstallments.map((inst) => (
+                    <tr key={inst.installment_id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900 font-montserrat">
+                        Cuota #{inst.installment_number}
+                        <span className="text-[11px] text-slate-400 block font-normal">Crédito #{inst.credit_id}</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <strong className="text-slate-900 block">{inst.user_name}</strong>
+                        <span className="text-[11px] text-slate-500">{inst.user_email || '-'}</span>
+                      </td>
+                      <td className="py-3.5 px-4 font-medium">
+                        {new Date(inst.due_date).toLocaleDateString('es-CO')}
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        ${inst.total_amount.toLocaleString('es-CO')}
+                      </td>
+                      <td className="py-3.5 px-4 font-medium text-amber-700">
+                        {inst.wallet_amount_paid > 0 ? `$${inst.wallet_amount_paid.toLocaleString('es-CO')}` : '-'}
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-emerald-600">
+                        ${inst.external_amount_paid.toLocaleString('es-CO')}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {inst.receipt_url ? (
+                          <button
+                            onClick={() => setViewingReceiptUrl(inst.receipt_url)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100/80 text-sky-800 border border-sky-200/80 font-semibold text-xs transition-colors cursor-pointer font-montserrat"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Ver Recibo</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleReviewInstallment(inst.installment_id, true)}
+                            disabled={isProcessingReview}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs font-montserrat transition-all shadow-2xs cursor-pointer"
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            onClick={() => handleReviewInstallment(inst.installment_id, false)}
+                            disabled={isProcessingReview}
+                            className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100/80 text-rose-700 border border-rose-200/80 font-semibold text-xs transition-colors cursor-pointer font-montserrat"
+                          >
+                            Rechazar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Pestañas de Créditos: PENDING, ACTIVE, HISTORY */
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
+          {credits.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 space-y-2">
+              <CreditCard className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700">No hay créditos en este estado</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 font-montserrat uppercase tracking-wider border-b border-slate-200/80">
+                  <tr>
+                    <th className="py-3 px-4"># Crédito</th>
+                    <th className="py-3 px-4">Solicitante</th>
+                    <th className="py-3 px-4">Monto Solicitado</th>
+                    <th className="py-3 px-4">Plazo</th>
+                    <th className="py-3 px-4">Cuenta Bancaria Destino</th>
+                    <th className="py-3 px-4">Fecha</th>
+                    <th className="py-3 px-4">Estado</th>
+                    <th className="py-3 px-4 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {credits.map((c) => (
+                    <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900 font-montserrat">
+                        #{c.id}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <strong className="text-slate-900 block">{c.user_name || 'Inversionista'}</strong>
+                        <span className="text-[11px] text-slate-500 font-mono">CC: {c.user_document || 'N/A'}</span>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-slate-900 font-montserrat">
+                        ${(c.approved_amount || c.requested_amount).toLocaleString('es-CO')} COP
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-700">
+                        {c.term_months} meses
+                        <span className="text-[10px] text-slate-400 block">{c.interest_rate}% M.V.</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                          <Landmark className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>{c.banco}</span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          {c.tipo_cuenta} • {c.numero_cuenta}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-500">
+                        {new Date(c.created_at).toLocaleDateString('es-CO')}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          c.status === 'ACTIVE' 
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                            : (c.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-700')
+                        }`}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {c.status === 'PENDING' ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setApprovingCredit(c)}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold text-xs font-montserrat transition-all shadow-md shadow-amber-500/20 cursor-pointer active:scale-95"
+                            >
+                              <Zap className="w-3.5 h-3.5 fill-white" />
+                              <span>Aprobar y Desembolsar</span>
+                            </button>
+                            <button
+                              onClick={() => setRejectingCredit(c)}
+                              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100/80 text-rose-700 border border-rose-200/80 text-xs font-semibold transition-colors cursor-pointer font-montserrat"
+                            >
+                              Rechazar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setInspectingCredit(c)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold text-xs font-montserrat transition-all cursor-pointer shadow-2xs"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Ver Cuotas</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal de Aprobación en 1 Clic con Yoint */}
+      {approvingCredit && (
+        <ApproveCreditModal
+          isOpen={true}
+          onClose={() => setApprovingCredit(null)}
+          onSuccess={loadData}
+          credit={approvingCredit}
+          config={config}
+        />
+      )}
+
+      {/* Modal de Configuración y Tasa de Usura */}
+      <CreditConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        onSuccess={(updated) => {
+          setConfig(updated);
+          loadData();
+        }}
+        currentConfig={config}
+      />
+
+      {/* Modal de Rechazo de Solicitud */}
+      {rejectingCredit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200/90 p-6 space-y-4">
+            <h3 className="text-base font-bold text-slate-900 font-montserrat">
+              Rechazar Solicitud de Crédito #{rejectingCredit.id}
+            </h3>
+            <p className="text-xs text-slate-500">
+              Indica el motivo de rechazo que se mostrará al inversionista.
+            </p>
+            <textarea
+              rows={3}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Ej. Capacidad de endeudamiento, falta de garantías o inconsistencia en cuenta bancaria..."
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-rose-500 font-medium"
+            />
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setRejectingCredit(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold font-montserrat cursor-pointer transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={isRejecting || !rejectReason.trim()}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold font-montserrat cursor-pointer disabled:opacity-50 transition-colors shadow-xs"
+              >
+                {isRejecting ? 'Rechazando...' : 'Confirmar Rechazo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Visor de Comprobante de Cuota */}
+      {viewingReceiptUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden p-6 space-y-4 max-h-[90vh] flex flex-col border border-slate-200/90">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 font-montserrat">Comprobante de Pago Adjunto</h3>
+              <button
+                onClick={() => setViewingReceiptUrl(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto bg-slate-50 rounded-2xl p-2 border flex items-center justify-center">
+              {viewingReceiptUrl.endsWith('.pdf') ? (
+                <iframe src={viewingReceiptUrl} className="w-full h-96 rounded-xl" title="Comprobante PDF" />
+              ) : (
+                <img src={viewingReceiptUrl} alt="Comprobante" className="max-w-full max-h-[60vh] object-contain rounded-xl" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Detalle de Cuotas de Crédito Activo */}
+      {inspectingCredit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden p-6 space-y-5 max-h-[90vh] flex flex-col border border-slate-200/90">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 font-montserrat">
+                  Amortización Crédito #{inspectingCredit.id}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {inspectingCredit.user_name} • Ref. Desembolso: <strong>{inspectingCredit.disbursement_reference || 'N/A'}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setInspectingCredit(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 font-montserrat uppercase tracking-wider border-b border-slate-200/80">
+                  <tr>
+                    <th className="py-2.5 px-3"># Cuota</th>
+                    <th className="py-2.5 px-3">Fecha Vence</th>
+                    <th className="py-2.5 px-3">Capital</th>
+                    <th className="py-2.5 px-3">Interés</th>
+                    <th className="py-2.5 px-3">Total Cuota</th>
+                    <th className="py-2.5 px-3">Wallet</th>
+                    <th className="py-2.5 px-3">Pagado</th>
+                    <th className="py-2.5 px-3">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {inspectingCredit.installments.map((i) => (
+                    <tr key={i.id} className="hover:bg-slate-50/70">
+                      <td className="py-2.5 px-3 font-bold text-slate-900">Cuota #{i.installment_number}</td>
+                      <td className="py-2.5 px-3">{new Date(i.due_date).toLocaleDateString('es-CO')}</td>
+                      <td className="py-2.5 px-3">${i.principal_amount.toLocaleString('es-CO')}</td>
+                      <td className="py-2.5 px-3">${i.interest_amount.toLocaleString('es-CO')}</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900">${i.total_amount.toLocaleString('es-CO')}</td>
+                      <td className="py-2.5 px-3 text-amber-700 font-medium">
+                        {i.wallet_amount_paid > 0 ? `$${i.wallet_amount_paid.toLocaleString('es-CO')}` : '-'}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-emerald-600">
+                        {i.paid_amount > 0 ? `$${i.paid_amount.toLocaleString('es-CO')}` : '-'}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          i.status === 'PAID' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {i.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};

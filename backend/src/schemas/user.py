@@ -34,6 +34,8 @@ def _validate_date_of_birth(v):
     today = date.today()
     if d > today:
         raise ValueError("La fecha de nacimiento no puede ser una fecha futura.")
+    if d == today:
+        raise ValueError("La fecha de nacimiento debe ser anterior a hoy.")  # H-198
     return d
 
 class UserCreateAdmin(UserBase):
@@ -148,6 +150,7 @@ class UserResponse(BaseModel):
     # Devuelve los roles y permisos asociados
     roles: List[RoleResponse] = []
     permissions: Optional[List[str]] = []
+    temp_password: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -179,8 +182,9 @@ class UserResponse(BaseModel):
 
             loaded_data['permissions_override'] = getattr(data, 'permissions_override', None)
             loaded_data['permissions'] = getattr(data, 'permissions', [])
+            loaded_data['temp_password'] = getattr(data, 'temp_password', None)
 
-            for field in ('id', 'name', 'email', 'is_active', 'is_superuser', 'must_change_password', 'must_update_profile', 'created_at', 'updated_at'):
+            for field in ('id', 'name', 'email', 'is_active', 'is_superuser', 'must_change_password', 'must_update_profile', 'created_at', 'updated_at', 'temp_password'):
                 if field not in loaded_data and hasattr(data, field):
                     loaded_data[field] = getattr(data, field)
 

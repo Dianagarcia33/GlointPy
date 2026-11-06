@@ -1,6 +1,8 @@
+from src.core.search import like_contains, like_escape, LIKE_ESCAPE
 from decimal import Decimal
 from datetime import datetime, date
 from typing import Optional, Tuple, Dict, Any, List
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import extract, func, or_
@@ -13,11 +15,32 @@ from src.models.commercial_bonus import CommercialBonus, CommercialBonusType, Co
 from src.models.wallet import Wallet, WalletTransaction
 from src.schemas.commercial_sale import CommercialSaleCreate
 from src.core.timezone import get_colombia_today, get_colombia_now
+from src.services.audit_trail_service import audit_in_tx
 
 THRESHOLD_36M = Decimal("36000000.00")
 RATE_30 = Decimal("0.030") # 3.0%
 RATE_35 = Decimal("0.035") # 3.5%
 RATE_REFERRAL = Decimal("0.018") # 1.8% Fijo
+
+# H-154 (decisión de negocio #18): el % manual del administrador se limita al rango de las tarifas vigentes
+MIN_MANUAL_RATE = min(RATE_30, RATE_35, RATE_REFERRAL)  # 1.8 %
+MAX_MANUAL_RATE = max(RATE_30, RATE_35, RATE_REFERRAL)  # 3.5 %
+
+def validate_manual_commission_rate(rate: Decimal, reason: Optional[str]) -> None:
+    """Valida el % de comisión fijado a mano: dentro de las tarifas vigentes y con motivo registrado (422)."""
+    if rate < MIN_MANUAL_RATE or rate > MAX_MANUAL_RATE:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"El porcentaje de comisión manual debe estar entre {MIN_MANUAL_RATE * 100:.1f}% y "
+                f"{MAX_MANUAL_RATE * 100:.1f}% (tarifas vigentes). Se recibió {rate * 100:.2f}%."
+            ),
+        )
+    if not reason or len(reason.strip()) < 10:
+        raise HTTPException(
+            status_code=422,
+            detail="Indica el motivo (mínimo 10 caracteres) para aplicar un porcentaje de comisión manual; queda registrado en la auditoría.",
+        )
 
 async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict[str, Any]]:
     """
@@ -41,7 +64,7 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
             selectinload(Investor.user),
             selectinload(Investor.package)
         )
-        .where(Investor.assigned_code.ilike(f"%{term}%"))
+        .where(Investor.assigned_code.ilike(like_contains(term), escape=LIKE_ESCAPE))
         .order_by(Investor.id.desc())
         .limit(15)
     )
@@ -52,14 +75,13 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
             seen_codes.add(code_key)
             if inv.user:
                 seen_user_ids.add(inv.user.id)
-            pkg_val = float(inv.package.value) if inv.package and inv.package.value else 0.0
             results.append({
                 "user_id": inv.user.id if inv.user else inv.user_id,
                 "name": inv.user.name if inv.user else "Cliente Inversionista",
                 "document_id": inv.user.document_id if inv.user else "",
-                "email": inv.user.email if inv.user else "",
+                "email": "",
                 "assigned_code": inv.assigned_code,
-                "monto": pkg_val,
+                "monto": 0.0,
                 "is_existing_client": True,
                 "forced_type": "referido"
             })
@@ -72,9 +94,9 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
         )
         .where(
             or_(
-                User.name.ilike(f"%{term}%"),
-                User.document_id.ilike(f"%{term}%"),
-                User.email.ilike(f"%{term}%")
+                User.name.ilike(like_contains(term), escape=LIKE_ESCAPE),
+                User.document_id.ilike(like_contains(term), escape=LIKE_ESCAPE),
+                User.email.ilike(like_contains(term), escape=LIKE_ESCAPE)
             )
         )
         .limit(10)
@@ -86,14 +108,13 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
             sorted_invs = sorted(u.investments, key=lambda i: i.id, reverse=True) if u.investments else []
             latest_inv = sorted_invs[0] if sorted_invs else None
             code = latest_inv.assigned_code if latest_inv else None
-            pkg_val = float(latest_inv.package.value) if latest_inv and latest_inv.package and latest_inv.package.value else 0.0
             results.append({
                 "user_id": u.id,
                 "name": u.name,
                 "document_id": u.document_id,
-                "email": u.email,
+                "email": "",
                 "assigned_code": code,
-                "monto": pkg_val,
+                "monto": 0.0,
                 "is_existing_client": bool(sorted_invs),
                 "forced_type": "referido" if sorted_invs else "contrato_nuevo"
             })
@@ -143,7 +164,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
         .outerjoin(User, Investor.user_id == User.id)
         .where(
             or_(
-                Investor.assigned_code.ilike(doc_clean),
+                Investor.assigned_code.ilike(like_escape(doc_clean), escape=LIKE_ESCAPE),
                 User.document_id == doc_clean
             )
         )
@@ -214,6 +235,15 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     start_d0 = target_inv.start_date.date() if isinstance(target_inv.start_date, datetime) else target_inv.start_date
     created_dt0 = target_inv.created_at or datetime(start_d0.year, start_d0.month, start_d0.day)
     is_brand_new = len(investors) == 1 and not history_records and (start_d0 >= cycle_start or created_dt0 >= cycle_start_dt)
+
+    # Si ya se registró una venta para este cliente, su primera inversión ya fue comisionada: cualquier
+    # venta nueva es de cliente existente (referido/reinversión), no 'Contrato Nuevo' (H-154)
+    if is_brand_new:
+        prior_sale = await db.execute(
+            select(CommercialSale.id).where(CommercialSale.client_document.in_({doc_clean, client_doc})).limit(1)
+        )
+        if prior_sale.scalar_one_or_none():
+            is_brand_new = False
 
     if not is_brand_new or previous_pkg_val > 0:
         # INVERSIONISTA EXISTENTE: Todo aumento o nuevo contrato
@@ -299,14 +329,26 @@ async def calculate_marginal_commission(
         
     return comm_amount, effective_rate, tramo_a, tramo_b
 
+def prevailing_commission(existing_commission: Decimal, candidate_commission: Decimal) -> str:
+    """
+    REGLA PROVISIONAL (H-153 / pregunta #14): cuando dos comisiones de distinto tipo competirían por la
+    misma venta, prevalece la de MAYOR valor. Retorna "existing" o "candidate" (en empate gana la ya
+    registrada). El negocio aún no definió el criterio definitivo: para cambiarlo basta editar esta función.
+    """
+    return "candidate" if candidate_commission > existing_commission else "existing"
+
 async def register_commercial_sale(
     db: AsyncSession,
     commercial_id: int,
-    sale_data: CommercialSaleCreate
+    sale_data: CommercialSaleCreate,
+    is_admin: bool = False,
+    investor_id: Optional[int] = None,
+    investment_request_id: Optional[int] = None,
+    audit_actor=None
 ) -> CommercialSale:
     """
     Registra la venta comercial, valida la clasificación forzada si el cliente existe,
-    calcula la partición marginal y acredita la comisión a la Wallet del comercial.
+    previene comisiones duplicadas y asegura que ningún asesor cobre la inversión de otro (H-69).
     """
     # 1. Validar clasificación del cliente
     classification = await check_client_classification(db, sale_data.client_document)
@@ -317,13 +359,100 @@ async def register_commercial_sale(
         
     target_date = sale_data.sale_date if sale_data.sale_date else get_colombia_today()
     amount = sale_data.amount
-    
+    client_doc_clean = sale_data.client_document.strip()
+    effective_doc = (classification.get("client_document") or client_doc_clean).strip()
+
+    # H-69: Regla 1 - Un cliente existente NO puede registrarse como 'contrato_nuevo'
+    if classification.get("is_existing_client") and final_sale_type == CommercialSaleType.contrato_nuevo:
+        raise HTTPException(
+            status_code=400,
+            detail="Este cliente ya es un inversionista existente en la plataforma. No puede registrarse como 'Contrato Nuevo'. Debe registrarse como 'Referido' o 'Reinversión'."
+        )
+
+    # H-69: Regla 2 - Control anti-duplicados y exclusividad de la inversión
+    # Cada operación de inversión solo puede generar una única comisión y nunca dos asesores cobran la misma inversión
+    # H-153: dos envíos simultáneos (doble clic, dos pestañas) leían "sin duplicado" antes de que el
+    # otro confirmara. Se serializa por asesor bloqueando su fila de usuario hasta el commit y la
+    # consulta de duplicados es una lectura bloqueante (ve lo último confirmado, no el snapshot).
+    await db.execute(select(User.id).where(User.id == commercial_id).with_for_update())
+    existing_sale_res = await db.execute(
+        select(CommercialSale)
+        .options(selectinload(CommercialSale.commercial))
+        .where(
+            or_(
+                CommercialSale.client_document == client_doc_clean,
+                CommercialSale.client_document == effective_doc
+            ),
+            CommercialSale.sale_date == target_date,
+            CommercialSale.amount == amount
+        )
+        .with_for_update()
+    )
+    duplicate_sale = existing_sale_res.scalars().first()
+    if duplicate_sale:
+        assigned_name = duplicate_sale.commercial.name if duplicate_sale.commercial else f"ID #{duplicate_sale.commercial_id}"
+        if duplicate_sale.sale_type != final_sale_type:
+            # H-153 (decisión de negocio #14): sobre una misma venta solo puede existir UNA comisión;
+            # 'Contrato Nuevo/Reinversión' y 'Referido' no coexisten. Se informa cuál prevalece.
+            candidate_amount, _, _, _ = await calculate_marginal_commission(
+                db, commercial_id, final_sale_type, amount, target_date
+            )
+            winner = prevailing_commission(Decimal(str(duplicate_sale.commission_amount)), candidate_amount)
+            if winner == "candidate":
+                hint = (
+                    f"Con la regla vigente prevalece la comisión de mayor valor, que sería la de la venta nueva "
+                    f"(${candidate_amount:,.0f} frente a ${Decimal(str(duplicate_sale.commission_amount)):,.0f}): "
+                    f"para corregirla anule primero la venta #{duplicate_sale.id} y regístrela de nuevo."
+                )
+            else:
+                hint = "Con la regla vigente prevalece la comisión de mayor valor, que es la ya registrada."
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Esta operación ya tiene una comisión registrada (Venta #{duplicate_sale.id} por ${amount:,.2f} a cargo de "
+                    f"'{assigned_name}', clasificada como {duplicate_sale.sale_type.value}). Sobre una misma venta solo puede existir "
+                    f"una comisión: 'Contrato Nuevo/Reinversión' y 'Referido' no pueden coexistir. {hint}"
+                ),
+            )
+        raise HTTPException(
+            status_code=409,
+            detail=f"Ya existe una venta registrada para esta inversión (Venta #{duplicate_sale.id} por ${amount:,.2f} a cargo de '{assigned_name}', clasificada como {duplicate_sale.sale_type.value}). Cada inversión solo puede generar una única comisión y ningún asesor puede cobrar la inversión de otro."
+        )
+
+    # H-69: Regla 3 - Validación de titularidad comercial (un asesor no cobra inversiones de cliente asignado a otro asesor)
+    user_res = await db.execute(
+        select(User).where(
+            or_(
+                User.document_id == client_doc_clean,
+                User.document_id == effective_doc
+            )
+        )
+    )
+    client_user = user_res.scalars().first()
+    if client_user:
+        if client_user.commercial_id and client_user.commercial_id != commercial_id and not is_admin:
+            if final_sale_type in [CommercialSaleType.contrato_nuevo, CommercialSaleType.reinversion]:
+                advisor_res = await db.execute(select(User.name).where(User.id == client_user.commercial_id))
+                advisor_name = advisor_res.scalar() or f"ID #{client_user.commercial_id}"
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"El cliente ya está asignado al asesor '{advisor_name}'. Un asesor no puede registrar comisiones de un cliente asignado a otro asesor."
+                )
+        elif not client_user.commercial_id:
+            # Asignar automáticamente al asesor de esta primera venta comercial
+            client_user.commercial_id = commercial_id
+
     # 2. Calcular comisión marginal sugerida o aplicar tasa personalizada manual por el Administrador
     comm_amount, comm_rate, tramo_a, tramo_b = await calculate_marginal_commission(
         db, commercial_id, final_sale_type, amount, target_date
     )
 
+    # Solo un administrador puede fijar la comisión a mano (antes cualquier asesor podía enviarla por API)
+    if not is_admin and (sale_data.custom_commission_rate is not None or sale_data.custom_commission_amount is not None):
+        raise HTTPException(status_code=403, detail="Solo un administrador puede fijar manualmente el porcentaje o monto de la comisión.")
+
     if sale_data.custom_commission_rate is not None and sale_data.custom_commission_rate >= 0:
+        validate_manual_commission_rate(sale_data.custom_commission_rate, sale_data.custom_rate_reason)
         comm_rate = sale_data.custom_commission_rate
         comm_amount = amount * comm_rate
         tramo_a = Decimal("0.00")
@@ -331,6 +460,7 @@ async def register_commercial_sale(
     elif sale_data.custom_commission_amount is not None and sale_data.custom_commission_amount >= 0:
         comm_amount = sale_data.custom_commission_amount
         comm_rate = (comm_amount / amount) if amount > 0 else Decimal("0.00")
+        validate_manual_commission_rate(comm_rate, sale_data.custom_rate_reason)
         tramo_a = Decimal("0.00")
         tramo_b = Decimal("0.00")
     
@@ -349,9 +479,21 @@ async def register_commercial_sale(
         tramo_a_amount=tramo_a,
         tramo_b_amount=tramo_b,
         status=sale_status,
-        sale_date=target_date
+        sale_date=target_date,
+        investor_id=investor_id,
+        investment_request_id=investment_request_id
     )
     db.add(sale)
+    if audit_actor is not None:
+        await db.flush()
+        await audit_in_tx(
+            db, "COMMERCIAL_ADMIN_SALE_CREATE", "commercial", audit_actor, "CommercialSale", sale.id,
+            f"Venta #{sale.id} adjudicada por un administrador al asesor #{commercial_id}",
+            {"sale_id": sale.id, "commercial_id": commercial_id, "cliente_documento_ultimos4": str(sale_data.client_document or "").strip()[-4:],
+             "tipo": str(getattr(final_sale_type, "value", final_sale_type)), "monto": float(amount),
+             "comision_pct": float(comm_rate), "comision_monto": float(comm_amount),
+             "estado": str(getattr(sale_status, "value", sale_status)), "fecha_venta": str(target_date)},
+        )
     await db.commit()
     await db.refresh(sale)
 

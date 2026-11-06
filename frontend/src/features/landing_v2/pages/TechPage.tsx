@@ -10,7 +10,9 @@ import { SharedFooter } from "../components/SharedFooter";
 
 export function TechPage() {
   const navigate = useNavigate();
-  const BLUE = "#60a5fa";
+  const BLUE = "#C9CDD3";
+  // Plata más oscura para textos sobre fondo claro (la plata clara casi no se lee sobre blanco)
+  const BLUE_TEXT = "#6B7280";
 
   const services = [
     { icon: <Globe size={22} />, title: "Desarrollo Web a la Medida", desc: "Creamos sitios web, portales corporativos y plataformas digitales completamente personalizadas para tu negocio, desde el diseño hasta el despliegue.", color: BLUE },
@@ -37,7 +39,7 @@ export function TechPage() {
   return (
     <>
       {/* HERO */}
-      <section className="relative pt-36 pb-28 overflow-hidden" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #0d1e3a 100%)` }}>
+      <section className="relative pt-36 pb-28 overflow-hidden" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)` }}>
         <motion.div
           className="absolute top-1/3 right-1/4 w-80 h-80 rounded-full pointer-events-none"
           style={{ background: `radial-gradient(circle, ${BLUE}15 0%, transparent 70%)` }}
@@ -74,8 +76,8 @@ export function TechPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <motion.button
                 onClick={handleScrollToProcess}
-                className="px-8 py-4 rounded-xl font-bold text-white"
-                style={{ background: `linear-gradient(90deg, ${BLUE}, #3b82f6)` }}
+                className="px-8 py-4 rounded-xl font-bold text-[#0E0D0C]"
+                style={{ background: `linear-gradient(90deg, ${BLUE}, #8E949D)` }}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.97 }}
               >
@@ -107,9 +109,9 @@ export function TechPage() {
         <div className="max-w-6xl mx-auto px-6">
           <FadeUp>
             <div className="text-center mb-14">
-              <div className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: BLUE }}>Servicios</div>
+              <div className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: BLUE_TEXT }}>Servicios</div>
               <h2 className="text-3xl md:text-4xl font-black mb-4" style={{ color: DARK }}>
-                ¿Qué <span style={{ color: BLUE }}>desarrollamos</span>?
+                ¿Qué <span style={{ color: BLUE_TEXT }}>desarrollamos</span>?
               </h2>
               <p className="text-slate-500 max-w-xl mx-auto text-sm leading-relaxed">
                 Cada proyecto es único. Trabajamos contigo para entender tu visión y traducirla en una solución digital que realmente funcione.
@@ -188,7 +190,7 @@ export function TechPage() {
             {/* CODE MOCKUP */}
             <motion.div
               className="rounded-2xl overflow-hidden"
-              style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}
+              style={{ background: "#0E0D0C", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, amount: 0.3 }}
@@ -224,9 +226,9 @@ export function TechPage() {
         <div className="max-w-6xl mx-auto px-6">
           <FadeUp>
             <div className="text-center mb-14">
-              <div className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: BLUE }}>Metodología</div>
+              <div className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: BLUE_TEXT }}>Metodología</div>
               <h2 className="text-3xl md:text-4xl font-black mb-4" style={{ color: DARK }}>
-                Nuestro <span style={{ color: BLUE }}>proceso</span> de trabajo
+                Nuestro <span style={{ color: BLUE_TEXT }}>proceso</span> de trabajo
               </h2>
               <p className="text-slate-500 max-w-lg mx-auto text-sm">
                 Un flujo claro y colaborativo para que tu proyecto llegue a buen puerto, siempre.
@@ -256,7 +258,7 @@ export function TechPage() {
                 >
                   <motion.div
                     className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg mb-4"
-                    style={{ background: `linear-gradient(135deg, ${BLUE}, #3b82f6)`, color: "#fff" }}
+                    style={{ background: `linear-gradient(135deg, ${BLUE}, #8E949D)`, color: "#0E0D0C" }}
                     whileHover={{ scale: 1.1, rotate: 5 }}
                   >
                     {s.n}
@@ -327,7 +329,7 @@ export function TechPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-24 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #0a1628 100%)` }}>
+      <section className="py-24 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${DARK} 0%, #0F0E0C 100%)` }}>
         <motion.div
           className="absolute inset-0 pointer-events-none"
           style={{ background: `radial-gradient(ellipse at 50% 50%, ${BLUE}15 0%, transparent 60%)` }}
@@ -350,8 +352,8 @@ export function TechPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <motion.button
                 onClick={handleGoToGlointech}
-                className="px-8 py-4 rounded-xl font-bold text-white"
-                style={{ background: `linear-gradient(90deg, ${BLUE}, #3b82f6)` }}
+                className="px-8 py-4 rounded-xl font-bold text-[#0E0D0C]"
+                style={{ background: `linear-gradient(90deg, ${BLUE}, #8E949D)` }}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.97 }}
               >

@@ -192,7 +192,7 @@ class InvestorDocumentService:
         monto_fmt = f"${monto_num:,.0f} COP".replace(",", ".")
         monto_clean = f"${monto_num:,.0f}".replace(",", ".")
         monto_sin_signo = f"{monto_num:,.0f}".replace(",", ".")
-        shares_count = str(investor.package.granted_shares if investor.package and investor.package.granted_shares is not None else 0)
+        shares_count = str(investor.shares_granted_frozen if investor.shares_granted_frozen is not None else (investor.package.granted_shares if investor.package and investor.package.granted_shares is not None else 0))  # H-192: valor congelado
         
         period_months_num = investor.period.months if investor.period and investor.period.months is not None else 0
         period_days_num = investor.period.days if investor.period and investor.period.days is not None else 0
@@ -458,6 +458,24 @@ class InvestorDocumentService:
         return rendered
 
     @staticmethod
+    def find_unknown_variables(template_html: str) -> List[str]:
+        """
+        Variables {xxx} del HTML que render_html no sabe reemplazar (H-132). Se renderiza con un
+        inversionista vacío: lo que siga entre llaves después de reemplazar es desconocido.
+        """
+        import re
+
+        class _EmptyInvestor:
+            def __getattr__(self, _name):
+                return None
+
+        if not template_html:
+            return []
+        rendered = InvestorDocumentService.render_html(template_html, _EmptyInvestor())
+        unknown = re.findall(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", rendered)
+        return sorted(set(unknown), key=unknown.index)
+
+    @staticmethod
     async def get_investor_with_relations(db: AsyncSession, investor_id: int) -> Investor:
         from src.models.package import Package
         from src.models.period import Period
@@ -626,7 +644,7 @@ class InvestorDocumentService:
             fecha_fin = start_d + timedelta(days=int(old_days))
             pkg_val = float(investor.package.value or 0) if investor.package else 0
             pct_val = f"{investor.period.percentage}%" if investor.period else "0%"
-            shares_cnt = investor.package.granted_shares if investor.package else 0
+            shares_cnt = investor.shares_granted_frozen if investor.shares_granted_frozen is not None else (investor.package.granted_shares if investor.package else 0)  # H-192
 
             motivo_str = f"Actualización de Contrato (v{version_count})" if version_count > 1 else f"Emisión de {template.name}"
 

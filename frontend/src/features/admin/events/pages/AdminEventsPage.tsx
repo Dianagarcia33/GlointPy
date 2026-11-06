@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Sparkles, 
   Calendar, 
@@ -24,16 +25,40 @@ import {
   Briefcase,
   Mail,
   Phone,
-  X
+  X,
+  Radio,
+  ScanLine,
+  ClipboardCheck,
+  MessagesSquare,
+  Ticket
 } from 'lucide-react';
 import { 
   getAdminEventSummary, 
   updateAdminEventConfig, 
   cancelAttendeeRegistration, 
+  sendAttendanceEmailToAttendee, 
   AdminEventSummary, 
   AttendeeData, 
   EventConfigPayload 
 } from '../../../../services/events';
+import { AttendanceEmailsCard } from '../components/AttendanceEmailsCard';
+import { LiveRoomCard } from '../components/LiveRoomCard';
+import { ChatModerationCard } from '../components/ChatModerationCard';
+import { QuestionsModerationCard } from '../components/QuestionsModerationCard';
+import { CheckInCard } from '../components/CheckInCard';
+import { SurveyResultsCard } from '../components/SurveyResultsCard';
+import { CouponsCard } from '../components/CouponsCard';
+
+type EventTab = 'inscritos' | 'transmision' | 'participacion' | 'entrada' | 'encuesta' | 'cupones';
+
+const EVENT_TABS: { key: EventTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'inscritos', label: 'Inscritos', icon: Users },
+  { key: 'transmision', label: 'Transmisión en vivo', icon: Radio },
+  { key: 'participacion', label: 'Participación', icon: MessagesSquare },
+  { key: 'entrada', label: 'Entrada y asistencia', icon: ScanLine },
+  { key: 'encuesta', label: 'Encuesta', icon: ClipboardCheck },
+  { key: 'cupones', label: 'Cupones', icon: Ticket },
+];
 
 const formatInterests = (interests?: string[] | string | null): string[] => {
   if (!interests) return [];
@@ -66,6 +91,7 @@ export const AdminEventsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [emailingId, setEmailingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'investor' | 'external'>('all');
   const [modeFilter, setModeFilter] = useState<'all' | 'in_person' | 'virtual'>('all');
@@ -74,6 +100,13 @@ export const AdminEventsPage: React.FC = () => {
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  // La pestaña activa vive en la URL (?tab=) para poder recargar o compartir sin perderla
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Enlaces antiguos (?tab=chat / ?tab=preguntas) llevan a la pestaña unificada
+  const rawTab = searchParams.get('tab');
+  const requestedTab = rawTab === 'chat' || rawTab === 'preguntas' ? 'participacion' : rawTab;
+  const activeTab: EventTab = EVENT_TABS.some((t) => t.key === requestedTab) ? (requestedTab as EventTab) : 'inscritos';
+  const selectTab = (tab: EventTab) => setSearchParams(tab === 'inscritos' ? {} : { tab }, { replace: true });
 
   // Formulario de Configuración
   const [formData, setFormData] = useState<EventConfigPayload>({
@@ -183,6 +216,21 @@ export const AdminEventsPage: React.FC = () => {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isConfigOpen, savingConfig]);
+
+  const handleSendAttendanceEmail = async (id: number, name: string, email: string) => {
+    if (!window.confirm(`Se enviará el correo de confirmación de asistencia a "${name}" (${email}). ¿Continuar?`)) {
+      return;
+    }
+    try {
+      setEmailingId(id);
+      await sendAttendanceEmailToAttendee(id);
+      setFeedbackMsg({ type: 'success', text: `Correo de confirmación enviado a ${email}.` });
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'No se pudo enviar el correo.' });
+    } finally {
+      setEmailingId(null);
+    }
+  };
 
   const handleCancelAttendee = async (id: number, name: string) => {
     if (!window.confirm(`¿Seguro que deseas cancelar el registro de asistencia de "${name}"? El cupo reservado será liberado.`)) {
@@ -372,6 +420,28 @@ export const AdminEventsPage: React.FC = () => {
         </div>
       </div>
 
+      <div role="tablist" aria-label="Secciones del evento" className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {EVENT_TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            id={`event-tab-${key}`}
+            role="tab"
+            type="button"
+            aria-selected={activeTab === key}
+            aria-controls={`event-panel-${key}`}
+            onClick={() => selectTab(key)}
+            className={`inline-flex items-center gap-2 px-4 py-3 text-xs font-bold font-montserrat whitespace-nowrap border-b-2 -mb-px transition-colors cursor-pointer ${
+              activeTab === key
+                ? 'border-brand-600 text-brand-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
       {feedbackMsg && (
         <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in shadow-xs ${
           feedbackMsg.type === 'success' 
@@ -382,6 +452,10 @@ export const AdminEventsPage: React.FC = () => {
           <span>{feedbackMsg.text}</span>
         </div>
       )}
+
+      {activeTab === 'inscritos' && (
+      <div role="tabpanel" id="event-panel-inscritos" aria-labelledby="event-tab-inscritos" className="space-y-6">
+      <AttendanceEmailsCard onSent={loadSummary} />
 
       {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -538,7 +612,7 @@ export const AdminEventsPage: React.FC = () => {
                 <th className="px-4 py-3.5 whitespace-nowrap">Áreas de Interés</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">Modalidad & Aforo</th>
                 <th className="px-4 py-3.5 whitespace-nowrap">Fecha Registro</th>
-                <th className="px-4 py-3.5 text-right whitespace-nowrap">Acciones</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap sticky right-0 z-10 bg-slate-50 shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.18)]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -550,7 +624,7 @@ export const AdminEventsPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredAttendees.map((att) => (
-                  <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={att.id} className="group hover:bg-slate-50/80 transition-colors">
                     
                     {/* Asistente & ID */}
                     <td className="px-4 py-3.5 min-w-[190px]">
@@ -693,7 +767,8 @@ export const AdminEventsPage: React.FC = () => {
                     </td>
 
                     {/* Acciones */}
-                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                    {/* Columna fija a la derecha: la tabla es ancha y en pantallas normales las acciones quedaban fuera de vista */}
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition-colors shadow-[-8px_0_8px_-8px_rgba(15,23,42,0.18)]">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
@@ -703,6 +778,21 @@ export const AdminEventsPage: React.FC = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        {att.status === 'confirmed' && att.attendance_mode === 'in_person' && (
+                          <button
+                            type="button"
+                            disabled={emailingId === att.id}
+                            onClick={() => handleSendAttendanceEmail(att.id, att.full_name, att.email)}
+                            className="p-1.5 hover:bg-brand-50 text-slate-400 hover:text-brand-700 rounded-xl transition-all border border-transparent hover:border-brand-100 shadow-2xs cursor-pointer disabled:opacity-50"
+                            title="Enviar correo de confirmación de asistencia"
+                          >
+                            {emailingId === att.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+                            ) : (
+                              <Mail className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
                         {att.status === 'confirmed' ? (
                           <button
                             type="button"
@@ -733,6 +823,29 @@ export const AdminEventsPage: React.FC = () => {
         </div>
 
       </div>
+
+      </div>
+      )}
+
+      {activeTab === 'transmision' && (
+        <div role="tabpanel" id="event-panel-transmision" aria-labelledby="event-tab-transmision"><LiveRoomCard /></div>
+      )}
+      {activeTab === 'participacion' && (
+        <div role="tabpanel" id="event-panel-participacion" aria-labelledby="event-tab-participacion"
+          className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          <ChatModerationCard />
+          <QuestionsModerationCard />
+        </div>
+      )}
+      {activeTab === 'entrada' && (
+        <div role="tabpanel" id="event-panel-entrada" aria-labelledby="event-tab-entrada"><CheckInCard /></div>
+      )}
+      {activeTab === 'cupones' && (
+        <div role="tabpanel" id="event-panel-cupones" aria-labelledby="event-tab-cupones"><CouponsCard /></div>
+      )}
+      {activeTab === 'encuesta' && (
+        <div role="tabpanel" id="event-panel-encuesta" aria-labelledby="event-tab-encuesta"><SurveyResultsCard /></div>
+      )}
 
       {/* Modal Ficha Completa del Asistente */}
       {selectedAttendee && (
@@ -1050,7 +1163,7 @@ export const AdminEventsPage: React.FC = () => {
                   <label className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
                     <div>
                       <span className="font-bold text-slate-800 block">Banner Visible</span>
-                      <span className="text-[10px] text-slate-500 block">Mostrar banner en login y dashboard</span>
+                      <span className="text-[10px] text-slate-500 block">Mostrar el banner en el dashboard del inversionista (en el login solo si hay inscripciones abiertas)</span>
                     </div>
                     <input
                       id="event-config-banner-active"
@@ -1064,7 +1177,7 @@ export const AdminEventsPage: React.FC = () => {
                   <label className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
                     <div>
                       <span className="font-bold text-slate-800 block">Inscripciones Abiertas</span>
-                      <span className="text-[10px] text-slate-500 block">Permitir nuevas confirmaciones</span>
+                      <span className="text-[10px] text-slate-500 block">Permitir nuevas confirmaciones. Cerradas: el banner sigue visible con el aviso «inscripciones cerradas»</span>
                     </div>
                     <input
                       id="event-config-is-active"

@@ -1,6 +1,7 @@
+from src.services.audit_trail_service import audit_in_tx
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select, distinct
 from pydantic import BaseModel
 from typing import Optional, List, Any
 import os
@@ -53,11 +54,24 @@ async def trigger_sarlaft_check(
         "details": check.details
     }
 
+@router.get("/me")
+async def get_my_sarlaft_check(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Obtiene el último resultado de verificación SARLAFT del usuario autenticado.
+    """
+    return await get_user_sarlaft_check(user_id=current_user.id, current_user=current_user, db=db)
+
 @router.get("/user/{user_id}")
 async def get_user_sarlaft_check(user_id: int, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Obtiene el último resultado de verificación SARLAFT para un usuario.
     """
+    # H-183: el propio usuario o la administración; nadie más puede consultar el SARLAFT de otra persona
+    from src.core.pbac import PBACEngine
+    if user_id != current_user.id and not PBACEngine.has_permission(
+        current_user, ["admin.investors.manage", "admin.users.manage", "admin.audits.manage", "admin.roles.manage"]
+    ):
+        raise HTTPException(status_code=403, detail="No tienes permisos suficientes para realizar esta acción")
     try:
         res = await db.execute(
             select(SarlaftCheck)
@@ -101,7 +115,7 @@ async def get_user_sarlaft_check(user_id: int, current_user = Depends(get_curren
         }
     }
 
-@router.get("/pdf/{check_id}")
+@router.get("/pdf/{check_id}", dependencies=[Depends(RequirePermission(["admin.investors.manage", "admin.users.manage", "admin.audits.manage"]))])  # H-183: antes era público
 async def download_sarlaft_pdf(check_id: int, db: AsyncSession = Depends(get_db)):
     """
     Descarga el reporte en PDF oficial de la consulta SARLAFT.
@@ -122,3 +136,204 @@ async def download_sarlaft_pdf(check_id: int, db: AsyncSession = Depends(get_db)
         )
 
     raise HTTPException(status_code=404, detail="Archivo PDF no encontrado en el servidor")
+
+
+@router.post("/admin/validate-existing-investors", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def validate_existing_investors(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Aprueba administrativamente el SARLAFT ÚNICAMENTE para los usuarios que cuentan con inversiones reales en la tabla 'investors'.
+    Revierte y limpia automáticamente cualquier registro erróneo asignado a usuarios sin inversiones.
+    """
+    from datetime import datetime
+    from src.models.investor import Investor
+
+    # 1. Obtener los IDs únicos de usuarios con inversiones reales registradas
+    investor_ids_res = await db.execute(select(Investor.user_id).distinct())
+    investor_user_ids = set(investor_ids_res.scalars().all())
+
+    # 2. Revertir / eliminar chequeos creados por lote previo para usuarios que NO tienen inversiones
+    all_checks_res = await db.execute(select(SarlaftCheck))
+    all_checks = all_checks_res.scalars().all()
+    reverted_count = 0
+    for c in all_checks:
+        if (
+            c.details
+            and isinstance(c.details, dict)
+            and c.details.get("source") == "admin_batch_legacy_approval"
+            and c.user_id not in investor_user_ids
+        ):
+            await db.delete(c)
+            reverted_count += 1
+
+    # 3. Validar únicamente a usuarios con inversiones reales
+    user_query = select(User.id, User.document_id).where(User.id.in_(investor_user_ids))
+    res = await db.execute(user_query)
+    target_users = res.all()
+
+    updated_count = 0
+    now = datetime.utcnow()
+
+    for u_id, u_doc in target_users:
+        c_res = await db.execute(
+            select(SarlaftCheck).where(SarlaftCheck.user_id == u_id).order_by(SarlaftCheck.id.desc())
+        )
+        existing_check = c_res.scalars().first()
+
+        if existing_check:
+            if (
+                existing_check.tusdatos_status == "finalizado"
+                and existing_check.risk_level == "CLEAN"
+                and not existing_check.has_findings
+            ):
+                continue
+
+            existing_check.tusdatos_status = "finalizado"
+            existing_check.risk_level = "CLEAN"
+            existing_check.has_findings = False
+            existing_check.tusdatos_hallazgos_corregidos = True
+            existing_check.tusdatos_fecha_correccion = now
+            existing_check.tusdatos_corregido_por = current_user.id
+            existing_check.tusdatos_justificacion = "Aprobado administrativamente por contar con inversiones previas registradas."
+            existing_check.tusdatos_msg = "Aprobado por administración"
+            existing_check.updated_at = now
+            updated_count += 1
+        else:
+            new_check = SarlaftCheck(
+                user_id=u_id,
+                document_number=u_doc or f"LEGACY_{u_id}",
+                document_type="CC",
+                tusdatos_status="finalizado",
+                risk_level="CLEAN",
+                has_findings=False,
+                tusdatos_hallazgos_corregidos=True,
+                tusdatos_fecha_correccion=now,
+                tusdatos_corregido_por=current_user.id,
+                tusdatos_justificacion="Aprobado administrativamente por contar con inversiones previas registradas.",
+                tusdatos_msg="Aprobado por administración",
+                details={"source": "admin_batch_legacy_approval", "approved_by": current_user.id},
+                created_at=now,
+                updated_at=now
+            )
+            db.add(new_check)
+            updated_count += 1
+
+    await db.commit()
+    msg = f"Validación de inversionistas completada. Se validaron {updated_count} usuarios con inversiones reales."
+    if reverted_count > 0:
+        msg += f" Se revocó la validación errónea a {reverted_count} usuarios que no tenían inversiones."
+
+    return {
+        "message": msg,
+        "processed_users": len(target_users),
+        "updated_count": updated_count,
+        "reverted_count": reverted_count
+    }
+
+
+class SetUserSarlaftStatusRequest(BaseModel):
+    user_id: int
+    status: str  # "approved" | "pending" | "rejected"
+    justification: Optional[str] = None
+
+
+@router.post("/admin/set-status", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def set_user_sarlaft_status(
+    req: SetUserSarlaftStatusRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permite a un administrador cambiar individualmente el estado SARLAFT de un usuario:
+    - 'approved': Aprueba el SARLAFT, elimina hallazgos y habilita inversiones.
+    - 'pending': Restablece el estado a pendiente / en verificación.
+    - 'rejected': Marca con alerta de riesgo alto y bloquea inversiones.
+    """
+    from datetime import datetime
+
+    target_status = req.status.lower().strip()
+    if target_status not in ["approved", "pending", "rejected"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Estado inválido. Opciones permitidas: 'approved', 'pending', 'rejected'."
+        )
+
+    # Validar que el usuario exista
+    user_res = await db.execute(select(User).where(User.id == req.user_id))
+    user = user_res.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Buscar último chequeo
+    c_res = await db.execute(
+        select(SarlaftCheck).where(SarlaftCheck.user_id == req.user_id).order_by(SarlaftCheck.id.desc())
+    )
+    check = c_res.scalars().first()
+    now = datetime.utcnow()
+
+    if not check:
+        check = SarlaftCheck(
+            user_id=user.id,
+            document_number=user.document_id or f"USER_{user.id}",
+            document_type="CC",
+            created_at=now
+        )
+        db.add(check)
+
+    check.updated_at = now
+    prev_status = f"{check.tusdatos_status or 'sin_estado'}/{check.risk_level or '-'}" if getattr(check, "id", None) else "sin_chequeo"
+
+    if target_status == "approved":
+        check.tusdatos_status = "finalizado"
+        check.risk_level = "CLEAN"
+        check.has_findings = False
+        check.tusdatos_hallazgos_corregidos = True
+        check.tusdatos_fecha_correccion = now
+        check.tusdatos_corregido_por = current_user.id
+        check.tusdatos_justificacion = req.justification or "Aprobado administrativamente por oficial de cumplimiento."
+        check.tusdatos_msg = "Aprobado por administración"
+        action_msg = "aprobado"
+
+    elif target_status == "pending":
+        check.tusdatos_status = "pending"
+        check.risk_level = "CLEAN"
+        check.has_findings = False
+        check.tusdatos_hallazgos_corregidos = False
+        check.tusdatos_fecha_correccion = None
+        check.tusdatos_corregido_por = current_user.id
+        check.tusdatos_justificacion = req.justification or "Estado restablecido a pendiente para nueva validación."
+        check.tusdatos_msg = "En verificación"
+        action_msg = "cambiado a pendiente"
+
+    elif target_status == "rejected":
+        check.tusdatos_status = "finalizado"
+        check.risk_level = "HIGH"
+        check.has_findings = True
+        check.tusdatos_hallazgos_corregidos = False
+        check.tusdatos_fecha_correccion = None
+        check.tusdatos_corregido_por = current_user.id
+        check.tusdatos_justificacion = req.justification or "Rechazado administrativamente por alerta de cumplimiento."
+        check.tusdatos_msg = "Rechazado por administración / Alerta de riesgo"
+        action_msg = "marcado como rechazado"
+
+    await db.flush()
+    await audit_in_tx(
+        db, "SARLAFT_STATUS_SET", "sarlaft", current_user, "User", user.id,
+        f"Estado SARLAFT del usuario #{user.id} {action_msg}",
+        {"usuario_id": user.id, "check_id": check.id, "estado_antes": prev_status, "estado_despues": target_status,
+         "nivel_riesgo": check.risk_level, "justificacion": (check.tusdatos_justificacion or "")[:300]},
+    )
+    await db.commit()
+    await db.refresh(check)
+
+    return {
+        "success": True,
+        "message": f"El estado SARLAFT del usuario {user.name} fue {action_msg} exitosamente.",
+        "status": target_status,
+        "check_id": check.id
+    }
+
+
+

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -22,7 +22,23 @@ class BeneficiaryUpdate(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
 
+class BeneficiaryDistributionItem(BeneficiaryUpdate):
+    """Ítem de ``PUT /beneficiaries/me/distribution``: con ``id`` edita, sin ``id`` crea."""
+    id: Optional[int] = None
+
+
+class BeneficiaryDistribution(BaseModel):
+    items: list[BeneficiaryDistributionItem] = Field(..., min_length=1)
+
+
 class BeneficiaryResponse(BeneficiaryBase):
+    # En el modelo ORM el atributo es 'relationship_type' (columna 'relationship'): sin este alias la
+    # respuesta siempre devolvía null aunque el parentesco estuviera guardado (H-149)
+    relationship: Optional[str] = Field(
+        None,
+        validation_alias=AliasChoices("relationship_type", "relationship"),
+        description="Parentesco / Relación con el inversionista"
+    )
     id: int
     user_id: Optional[int] = None
     investor_id: Optional[int] = None

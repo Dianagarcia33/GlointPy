@@ -23,6 +23,9 @@ for (let h = 7; h <= 20; h++) {
   }
 }
 
+// H-179: la última franja (20:00) solo sirve de hora fin; como inicio no tendría salida posible
+const START_OPTIONS = TIME_OPTIONS.slice(0, -1);
+
 export const RoomReservationModal: React.FC<RoomReservationModalProps> = ({
   isOpen,
   onClose,
@@ -242,10 +245,17 @@ export const RoomReservationModal: React.FC<RoomReservationModalProps> = ({
               </label>
               <select
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => {
+                  const nextStart = e.target.value;
+                  setStartTime(nextStart);
+                  // Mantener siempre una hora fin válida (posterior al inicio)
+                  if (endTime <= nextStart) {
+                    setEndTime(TIME_OPTIONS.find((t) => t > nextStart) || endTime);
+                  }
+                }}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
               >
-                {TIME_OPTIONS.map((t) => (
+                {START_OPTIONS.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>

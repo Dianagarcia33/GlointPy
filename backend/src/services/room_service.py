@@ -6,6 +6,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import and_, or_
 
+from src.core.timezone import get_colombia_now
 from src.models.room import MeetingRoom, RoomReservation
 from src.models.user import User
 from src.schemas.room import MeetingRoomCreate, MeetingRoomUpdate, RoomReservationCreate
@@ -275,6 +276,13 @@ class RoomService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Esta reserva ya se encuentra cancelada."
+            )
+
+        # H-226: una reunión ya terminada (hora fin pasada, hora Colombia) no se cancela
+        if reservation.end_time and reservation.end_time <= get_colombia_now().replace(tzinfo=None):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esta reserva ya finalizó y no se puede cancelar."
             )
 
         reservation.status = "cancelled"

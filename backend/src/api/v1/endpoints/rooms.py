@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from datetime import datetime
@@ -16,6 +16,7 @@ from src.schemas.room import (
 )
 from src.services.room_service import RoomService
 from src.core.pbac import PBACEngine
+from src.services.audit_trail_service import log_audit_trail
 
 router = APIRouter()
 
@@ -143,6 +144,7 @@ async def create_room_reservation(
 @router.post("/reservations/{reservation_id}/cancel", response_model=RoomReservationResponse)
 async def cancel_room_reservation(
     reservation_id: int,
+    request: Request,
     body: Optional[RoomReservationCancel] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(RequirePermission(["rooms:reserve", "admin.rooms.manage"]))
@@ -152,10 +154,23 @@ async def cancel_room_reservation(
     """
     is_admin = PBACEngine.has_permission(current_user, "admin.rooms.manage")
     reason = body.reason if body else None
-    return await RoomService.cancel_reservation(
+    cancelled = await RoomService.cancel_reservation(
         db=db,
         reservation_id=reservation_id,
         current_user=current_user,
         reason=reason,
         is_admin=is_admin
     )
+    # H-196: la cancelación y su motivo quedan en el registro de auditoría
+    await log_audit_trail(
+        db=db,
+        action="ROOM_RESERVATION_CANCEL",
+        module="rooms",
+        user=current_user,
+        entity_type="RoomReservation",
+        entity_id=reservation_id,
+        description=f"Reserva de sala #{reservation_id} cancelada. Motivo: {cancelled.cancelled_reason or 'sin motivo'}",
+        details={"reservation_id": reservation_id, "reason": cancelled.cancelled_reason, "cancelled_by_admin": is_admin},
+        request=request
+    )
+    return cancelled

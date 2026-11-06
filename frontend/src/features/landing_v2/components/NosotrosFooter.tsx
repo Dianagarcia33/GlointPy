@@ -1,3 +1,4 @@
+import { useCookieConsentStore } from "../../../store/cookieConsentStore";
 import { useNavigate } from "react-router-dom";
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -18,16 +19,11 @@ export function NosotrosFooter() {
   const navigate = useNavigate();
 
   return (
-    <footer style={{ background: "#080e1b" }} className="pt-16 pb-8">
+    <footer style={{ background: "#080807" }} className="pt-16 pb-8">
       <div className="max-w-6xl mx-auto px-6">
-        <div className="grid md:grid-cols-4 gap-10 mb-12">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           <div>
-            <div
-              className="text-2xl font-black tracking-widest mb-4"
-              style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
-            >
-              GLOINT
-            </div>
+            <img src="/logos/brand/wordmark.png" alt="GLOINT Group" className="h-11 w-auto mb-4 -ml-1" />
             <p className="text-slate-500 text-sm leading-relaxed mb-6">
               Ecosistema empresarial de inversión, comercio digital y tecnología.
             </p>
@@ -56,6 +52,9 @@ export function NosotrosFooter() {
               {([["Política de privacidad", "privacidad"], ["Términos y condiciones", "terminos"], ["Aviso legal", "legal"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}><button onClick={() => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); }} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button></li>
               ))}
+              <li>
+                <button type="button" onClick={() => useCookieConsentStore.getState().openPreferences()} className="text-slate-500 text-sm hover:text-white transition-colors text-left">Configurar cookies</button>
+              </li>
             </ul>
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-slate-500 text-xs"><Mail size={13} style={{ color: GOLD }} /> <a href={`mailto:${CONTACT_INFO.email}`} className="hover:underline">{CONTACT_INFO.email}</a></div>

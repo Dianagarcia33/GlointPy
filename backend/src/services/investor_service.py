@@ -1,3 +1,5 @@
+from src.core.errors import public_error_detail
+from src.core.search import like_contains, LIKE_ESCAPE
 import csv
 import io
 import re
@@ -21,6 +23,47 @@ from src.models.security import Role
 from src.models.user_bank_account import UserBankAccount
 from src.models.wallet import Wallet
 from src.schemas.investor import InvestorCreate, InvestorUpdate
+from src.services.audit_trail_service import audit_in_tx
+
+# Roles con alcance global sobre todos los inversionistas (H-187). Un rol comercial (p. ej. directivo_inversion)
+# al que se le dé admin.investors.manage solo ve a SUS clientes, salvo que tenga admin.investors.view_all.
+GLOBAL_INVESTOR_ROLES = {
+    "admin", "superadmin", "super_admin", "super admin", "superuser",
+    "operaciones", "administrativo", "contabilidad", "contabilidad_",
+}
+
+
+def investor_scope_commercial_id(user: Optional[User]) -> Optional[int]:
+    """None si el usuario ve todos los inversionistas; si no, el id del asesor cuyos clientes puede ver."""
+    if user is None:
+        return None  # llamadas internas sin usuario
+    from src.core.pbac import PBACEngine
+    if getattr(user, "is_superuser", False):
+        return None
+    role_names = {(getattr(r, "name", "") or "").lower().strip() for r in getattr(user, "roles", [])}
+    if role_names & GLOBAL_INVESTOR_ROLES:
+        return None
+    if PBACEngine.has_permission(user, "admin.investors.view_all"):
+        return None
+    return user.id
+
+
+def investor_scope_condition(commercial_id: int):
+    """Contratos de clientes asignados al asesor (User.commercial_id) o de ventas adjudicadas a él."""
+    from sqlalchemy import or_
+    from src.models.commercial_sale import CommercialSale
+    return or_(
+        User.commercial_id == commercial_id,
+        Investor.id.in_(
+            select(CommercialSale.investor_id).where(
+                CommercialSale.commercial_id == commercial_id, CommercialSale.investor_id.isnot(None)
+            )
+        ),
+        User.document_id.in_(
+            select(CommercialSale.client_document).where(CommercialSale.commercial_id == commercial_id)
+        ),
+    )
+
 
 class InvestorService:
 
@@ -36,16 +79,21 @@ class InvestorService:
         from sqlalchemy import or_, func, case, Integer
         
         query = select(Investor).join(Investor.user)
+
+        # H-187: un asesor solo ve los contratos de sus clientes asignados; el filtro lo aplica el backend
+        scope_id = investor_scope_commercial_id(current_user)
+        if scope_id is not None:
+            query = query.where(investor_scope_condition(scope_id))
         
         if search:
-            search_term = f"%{search}%"
+            search_term = like_contains(search)
             query = query.where(
                 or_(
-                    Investor.assigned_code.ilike(search_term),
-                    Investor.referred_by.ilike(search_term),
-                    User.name.ilike(search_term),
-                    User.email.ilike(search_term),
-                    User.document_id.ilike(search_term)
+                    Investor.assigned_code.ilike(search_term, escape=LIKE_ESCAPE),
+                    Investor.referred_by.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.name.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_term, escape=LIKE_ESCAPE)
                 )
             )
             
@@ -84,15 +132,30 @@ class InvestorService:
         result = await db.execute(query)
         data = result.scalars().all()
         
+        # H-225: total global de contratos acelerados (respeta solo el alcance del asesor, no la búsqueda ni la página)
+        accel_query = select(func.count(Investor.id)).where(InvestorService.accelerated_contract_condition())
+        if scope_id is not None:
+            accel_query = accel_query.where(investor_scope_condition(scope_id))
+        accelerated_total = (await db.execute(accel_query)).scalar_one()
+
         return {
             "total": total,
+            "accelerated_total": accelerated_total,
             "page": page,
             "limit": limit,
             "data": data
         }
 
     @staticmethod
-    async def get_investor(db: AsyncSession, investor_id: int) -> Optional[Investor]:
+    def accelerated_contract_condition():
+        """Contrato acelerado = tiene alguna aceleración aplicada con días reducidos (misma regla que InvestorResponse.is_accelerated)."""
+        from src.models.acceleration import Acceleration
+        return Investor.accelerations.any(
+            (Acceleration.applied.is_(True)) & (Acceleration.days_to_reduce > 0)
+        )
+
+    @staticmethod
+    async def get_investor(db: AsyncSession, investor_id: int, current_user: Optional[User] = None) -> Optional[Investor]:
         result = await db.execute(
             select(Investor)
             .options(
@@ -110,7 +173,21 @@ class InvestorService:
         investor = result.scalars().first()
         if not investor:
             raise HTTPException(status_code=404, detail="Investor not found")
+        await InvestorService.ensure_investor_in_scope(db, investor, current_user)
         return investor
+
+    @staticmethod
+    async def ensure_investor_in_scope(db: AsyncSession, investor: Investor, current_user: Optional[User]) -> None:
+        """H-187: 404 (no 403, para no revelar que existe) si el contrato no es de un cliente del asesor."""
+        scope_id = investor_scope_commercial_id(current_user)
+        if scope_id is None:
+            return
+        res = await db.execute(
+            select(Investor.id).join(Investor.user)
+            .where(Investor.id == investor.id, investor_scope_condition(scope_id))
+        )
+        if res.first() is None:
+            raise HTTPException(status_code=404, detail="Investor not found")
 
     @staticmethod
     async def generate_next_assigned_code(db: AsyncSession) -> str:
@@ -153,7 +230,34 @@ class InvestorService:
         return candidate_code
 
     @staticmethod
-    async def create_investor(db: AsyncSession, investor: InvestorCreate) -> Investor:
+    def _ensure_start_date_not_future(start_date: Optional[datetime]) -> None:
+        """La fecha de ingreso no puede ser futura: movería la fecha de fin y los rendimientos (H-142)."""
+        from src.core.timezone import get_colombia_today
+        # El formulario envía la fecha elegida a medianoche UTC: se compara el día tal cual, sin convertir
+        if start_date and start_date.date() > get_colombia_today():
+            raise HTTPException(status_code=422, detail="La fecha de ingreso no puede ser posterior a hoy.")
+
+    MIN_START_DATE_REASON_LENGTH = 5
+
+    @staticmethod
+    def check_retroactive_start_date(new_start: Optional[datetime], previous_start: Optional[datetime], reason: Optional[str]) -> Optional[str]:
+        """Una fecha de ingreso retroactiva (anterior a hoy en Colombia y distinta de la actual) exige un motivo (H-142).
+        Devuelve el motivo limpio si aplica (para registrarlo en el Audit Trail) o None si no es retroactiva."""
+        from src.core.timezone import get_colombia_today
+        if not new_start or new_start.date() >= get_colombia_today():
+            return None
+        if previous_start is not None and previous_start.date() == new_start.date():
+            return None  # la fecha no cambia: no se toca el contrato
+        clean = (reason or "").strip()
+        if len(clean) < InvestorService.MIN_START_DATE_REASON_LENGTH:
+            raise HTTPException(
+                status_code=422,
+                detail=f"La fecha de ingreso es anterior a hoy (retroactiva): indica el motivo del cambio (mínimo {InvestorService.MIN_START_DATE_REASON_LENGTH} caracteres) para que quede registrado."
+            )
+        return clean[:500]
+
+    @staticmethod
+    async def create_investor(db: AsyncSession, investor: InvestorCreate, actor=None) -> Investor:
         # Validate foreign keys
         user_result = await db.execute(select(User).where(User.id == investor.user_id))
         if not user_result.scalars().first():
@@ -167,6 +271,8 @@ class InvestorService:
         if not period_result.scalars().first():
             raise HTTPException(status_code=404, detail="Periodo no encontrado")
             
+        InvestorService._ensure_start_date_not_future(investor.start_date)
+        InvestorService.check_retroactive_start_date(investor.start_date, None, investor.start_date_reason)
         start_date = investor.start_date or datetime.utcnow()
 
         if investor.assigned_code:
@@ -180,9 +286,25 @@ class InvestorService:
         else:
             assigned_code = await InvestorService.generate_next_assigned_code(db)
 
+        # H-70: Validar código de referido si se suministró
+        clean_referred_by = None
+        if investor.referred_by:
+            clean_referred_by = investor.referred_by.strip().upper()
+            ref_check = await db.execute(select(Investor.id).where(Investor.assigned_code == clean_referred_by))
+            if not ref_check.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El código de referido '{clean_referred_by}' no corresponde a ninguna inversión registrada en la plataforma."
+                )
+            if assigned_code and clean_referred_by == assigned_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Un inversionista no puede referirse a sí mismo."
+                )
+
         db_investor = Investor(
             assigned_code=assigned_code,
-            referred_by=investor.referred_by,
+            referred_by=clean_referred_by,
             user_id=investor.user_id,
             package_id=investor.package_id,
             period_id=investor.period_id,
@@ -197,6 +319,8 @@ class InvestorService:
             # Otorgar acciones del paquete si aplica
             pkg_res = await db.execute(select(Package).where(Package.id == db_investor.package_id))
             pkg = pkg_res.scalar_one_or_none()
+            # H-192: se congelan las acciones que otorga el paquete en el momento de la compra
+            db_investor.shares_granted_frozen = pkg.granted_shares if (pkg and pkg.granted_shares and pkg.granted_shares > 0) else 0
             if pkg and pkg.granted_shares and pkg.granted_shares > 0:
                 from src.services.share_market_service import ShareMarketService
                 pkg_val = f"${pkg.value:,.0f} COP" if pkg.value else ""
@@ -212,6 +336,14 @@ class InvestorService:
                     created_at=db_investor.start_date or db_investor.created_at or datetime.utcnow()
                 )
 
+            await audit_in_tx(
+                db, "INVESTOR_CREATE", "investments", actor, "Investor", db_investor.id,
+                f"Creación del contrato {assigned_code}",
+                {"investor_id": db_investor.id, "assigned_code": assigned_code, "usuario_id": db_investor.user_id,
+                 "paquete_id": db_investor.package_id, "periodo_id": db_investor.period_id,
+                 "fecha_inicio": db_investor.start_date.date().isoformat() if db_investor.start_date else None,
+                 "acciones_otorgadas": db_investor.shares_granted_frozen},
+            )
             await db.commit()
             await db.refresh(db_investor)
             # Re-fetch with relationships
@@ -230,111 +362,28 @@ class InvestorService:
             )
 
     @staticmethod
-    async def update_investor(db: AsyncSession, investor_id: int, investor: InvestorUpdate) -> Investor:
-        from src.models.acceleration import Acceleration
-        from src.models.investment_request import InvestmentRequest
-        from sqlalchemy import or_
-
+    async def update_investor(db: AsyncSession, investor_id: int, investor: InvestorUpdate, actor=None) -> Investor:
         db_investor = await InvestorService.get_investor(db, investor_id)
         if not db_investor:
             raise HTTPException(status_code=404, detail="Inversionista no encontrado")
 
         old_referred_by = (db_investor.referred_by or "").strip()
         update_data = investor.model_dump(exclude_unset=True)
-        new_referred_by = (update_data.get("referred_by") or "").strip() if "referred_by" in update_data else old_referred_by
+        start_date_reason = update_data.pop("start_date_reason", None)  # no es una columna del contrato
+        if update_data.get("start_date"):
+            InvestorService._ensure_start_date_not_future(update_data["start_date"])
+            InvestorService.check_retroactive_start_date(update_data["start_date"], db_investor.start_date, start_date_reason)
 
-        # Si el referido ha cambiado o se ha removido
-        if "referred_by" in update_data and new_referred_by != old_referred_by:
-            # 1. Si tenía un referido previo, eliminar UNICAMENTE la aceleración correspondiente a este inversionista
-            if old_referred_by:
-                old_referrer_res = await db.execute(
-                    select(Investor).where(Investor.assigned_code == old_referred_by)
+        # Los bonos por referido (aceleraciones) ya no se aplican: el código de referido queda solo para
+        # consultar los bonos antiguos. Cambiarlo crearía o borraría aceleraciones, así que se rechaza (H-140).
+        if "referred_by" in update_data:
+            requested_ref = (update_data.get("referred_by") or "").strip().upper()
+            if requested_ref != old_referred_by.upper():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El código de referido ya no se puede modificar: los bonos por referido están desactivados y los existentes se conservan solo para consulta."
                 )
-                old_referrer_inv = old_referrer_res.scalars().first()
-                if old_referrer_inv:
-                    # Encontrar los IDs de solicitudes asociadas a ESTE inversionista
-                    my_req_res = await db.execute(
-                        select(InvestmentRequest.id).where(
-                            or_(
-                                InvestmentRequest.investor_id == db_investor.id,
-                                InvestmentRequest.user_id == db_investor.user_id
-                            )
-                        )
-                    )
-                    my_req_ids = my_req_res.scalars().all()
-                    
-                    if my_req_ids:
-                        accs_res = await db.execute(
-                            select(Acceleration).where(
-                                Acceleration.investor_id == old_referrer_inv.id,
-                                Acceleration.investment_request_id.in_(my_req_ids)
-                            )
-                        )
-                        old_accs = accs_res.scalars().all()
-                        for acc in old_accs:
-                            await db.delete(acc)
-                    else:
-                        # Si no tiene request_id (creado manualmente), eliminar como máximo 1 aceleración que coincida con el bono exacto (5%)
-                        pkg_val = float(db_investor.package.value or 0) if db_investor.package else 0.0
-                        expected_bonus = pkg_val * 0.05
-                        if expected_bonus > 0:
-                            accs_res = await db.execute(
-                                select(Acceleration).where(
-                                    Acceleration.investor_id == old_referrer_inv.id,
-                                    Acceleration.bonus_amount == expected_bonus
-                                ).limit(1)
-                            )
-                            single_acc = accs_res.scalars().first()
-                            if single_acc:
-                                await db.delete(single_acc)
-
-            # 2. Si se ingresó un nuevo código de referido válido, crear la aceleración para el nuevo referente
-            if new_referred_by:
-                new_referrer_res = await db.execute(
-                    select(Investor)
-                    .options(selectinload(Investor.package), selectinload(Investor.period))
-                    .where(Investor.assigned_code == new_referred_by)
-                )
-                new_referrer_inv = new_referrer_res.scalars().first()
-
-                if new_referrer_inv and new_referrer_inv.package and new_referrer_inv.period:
-                    pkg_val = float(db_investor.package.value or 0) if db_investor.package else 0.0
-                    bonus_amount = pkg_val * 0.05
-
-                    ref_package_val = float(new_referrer_inv.package.value or 0)
-                    ref_pct = float(new_referrer_inv.period.percentage or 0) / 100.0
-                    ref_months = float(new_referrer_inv.period.months or 0)
-                    ref_days = float(new_referrer_inv.period.days or 0)
-
-                    if ref_days > 0 and ref_package_val > 0:
-                        rendimiento_mensual = ref_package_val * ref_pct
-                        rendimiento_total = rendimiento_mensual * ref_months
-                        daily_yield = rendimiento_total / ref_days
-                        days_to_reduce = (bonus_amount / daily_yield) if daily_yield > 0 else 0.0
-                    else:
-                        days_to_reduce = 0.0
-
-                    inv_req_res = await db.execute(
-                        select(InvestmentRequest.id).where(
-                            or_(
-                                InvestmentRequest.investor_id == db_investor.id,
-                                InvestmentRequest.user_id == db_investor.user_id
-                            )
-                        ).order_by(InvestmentRequest.id.desc()).limit(1)
-                    )
-                    req_id = inv_req_res.scalar_one_or_none()
-
-                    new_acc = Acceleration(
-                        investor_id=new_referrer_inv.id,
-                        investment_request_id=req_id,
-                        contract_period_id=new_referrer_inv.period_id,
-                        original_days=new_referrer_inv.period.days,
-                        acceleration_percentage=5.00,
-                        days_to_reduce=days_to_reduce,
-                        bonus_amount=bonus_amount,
-                        applied=True
-                    )
-                    db.add(new_acc)
+            update_data.pop("referred_by")
 
         if "assigned_code" in update_data and update_data["assigned_code"]:
             code_check = await db.execute(
@@ -352,21 +401,26 @@ class InvestorService:
         old_package_id = db_investor.package_id
         new_package_id = update_data.get("package_id")
 
+        def _audit_val(v):
+            return v.isoformat() if hasattr(v, "isoformat") else (str(v)[:200] if v is not None else None)
+
+        audit_before = {k: _audit_val(getattr(db_investor, k, None)) for k in update_data}
+
         for field, value in update_data.items():
             setattr(db_investor, field, value)
 
         if new_package_id and new_package_id != old_package_id:
             from src.models.package import Package
             from src.services.share_market_service import ShareMarketService
-            old_pkg_res = await db.execute(select(Package).where(Package.id == old_package_id))
-            old_pkg = old_pkg_res.scalar_one_or_none()
-            prev_pkg_shares = old_pkg.granted_shares if old_pkg and old_pkg.granted_shares else 0
+            # H-192: lo ya otorgado es el valor congelado del contrato, no la definición viva del paquete anterior
+            prev_pkg_shares = await ShareMarketService.get_contract_frozen_shares(db, db_investor)
 
             new_pkg_res = await db.execute(select(Package).where(Package.id == new_package_id))
             new_pkg = new_pkg_res.scalar_one_or_none()
             new_pkg_shares = new_pkg.granted_shares if new_pkg and new_pkg.granted_shares else 0
 
             shares_diff = new_pkg_shares - prev_pkg_shares
+            db_investor.shares_granted_frozen = prev_pkg_shares + max(0, shares_diff)
             if shares_diff > 0:
                 pkg_val = f"${new_pkg.value:,.0f} COP" if new_pkg and new_pkg.value else ""
                 desc = f"Otorgamiento de {shares_diff} acciones adicionales por aumento de capital a Paquete ({pkg_val}) - Contrato #{db_investor.assigned_code}"
@@ -382,6 +436,12 @@ class InvestorService:
                 )
 
         try:
+            await audit_in_tx(
+                db, "INVESTOR_UPDATE", "investments", actor, "Investor", db_investor.id,
+                f"Edición del contrato {db_investor.assigned_code or db_investor.id}: {', '.join(update_data) or 'sin cambios'}",
+                {"investor_id": db_investor.id, "antes": audit_before,
+                 "despues": {k: _audit_val(v) for k, v in update_data.items()}},
+            )
             await db.commit()
             await db.refresh(db_investor)
             return await InvestorService.get_investor(db, db_investor.id)
@@ -394,8 +454,62 @@ class InvestorService:
             )
 
     @staticmethod
-    async def delete_investor(db: AsyncSession, investor_id: int):
+    async def delete_investor(db: AsyncSession, investor_id: int, actor=None):
         db_investor = await InvestorService.get_investor(db, investor_id)
+        if not db_investor:
+            raise HTTPException(status_code=404, detail="Inversionista no encontrado")
+
+        # Ventas comerciales originadas por este contrato (H-145): se anulan con él para que no queden
+        # comisiones ni bonos sin respaldo. Si alguna ya se liquidó (comisión pagada) no se elimina.
+        from src.models.commercial_sale import CommercialSale, CommercialSaleStatus
+        sales_res = await db.execute(select(CommercialSale).where(CommercialSale.investor_id == investor_id))
+        linked_sales = sales_res.scalars().all()
+        if any(s.status == CommercialSaleStatus.liquidado for s in linked_sales):
+            raise HTTPException(
+                status_code=409,
+                detail="No se puede eliminar el contrato: su venta comercial ya fue liquidada y la comisión pagada. Revisa la liquidación en el Panel Comercial."
+            )
+        # Acciones otorgadas por el paquete (H-176): se revierten con un asiento en el libro de acciones.
+        # Si ya no están disponibles (vendidas o publicadas en el mercado) no se puede eliminar el contrato.
+        from src.models.share_market import ShareMovement
+        from src.services.share_market_service import ShareMarketService
+        await ShareMarketService.sync_legacy_shares_for_user(db, db_investor.user_id)
+        grants_res = await db.execute(
+            select(ShareMovement).where(
+                ShareMovement.investor_id == investor_id,
+                ShareMovement.movement_type == "package_grant",
+            )
+        )
+        grants = grants_res.scalars().all()
+        granted_shares = sum(g.shares_quantity for g in grants)
+        if granted_shares > 0:
+            account = await ShareMarketService.get_or_create_user_shares(db, db_investor.user_id)
+            if account.available_shares < granted_shares:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"No se puede eliminar el contrato: otorgó {granted_shares} acciones y el inversionista solo tiene "
+                        f"{account.available_shares} disponibles (el resto está vendido o publicado en el mercado). "
+                        "Cancela sus ofertas o ajusta las acciones antes de eliminarlo."
+                    )
+                )
+            contract_code = db_investor.assigned_code or f"#{investor_id}"
+            for grant in grants:
+                # El asiento original se conserva desligado del contrato para que la sincronización no lo borre
+                grant.movement_type = "package_grant_reverted"
+                grant.investor_id = None
+            await ShareMarketService.record_share_movement(
+                db=db,
+                user_id=db_investor.user_id,
+                movement_type="package_revoke",
+                quantity=-granted_shares,
+                description=f"Reversión de {granted_shares} acciones por eliminación del Contrato {contract_code}",
+                package_id=db_investor.package_id,
+            )
+
+        affected_commercials = {s.commercial_id for s in linked_sales}
+        for sale in linked_sales:
+            await db.delete(sale)
         
         # Sincronizar y actualizar las solicitudes asociadas para evitar estados huérfanos 'Aprobado'
         from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
@@ -407,159 +521,18 @@ class InvestorService:
             req.rejection_reason = "Contrato de inversión eliminado o anulado por la administración."
             req.investor_id = None
             
+        await audit_in_tx(
+            db, "INVESTOR_DELETE", "investments", actor, "Investor", investor_id,
+            f"Eliminación del contrato {db_investor.assigned_code or investor_id}",
+            {"investor_id": investor_id, "assigned_code": db_investor.assigned_code, "usuario_id": db_investor.user_id,
+             "paquete_id": db_investor.package_id, "ventas_comerciales_anuladas": len(linked_sales),
+             "solicitudes_rechazadas": len(associated_requests)},
+        )
         await db.delete(db_investor)
         await db.commit()
 
-    @staticmethod
-    async def bulk_create_investors(db: AsyncSession, csv_text: str) -> dict:
-        f = io.StringIO(csv_text)
-        sniffer = csv.Sniffer()
-        try:
-            dialect = sniffer.sniff(csv_text[:1024])
-        except csv.Error:
-            dialect = csv.excel
-        
-        f.seek(0)
-        reader = csv.DictReader(f, dialect=dialect)
-        if not reader.fieldnames:
-            raise HTTPException(status_code=400, detail="El archivo CSV está vacío o no tiene cabeceras válidas.")
-        
-        # Normalize headers
-        headers = [h.strip().lower() for h in reader.fieldnames]
-        reader.fieldnames = headers
-
-        success_count = 0
-        errors = []
-        row_num = 1
-
-        for row in reader:
-            row_num += 1
-            try:
-                assigned_code = row.get('codigo', '') or row.get('codigo asignado', '') or row.get('assigned_code', '')
-                if not assigned_code:
-                    errors.append(f"Fila {row_num}: Falta el código asignado.")
-                    continue
-                
-                referred_by = row.get('referido', '') or row.get('referred_by', '')
-                
-                user_id_str = row.get('usuario_id', '') or row.get('user_id', '')
-                if not user_id_str:
-                    errors.append(f"Fila {row_num}: Falta el ID del usuario (usuario_id).")
-                    continue
-                
-                try:
-                    u_id = int(str(user_id_str).strip())
-                except ValueError:
-                    errors.append(f"Fila {row_num}: usuario_id inválido '{user_id_str}'.")
-                    continue
-                    
-                # Buscar usuario por ID
-                user_res = await db.execute(select(User).where(User.id == u_id))
-                user = user_res.scalars().first()
-                if not user:
-                    errors.append(f"Fila {row_num}: Usuario con ID {u_id} no encontrado.")
-                    continue
-                
-                package_id_str = row.get('paquete_id', '') or row.get('package_id', '')
-                if not package_id_str:
-                    errors.append(f"Fila {row_num}: Falta el ID del paquete (paquete_id).")
-                    continue
-                
-                try:
-                    p_id = int(str(package_id_str).strip())
-                except ValueError:
-                    errors.append(f"Fila {row_num}: paquete_id inválido '{package_id_str}'.")
-                    continue
-                
-                # Buscar paquete por ID
-                package_res = await db.execute(select(Package).where(Package.id == p_id))
-                package = package_res.scalars().first()
-                if not package:
-                    errors.append(f"Fila {row_num}: Paquete con ID {p_id} no encontrado.")
-                    continue
-                
-                period_id_str = row.get('periodo_id', '') or row.get('period_id', '')
-                if not period_id_str:
-                    errors.append(f"Fila {row_num}: Falta el ID del periodo (periodo_id).")
-                    continue
-                
-                try:
-                    per_id = int(str(period_id_str).strip())
-                except ValueError:
-                    errors.append(f"Fila {row_num}: periodo_id inválido '{period_id_str}'.")
-                    continue
-                
-                # Buscar periodo por ID
-                period_res = await db.execute(select(Period).where(Period.id == per_id))
-                period = period_res.scalars().first()
-                if not period:
-                    errors.append(f"Fila {row_num}: Periodo con ID {per_id} no encontrado.")
-                    continue
-
-                start_date_str = row.get('fecha_ingreso', '') or row.get('fecha ingreso', '') or row.get('start_date', '')
-                try:
-                    if start_date_str:
-                        # try to parse multiple formats
-                        start_date = None
-                        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y'):
-                            try:
-                                start_date = datetime.strptime(start_date_str.strip(), fmt)
-                                break
-                            except ValueError:
-                                pass
-                        if not start_date:
-                            raise ValueError()
-                    else:
-                        start_date = datetime.utcnow()
-                except ValueError:
-                    errors.append(f"Fila {row_num}: Fecha de ingreso inválida '{start_date_str}'. Formatos válidos: YYYY-MM-DD, DD/MM/YYYY")
-                    continue
-                
-                observations = row.get('observaciones', '') or row.get('notas', '') or row.get('observations', '')
-                investor_id_str = row.get('id', '')
-
-                # Check if investor with assigned_code already exists
-                existing_res = await db.execute(select(Investor).where(Investor.assigned_code == str(assigned_code).strip()))
-                existing_investor = existing_res.scalars().first()
-                
-                if existing_investor:
-                    # Update existing record
-                    existing_investor.referred_by = str(referred_by).strip() if referred_by else None
-                    existing_investor.user_id = user.id
-                    existing_investor.package_id = package.id
-                    existing_investor.period_id = period.id
-                    existing_investor.start_date = start_date
-                    existing_investor.observations = str(observations).strip() if observations else None
-                    if investor_id_str and str(investor_id_str).strip().isdigit():
-                        existing_investor.id = int(str(investor_id_str).strip())
-                    success_count += 1
-                else:
-                    # Insert new record
-                    investor_data = Investor(
-                        assigned_code=str(assigned_code).strip(),
-                        referred_by=str(referred_by).strip() if referred_by else None,
-                        user_id=user.id,
-                        package_id=package.id,
-                        period_id=period.id,
-                        start_date=start_date,
-                        observations=str(observations).strip() if observations else None
-                    )
-                    if investor_id_str and str(investor_id_str).strip().isdigit():
-                        investor_data.id = int(str(investor_id_str).strip())
-                    db.add(investor_data)
-                    success_count += 1
-                
-            except Exception as e:
-                errors.append(f"Fila {row_num}: Error inesperado: {str(e)}")
-
-        if success_count > 0:
-            try:
-                await db.commit()
-            except Exception as e:
-                await db.rollback()
-                raise HTTPException(status_code=400, detail=f"Error al guardar en base de datos: {str(e)}")
-
-        return {
-            "success": success_count,
-            "errors": errors
-        }
+        # Revertir bonos de piso y metas diarias que dependían de las ventas anuladas
+        if affected_commercials:
+            from src.services.commercial_sale_service import purge_ghost_bonuses
+            for commercial_id in affected_commercials:
+                await purge_ghost_bonuses(db, commercial_id)

@@ -1,7 +1,10 @@
 import asyncio
+import logging
 import time
 from fastapi import FastAPI, Depends, Request
-from fastapi.middleware.cors import CORSMiddleware
+from src.core.config import settings
+from src.core.cors import SplitCORSMiddleware
+from src.core.csrf import CSRFMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -15,10 +18,19 @@ from sqlalchemy.orm import selectinload
 from src.core.database import get_db
 
 
+from src.core.responses import ColombiaJSONResponse
+
+# Sin esta configuración Python solo muestra WARNING o más: los mensajes informativos de la app
+# (Firebase iniciado, avisos push enviados...) no llegaban nunca a los logs del contenedor.
+logging.basicConfig(format="%(levelname)s:%(name)s:%(message)s")
+logging.getLogger("src").setLevel(logging.INFO)
+
 app = FastAPI(
     title="GlointPy API",
     description="API para el sistema de inversiones GlointPy",
-    version="1.0.0"
+    version="1.0.0",
+    # Todas las respuestas JSON entregan las marcas de tiempo en hora Colombia (H-152)
+    default_response_class=ColombiaJSONResponse
 )
 
 async def background_imap_sync_worker():
@@ -60,11 +72,27 @@ async def background_imap_sync_worker():
         # Comprobar cada 45 segundos
         await asyncio.sleep(45)
 
+_background_tasks = set()
+
 @app.on_event("startup")
 async def on_startup():
     try:
         # Iniciar worker en segundo plano para sincronización automática de correos
-        asyncio.create_task(background_imap_sync_worker())
+        t_imap = asyncio.create_task(background_imap_sync_worker())
+        _background_tasks.add(t_imap)
+        t_imap.add_done_callback(_background_tasks.discard)
+
+        # Iniciar worker en segundo plano para dispersión automática diaria de rendimientos (medianoche COT)
+        from src.services.daily_yield_service import background_daily_yield_worker
+        t_yield = asyncio.create_task(background_daily_yield_worker())
+        _background_tasks.add(t_yield)
+        t_yield.add_done_callback(_background_tasks.discard)
+
+        # Iniciar worker en segundo plano para conciliación periódica con Yoint
+        from src.services.yoint_sync_worker import background_yoint_sync_worker
+        t_yoint = asyncio.create_task(background_yoint_sync_worker())
+        _background_tasks.add(t_yoint)
+        t_yoint.add_done_callback(_background_tasks.discard)
         import src.models
         from src.core.database import engine, Base, async_session_maker
         from src.run_seed import seed_permissions_db
@@ -85,7 +113,33 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE inventory_items ADD COLUMN supplier_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("CREATE INDEX idx_inventory_items_supplier_id ON inventory_items(supplier_id)"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN commercial_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            # H-192: acciones congeladas por compra (NULL = desconocido)
+            try:
+                await conn.execute(text("ALTER TABLE investors ADD COLUMN shares_granted_frozen INT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN parent_user_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN imap_password VARCHAR(500) NULL"))
             except Exception:
                 pass
 
@@ -105,6 +159,16 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 0"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE withdrawal_verification_codes ADD COLUMN purpose VARCHAR(40) NULL"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN imap_password TEXT NULL"))
             except Exception:
                 pass
@@ -118,6 +182,20 @@ async def on_startup():
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN reply_to_id BIGINT NULL"))
             except Exception:
                 pass
+
+            # Migraciones para Bandeja de Correos Completa y Eventos de Calendario en crm_emails
+            for col_sql in [
+                "ALTER TABLE crm_emails ADD COLUMN is_starred TINYINT(1) NOT NULL DEFAULT 0",
+                "ALTER TABLE crm_emails ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0",
+                "ALTER TABLE crm_emails ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0",
+                "ALTER TABLE crm_emails ADD COLUMN calendar_event LONGTEXT NULL",
+                "ALTER TABLE crm_emails ADD COLUMN cc_emails VARCHAR(500) NULL",
+                "ALTER TABLE crm_emails ADD COLUMN bcc_emails VARCHAR(500) NULL",
+            ]:
+                try:
+                    await conn.execute(text(col_sql))
+                except Exception:
+                    pass
 
             try:
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN is_forwarded BOOLEAN NOT NULL DEFAULT FALSE"))
@@ -138,6 +216,25 @@ async def on_startup():
                 await conn.execute(text("ALTER TABLE crm_emails ADD COLUMN attachments TEXT NULL"))
             except Exception:
                 pass
+
+            # Registro de uso de las claves de formularios externos (H-138)
+            for col_sql in [
+                "ALTER TABLE crm_form_keys ADD COLUMN usage_count INT NOT NULL DEFAULT 0",
+                "ALTER TABLE crm_form_keys ADD COLUMN last_used_at DATETIME NULL",
+                # Enlace de la venta comercial con su contrato y solicitud (H-145)
+                "ALTER TABLE commercial_sales ADD COLUMN investor_id BIGINT NULL",
+                "ALTER TABLE commercial_sales ADD COLUMN investment_request_id BIGINT NULL",
+                "CREATE INDEX ix_commercial_sales_investor_id ON commercial_sales (investor_id)",
+                "CREATE INDEX ix_commercial_sales_investment_request_id ON commercial_sales (investment_request_id)",
+                # Archivado (borrado lógico) de leads del CRM (H-139)
+                "ALTER TABLE crm_leads ADD COLUMN archived_at DATETIME NULL",
+                "ALTER TABLE crm_leads ADD COLUMN archived_by BIGINT NULL",
+                "CREATE INDEX ix_crm_leads_archived_at ON crm_leads (archived_at)",
+            ]:
+                try:
+                    await conn.execute(text(col_sql))
+                except Exception:
+                    pass
 
             try:
                 await conn.execute(text("""
@@ -220,11 +317,7 @@ async def on_startup():
             except Exception as e:
                 print(f"Error creating investor_documents table: {e}")
 
-            # Ajuste de consistencia para paquetes con 0 acciones (el paquete de 50mil no otorga acciones)
-            try:
-                await conn.execute(text("UPDATE packages SET granted_shares = 0 WHERE (value = 50000 OR value = 50000.00)"))
-            except Exception:
-                pass
+            # H-192: la regla de los paquetes de $50.000 (0 acciones) vive en PackageService, no en el arranque.
 
             # Asegurar vista o compatibilidad de tabla withdrawals con retiros
             try:
@@ -442,7 +535,27 @@ async def on_startup():
                     "ALTER TABLE event_attendees ADD COLUMN company_name VARCHAR(255) NULL",
                     "ALTER TABLE event_attendees ADD COLUMN company_nit VARCHAR(50) NULL",
                     "ALTER TABLE event_attendees ADD COLUMN job_title VARCHAR(100) NULL",
-                    "ALTER TABLE event_attendees ADD COLUMN interests TEXT NULL"
+                    "ALTER TABLE event_attendees ADD COLUMN interests TEXT NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN access_token VARCHAR(64) NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN attendance_confirmed_at DATETIME NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN attendance_email_sent_at DATETIME NULL",
+                    "CREATE UNIQUE INDEX uq_ea_access_token ON event_attendees (access_token)",
+                    "ALTER TABLE event_attendees ADD COLUMN live_invite_sent_at DATETIME NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN checked_in_at DATETIME NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN checked_in_by BIGINT NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN chat_muted TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE event_questions ADD COLUMN chat_message_id BIGINT NULL",
+                    "ALTER TABLE events ADD COLUMN live_playback_id VARCHAR(100) NULL",
+                    "ALTER TABLE events ADD COLUMN live_open TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN questions_open TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN survey_open TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN chat_open TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN coupon_active TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN coupon_percent INT NOT NULL DEFAULT 20",
+                    "ALTER TABLE events ADD COLUMN coupon_hours INT NOT NULL DEFAULT 48",
+                    "ALTER TABLE events ADD COLUMN coupon_starts_at DATETIME NULL",
+                    "ALTER TABLE events ADD COLUMN coupon_expires_at DATETIME NULL",
+                    "ALTER TABLE events ADD COLUMN coupon_store_url VARCHAR(500) NULL DEFAULT 'https://glointplace.com.co'"
                 ]:
                     try:
                         await conn.execute(text(col_query))
@@ -467,8 +580,119 @@ async def on_startup():
                         INDEX idx_ead_apikey (api_key)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_live_sessions (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        session_id VARCHAR(64) NOT NULL,
+                        first_joined_at DATETIME NOT NULL,
+                        last_seen_at DATETIME NOT NULL,
+                        watch_seconds INT NOT NULL DEFAULT 0,
+                        join_count INT NOT NULL DEFAULT 1,
+                        UNIQUE KEY uq_live_event_attendee (event_id, attendee_id),
+                        INDEX idx_els_event (event_id),
+                        INDEX idx_els_attendee (attendee_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_questions (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        text VARCHAR(500) NOT NULL,
+                        status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        moderated_at DATETIME NULL,
+                        chat_message_id BIGINT NULL,
+                        INDEX idx_eq_event (event_id),
+                        INDEX idx_eq_attendee (attendee_id),
+                        INDEX idx_eq_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_question_votes (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        question_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        UNIQUE KEY uq_question_vote (question_id, attendee_id),
+                        INDEX idx_eqv_question (question_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_survey_responses (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        overall_rating INT NOT NULL,
+                        content_rating INT NOT NULL,
+                        speakers_rating INT NOT NULL,
+                        organization_rating INT NOT NULL,
+                        nps INT NOT NULL,
+                        comment TEXT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        UNIQUE KEY uq_survey_event_attendee (event_id, attendee_id),
+                        INDEX idx_esr_event (event_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_chat_messages (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        text VARCHAR(500) NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        deleted_at DATETIME NULL,
+                        deleted_by BIGINT NULL,
+                        INDEX idx_ecm_event (event_id),
+                        INDEX idx_ecm_attendee (attendee_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_coupons (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        attendee_id BIGINT NOT NULL,
+                        code VARCHAR(20) NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        redeemed_at DATETIME NULL,
+                        redeemed_order_ref VARCHAR(255) NULL,
+                        redeemed_by_app_id BIGINT NULL,
+                        UNIQUE KEY uq_coupon_event_attendee (event_id, attendee_id),
+                        UNIQUE KEY uq_coupon_code (code),
+                        INDEX idx_ec_event (event_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
             except Exception as e:
                 print(f"Error creating events tables: {e}")
+
+            # Crear tabla technical_evaluations si no existe
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS technical_evaluations (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        candidate_name VARCHAR(255) NOT NULL,
+                        candidate_email VARCHAR(255) NOT NULL,
+                        candidate_phone VARCHAR(50) NULL,
+                        language VARCHAR(50) NOT NULL DEFAULT 'python',
+                        code LONGTEXT NOT NULL,
+                        passed_tests INT DEFAULT 0,
+                        total_tests INT DEFAULT 3,
+                        test_results JSON NULL,
+                        time_spent_seconds INT DEFAULT 0,
+                        status VARCHAR(50) DEFAULT 'submitted',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_tech_eval_email (candidate_email)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating technical_evaluations table: {e}")
 
             # Asegurar soporte para correos largos en crm_emails
             try:
@@ -483,8 +707,162 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Blindaje de roles protegidos del sistema (H-127)
+            try:
+                await conn.execute(text("""
+                    UPDATE roles 
+                    SET is_system_role = '1' 
+                    WHERE LOWER(TRIM(name)) IN (
+                        'superadmin', 'admin', 'superuser', 'super_admin', 'super admin',
+                        'inversionista', 'cliente', 'directivo_inversion', 'directivo_de_inversiones',
+                        'contabilidad', 'contabilidad_', 'administrativo', 'operaciones'
+                    )
+                """))
+            except Exception as re:
+                print(f"Aviso al blindar roles del sistema en arranque: {re}")
+
+            # Migración para dispersiones Yoint (soporte de desembolsos de créditos y retiros)
+            try:
+                await conn.execute(text("ALTER TABLE yoint_dispersions ADD COLUMN credit_id BIGINT NULL AFTER withdrawal_id"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE yoint_dispersions ADD CONSTRAINT fk_yoint_dispersions_credit_id FOREIGN KEY (credit_id) REFERENCES credits(id) ON DELETE CASCADE"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE yoint_dispersions ADD INDEX ix_yoint_dispersions_credit_id (credit_id)"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE yoint_dispersions MODIFY COLUMN withdrawal_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            # Corrección de tamaño para emails extensos en CRM
+            try:
+                await conn.execute(text("ALTER TABLE crm_emails MODIFY COLUMN body_html LONGTEXT NULL"))
+                await conn.execute(text("ALTER TABLE crm_emails MODIFY COLUMN body_text LONGTEXT NULL"))
+            except Exception:
+                pass
+
+            # Auto-conciliación retroactiva de recargas en 'pending' procesadas por Yoint o con saldo acreditado
+            try:
+                # 1. Por relación directa wallet_recharge_id en yoint_payins con estado SUCCESS
+                await conn.execute(text("""
+                    UPDATE wallet_recharges wr
+                    JOIN yoint_payins yp ON wr.id = yp.wallet_recharge_id
+                    SET wr.status = 'approved',
+                        wr.reviewed_at = COALESCE(yp.updated_at, CURRENT_TIMESTAMP),
+                        wr.reference_number = COALESCE(yp.order_id, yp.payment_reference, wr.reference_number),
+                        wr.admin_notes = CONCAT('Aprobada automáticamente por pasarela Yoint (', COALESCE(yp.order_id, yp.payment_reference, ''), ')')
+                    WHERE wr.status = 'pending' AND yp.status = 'SUCCESS'
+                """))
+            except Exception as e:
+                print(f"Aviso auto-conciliando recargas por ID: {e}")
+
+            try:
+                # 2. Por coincidencia de order_id o payment_reference
+                await conn.execute(text("""
+                    UPDATE wallet_recharges wr
+                    JOIN yoint_payins yp ON (wr.reference_number = yp.order_id OR wr.reference_number = yp.payment_reference)
+                    SET wr.status = 'approved',
+                        wr.reviewed_at = COALESCE(yp.updated_at, CURRENT_TIMESTAMP),
+                        wr.admin_notes = CONCAT('Aprobada automáticamente por pasarela Yoint (', COALESCE(yp.order_id, yp.payment_reference, ''), ')')
+                    WHERE wr.status = 'pending' AND yp.status = 'SUCCESS'
+                """))
+            except Exception as e:
+                print(f"Aviso auto-conciliando recargas por referencia: {e}")
+
+            try:
+                # 3. Por vinculación de usuario, monto y cercanía temporal con un payin exitoso
+                await conn.execute(text("""
+                    UPDATE wallet_recharges wr
+                    JOIN yoint_payins yp ON wr.user_id = yp.user_id 
+                        AND wr.amount = yp.amount 
+                        AND yp.payin_type = 'WALLET_TOPUP'
+                        AND yp.status = 'SUCCESS'
+                        AND ABS(TIMESTAMPDIFF(MINUTE, wr.created_at, yp.created_at)) <= 180
+                    SET wr.status = 'approved',
+                        wr.reviewed_at = COALESCE(yp.updated_at, CURRENT_TIMESTAMP),
+                        wr.reference_number = COALESCE(yp.order_id, yp.payment_reference, wr.reference_number),
+                        wr.admin_notes = CONCAT('Aprobada automáticamente por pasarela Yoint (', COALESCE(yp.order_id, yp.payment_reference, ''), ')')
+                    WHERE wr.status = 'pending'
+                """))
+            except Exception as e:
+                print(f"Aviso auto-conciliando recargas por monto y usuario: {e}")
+
+            try:
+                # 4. Vincular wallet_recharge_id en yoint_payins si quedó NULL
+                await conn.execute(text("""
+                    UPDATE yoint_payins yp
+                    JOIN wallet_recharges wr ON wr.user_id = yp.user_id 
+                        AND wr.amount = yp.amount 
+                        AND yp.payin_type = 'WALLET_TOPUP'
+                        AND ABS(TIMESTAMPDIFF(MINUTE, wr.created_at, yp.created_at)) <= 180
+                    SET yp.wallet_recharge_id = wr.id
+                    WHERE yp.wallet_recharge_id IS NULL
+                """))
+            except Exception as e:
+                print(f"Aviso vinculando wallet_recharge_id en yoint_payins: {e}")
+
+            try:
+                # 5. Por transacción de saldo existente (tipo wallet_recharge o recarga con mismo monto y wallet dentro de 120 mins)
+                await conn.execute(text("""
+                    UPDATE wallet_recharges wr
+                    JOIN wallet_transactions wt ON wt.wallet_id = wr.wallet_id 
+                        AND wt.amount = wr.amount 
+                        AND wt.type IN ('wallet_recharge', 'recarga', 'recharge')
+                        AND ABS(TIMESTAMPDIFF(MINUTE, wr.created_at, wt.created_at)) <= 120
+                    SET wr.status = 'approved',
+                        wr.reviewed_at = wt.created_at,
+                        wr.admin_notes = 'Aprobada automáticamente (Saldo acreditado en billetera)'
+                    WHERE wr.status = 'pending'
+                """))
+            except Exception as e:
+                print(f"Aviso auto-conciliando recargas por transacciones de saldo: {e}")
+
+            # 6. Corrección automática de transacciones duplicadas de recarga Yoint (saldo acreditado doble)
+            try:
+                dup_tx_rows = await conn.execute(text("""
+                    SELECT DISTINCT t2.id AS duplicate_id, t2.wallet_id, t2.amount
+                    FROM wallet_transactions t1
+                    JOIN wallet_transactions t2 ON t1.wallet_id = t2.wallet_id 
+                        AND t1.id < t2.id
+                        AND t1.amount = t2.amount
+                        AND t1.type = 'wallet_recharge'
+                        AND t2.type = 'wallet_recharge'
+                        AND t1.description LIKE 'Recarga en línea Yoint%'
+                        AND t2.description LIKE 'Recarga en línea Yoint%'
+                        AND ABS(TIMESTAMPDIFF(MINUTE, t1.created_at, t2.created_at)) <= 10
+                """))
+                duplicates = dup_tx_rows.fetchall()
+                for dup in duplicates:
+                    dup_id = dup[0]
+                    w_id = dup[1]
+                    dup_amount = dup[2]
+                    await conn.execute(text("DELETE FROM wallet_transactions WHERE id = :id"), {"id": dup_id})
+                    await conn.execute(text("""
+                        UPDATE wallets 
+                        SET balance = balance - :amount 
+                        WHERE id = :wallet_id
+                    """), {"amount": dup_amount, "wallet_id": w_id})
+                    print(f"🧹 Corregida transacción duplicada #{dup_id}: se descontaron ${dup_amount} COP de la wallet #{w_id}")
+            except Exception as dup_err:
+                print(f"Aviso al limpiar transacciones duplicadas: {dup_err}")
+
+
         async with async_session_maker() as db:
             await seed_permissions_db(db)
+            try:
+                from src.services.company_wallet_service import CompanyWalletService
+                await CompanyWalletService.clean_leaked_admin_tax_balances(db)
+            except Exception as ce:
+                print(f"Aviso al limpiar saldos fiscales de billeteras: {ce}")
+
             try:
                 from src.services.commercial_sale_service import purge_ghost_bonuses
                 await purge_ghost_bonuses(db)
@@ -521,13 +899,24 @@ from src.api.v1.api import api_router
 app.include_router(api_router, prefix="/api/v1")
 
 
+# H-65: registro genérico de escrituras. Va ANTES de CORS (queda dentro de CORS, pegado al router).
+from src.core.audit_middleware import AuditWriteMiddleware
+app.add_middleware(AuditWriteMiddleware)
+
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
+# H-33 Fase 2: CSRF para peticiones autenticadas solo con la cookie (se registra antes que CORS para que CORS
+# quede por fuera y las respuestas 403 también lleven sus cabeceras)
 app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r".*",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CSRFMiddleware,
+    allowed_origins=settings.get_credentialed_origins(),
+    mode=settings.CSRF_ENFORCE,
+)
+
+# H-33: solo la lista blanca (CORS_ALLOWED_ORIGINS + FRONTEND_URL) recibe credenciales; el resto de
+# orígenes puede llamar sin credenciales (formularios con X-API-Key, landings). Ver src/core/cors.py
+app.add_middleware(
+    SplitCORSMiddleware,
+    credentialed_origins=settings.get_credentialed_origins(),
 )
 
 # Compresión automática de respuestas HTTP (>1KB) para máxima velocidad de transferencia
@@ -541,6 +930,21 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = f"{process_time:.4f}s"
     if process_time > 0.4:
         print(f"⚠️ [SLOW REQUEST] {request.method} {request.url.path} took {process_time:.3f}s")
+    return response
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Cabeceras de seguridad en todas las respuestas del API (H-147)."""
+    response = await call_next(request)
+    headers = response.headers
+    headers.setdefault("Strict-Transport-Security", "max-age=15552000")
+    headers.setdefault("X-Content-Type-Options", "nosniff")
+    headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # Los archivos de /uploads (PDF e imágenes de comprobantes) se muestran dentro de la SPA en
+    # iframes/imágenes, así que no se les prohíbe incrustarse; al resto (JSON) sí
+    if "/uploads/" not in request.url.path:
+        headers.setdefault("X-Frame-Options", "DENY")
+        headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
     return response
 
 @app.get("/")

@@ -39,6 +39,9 @@ class User(Base):
     # Seguridad y Bloqueos
     failed_login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
+
+    # Versión de sesión: viaja dentro del JWT (claim "tv"). Subirla invalida todos los tokens emitidos antes.
+    token_version = Column(Integer, nullable=False, default=0, server_default="0")
     
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
@@ -54,6 +57,7 @@ class User(Base):
     wallet = relationship("Wallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
     shares_account = relationship("UserShare", back_populates="user", uselist=False, cascade="all, delete-orphan")
     share_movements = relationship("ShareMovement", back_populates="user", cascade="all, delete-orphan")
+    credits = relationship("Credit", foreign_keys="Credit.user_id", back_populates="user", cascade="all, delete-orphan")
     
     # Rango de Inversionista asignado / calculado
     rank_id = Column(Integer, ForeignKey('investment_ranks.id', ondelete='SET NULL'), nullable=True)
@@ -61,10 +65,7 @@ class User(Base):
 
     @property
     def permissions(self):
-        perms = set()
-        if self.roles:
-            for r in self.roles:
-                if hasattr(r, 'permissions') and r.permissions:
-                    for p in r.permissions:
-                        perms.add(p.name)
-        return list(perms)
+        # H-189: misma lista que usa el backend para autorizar (roles + sobrescrituras individuales);
+        # antes ignoraba las sobrescrituras y la pantalla mostraba opciones que el servidor rechazaba con 403
+        from src.core.pbac import PBACEngine
+        return PBACEngine.get_user_permissions(self)

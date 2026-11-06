@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -11,6 +12,31 @@ from src.models.user import User
 from src.models.commercial_sale import CommercialSale
 from datetime import datetime
 from src.services.email_service import EmailService
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+
+PROJECT_CODE_TAKEN = "El código de proyecto ya se encuentra registrado"
+
+
+def _parse_project_date(value):
+    """Las fechas llegan como 'AAAA-MM-DD' (o ISO con hora); se compara solo el día."""
+    from datetime import date, datetime
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        raise ValueError("Fecha no válida. Usa el formato AAAA-MM-DD.")
+
+
+def validate_project_dates(start_date, end_date):
+    start, end = _parse_project_date(start_date), _parse_project_date(end_date)
+    if start and end and end <= start:
+        raise ValueError("La fecha de cierre debe ser posterior a la fecha de inicio.")
 
 class CRMService:
     @staticmethod
@@ -26,8 +52,8 @@ class CRMService:
             stmt = stmt.where(CRMProject.status == status)
         if search:
             stmt = stmt.where(or_(
-                CRMProject.name.ilike(f"%{search}%"),
-                CRMProject.code.ilike(f"%{search}%")
+                CRMProject.name.ilike(like_contains(search), escape=LIKE_ESCAPE),
+                CRMProject.code.ilike(like_contains(search), escape=LIKE_ESCAPE)
             ))
             
         stmt = stmt.order_by(desc(CRMProject.created_at))
@@ -37,7 +63,8 @@ class CRMService:
         result = []
         for p in projects:
             # Calcular recaudación real de leads en 'cierre_ganado'
-            won_sum = sum(l.estimated_amount or 0 for l in p.leads if l.stage == CRMLeadStage.CIERRE_GANADO)
+            leads = [l for l in p.leads if l.archived_at is None]  # sin leads archivados (H-139)
+            won_sum = sum(l.estimated_amount or 0 for l in leads if l.stage == CRMLeadStage.CIERRE_GANADO)
             target = p.target_amount or Decimal("1")
             progress_pct = min(100.0, float((won_sum / target) * 100)) if target > 0 else 0.0
             
@@ -50,9 +77,9 @@ class CRMService:
                 "raised_amount": float(won_sum),
                 "progress_percentage": round(progress_pct, 1),
                 "status": p.status,
-                "total_leads": len(p.leads),
-                "active_leads": len([l for l in p.leads if l.stage not in [CRMLeadStage.CIERRE_GANADO, CRMLeadStage.PERDIDO]]),
-                "won_leads": len([l for l in p.leads if l.stage == CRMLeadStage.CIERRE_GANADO]),
+                "total_leads": len(leads),
+                "active_leads": len([l for l in leads if l.stage not in [CRMLeadStage.CIERRE_GANADO, CRMLeadStage.PERDIDO]]),
+                "won_leads": len([l for l in leads if l.stage == CRMLeadStage.CIERRE_GANADO]),
                 "start_date": p.start_date.isoformat() if p.start_date else None,
                 "end_date": p.end_date.isoformat() if p.end_date else None,
                 "created_at": p.created_at.isoformat() if p.created_at else None
@@ -61,10 +88,30 @@ class CRMService:
         return result
 
     @staticmethod
+    async def _ensure_project_code_available(db: AsyncSession, code: str, exclude_id: Optional[int] = None):
+        query = select(CRMProject.id).where(CRMProject.code == code)
+        if exclude_id is not None:
+            query = query.where(CRMProject.id != exclude_id)
+        if (await db.execute(query)).first():
+            raise HTTPException(status_code=409, detail=PROJECT_CODE_TAKEN)
+
+    @staticmethod
+    async def _commit_project(db: AsyncSession):
+        # Si otra petición registró el mismo código entre la comprobación y el commit,
+        # el índice único lo rechaza: se responde el mismo mensaje en lugar del error de MySQL
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(status_code=409, detail=PROJECT_CODE_TAKEN)
+
+    @staticmethod
     async def create_project(db: AsyncSession, data: dict) -> CRMProject:
         """Crea un nuevo Proyecto de Inversión en el CRM."""
+        code = data["code"].upper().strip()
+        await CRMService._ensure_project_code_available(db, code)
         project = CRMProject(
-            code=data["code"].upper().strip(),
+            code=code,
             name=data["name"].strip(),
             description=data.get("description"),
             target_amount=Decimal(str(data.get("target_amount", 0))),
@@ -73,7 +120,7 @@ class CRMService:
             end_date=data.get("end_date")
         )
         db.add(project)
-        await db.commit()
+        await CRMService._commit_project(db)
         await db.refresh(project)
         return project
 
@@ -90,7 +137,10 @@ class CRMService:
             raise HTTPException(status_code=404, detail="Proyecto no encontrado")
         
         if "code" in data and data["code"]:
-            project.code = data["code"].upper().strip()
+            new_code = data["code"].upper().strip()
+            if new_code != project.code:
+                await CRMService._ensure_project_code_available(db, new_code, exclude_id=project_id)
+            project.code = new_code
         if "name" in data and data["name"]:
             project.name = data["name"].strip()
         if "description" in data:
@@ -103,8 +153,15 @@ class CRMService:
             project.start_date = data["start_date"]
         if "end_date" in data:
             project.end_date = data["end_date"]
+
+        # Si solo cambia una de las fechas, se compara con la que ya tenía el proyecto (H-137)
+        try:
+            validate_project_dates(project.start_date, project.end_date)
+        except ValueError as e:
+            await db.rollback()
+            raise HTTPException(status_code=422, detail=str(e))
             
-        await db.commit()
+        await CRMService._commit_project(db)
         await db.refresh(project)
         return project
 
@@ -130,16 +187,16 @@ class CRMService:
         stmt = (
             select(CRMLead)
             .options(selectinload(CRMLead.commercial), selectinload(CRMLead.activities))
-            .where(CRMLead.project_id == project_id)
+            .where(CRMLead.project_id == project_id, CRMLead.archived_at.is_(None))
         )
         
         if commercial_id:
             stmt = stmt.where(CRMLead.commercial_id == commercial_id)
         if search:
             stmt = stmt.where(or_(
-                CRMLead.name.ilike(f"%{search}%"),
-                CRMLead.email.ilike(f"%{search}%"),
-                CRMLead.phone.ilike(f"%{search}%")
+                CRMLead.name.ilike(like_contains(search), escape=LIKE_ESCAPE),
+                CRMLead.email.ilike(like_contains(search), escape=LIKE_ESCAPE),
+                CRMLead.phone.ilike(like_contains(search), escape=LIKE_ESCAPE)
             ))
             
         stmt = stmt.order_by(desc(CRMLead.created_at))
@@ -196,7 +253,7 @@ class CRMService:
     ) -> Optional[dict]:
         """Actualiza la etapa de un lead (movimiento en Kanban)."""
         lead = await db.get(CRMLead, lead_id)
-        if not lead:
+        if not lead or lead.archived_at is not None:
             return None
 
         lead.stage = new_stage
@@ -262,6 +319,24 @@ class CRMService:
         ]
 
     @staticmethod
+    async def archive_lead(db: AsyncSession, lead_id: int, user: User, reason: Optional[str] = None) -> dict:
+        """Archiva un lead (borrado lógico): deja de aparecer en el Kanban, los KPIs y el reparto Round-Robin."""
+        lead = await db.get(CRMLead, lead_id)
+        if not lead or lead.archived_at is not None:
+            raise HTTPException(status_code=404, detail="Prospecto no encontrado")
+        lead.archived_at = datetime.utcnow()
+        lead.archived_by = user.id
+        db.add(CRMActivity(
+            lead_id=lead.id,
+            user_id=user.id,
+            type=CRMActivityType.NOTA,
+            title="Lead archivado",
+            description=f"Archivado por {user.name or user.email}" + (f": {reason}" if reason else "")
+        ))
+        await db.commit()
+        return {"id": lead.id, "archived_at": lead.archived_at.isoformat()}
+
+    @staticmethod
     async def get_global_kpis(db: AsyncSession, commercial_id: Optional[int] = None) -> dict:
         """Obtiene los KPIs consolidados del CRM."""
         # Total de proyectos activos
@@ -270,7 +345,7 @@ class CRMService:
         total_projects = p_res.scalar() or 0
 
         # Leads por etapa
-        l_stmt = select(CRMLead)
+        l_stmt = select(CRMLead).where(CRMLead.archived_at.is_(None))
         if commercial_id:
             l_stmt = l_stmt.where(CRMLead.commercial_id == commercial_id)
         l_res = await db.execute(l_stmt)
@@ -403,7 +478,8 @@ class CRMService:
         count_stmt = (
             select(CRMLead.commercial_id, func.count(CRMLead.id))
             .where(
-                CRMLead.commercial_id.in_(directivo_ids)
+                CRMLead.commercial_id.in_(directivo_ids),
+                CRMLead.archived_at.is_(None)
             )
             .group_by(CRMLead.commercial_id)
         )
@@ -500,16 +576,30 @@ class CRMService:
         project_override: Optional[str] = None
     ) -> dict:
         """
-        Registra un lead desde el formulario de contacto estándar (Gloint o landings externas).
-        Campos estándar: nombre, email, telefono, asunto, mensaje, proyecto/origen.
+        Registra un lead desde el formulario de contacto estándar (Gloint o sitios externos).
+        Los sitios externos NO envían ni necesitan asunto: envían únicamente el texto/mensaje.
         Distribuye equitativamente (Round-Robin) entre los Directivos de Inversión y envía notificación por correo.
         """
         name = (data.get("nombre") or data.get("name") or "").strip() or "Prospecto Web"
         raw_email = (data.get("email") or "").strip().lower()
         email = raw_email if raw_email else None
         phone = (data.get("telefono") or data.get("phone") or "").strip() or None
-        asunto = (data.get("asunto") or data.get("subject") or "Contacto General").strip()
-        mensaje = (data.get("mensaje") or data.get("message") or "").strip()
+        
+        # El formulario no espera asunto desde sitios externos.
+        # Se obtiene el texto de la consulta con máxima flexibilidad:
+        mensaje = (
+            data.get("texto") or 
+            data.get("mensaje") or 
+            data.get("message") or 
+            data.get("text") or 
+            data.get("body") or 
+            data.get("description") or 
+            ""
+        ).strip()
+        
+        # Si algún origen legacy llegara a enviar asunto se preserva; si no, queda en None
+        raw_asunto = (data.get("asunto") or data.get("subject") or "").strip()
+        asunto = raw_asunto if raw_asunto else None
         
         project_ref = (
             project_override or 
@@ -544,14 +634,15 @@ class CRMService:
             f"👤 Nombre: {name}",
             f"📧 Correo: {email or 'No especificado'}",
             f"📞 Teléfono: {phone or 'No especificado'}",
-            f"📌 Asunto: {asunto}",
         ]
+        if asunto:
+            detail_lines.append(f"📌 Asunto: {asunto}")
         if data.get("company"):
             detail_lines.append(f"🏢 Empresa: {data.get('company')}")
         if data.get("city"):
             detail_lines.append(f"📍 Ciudad: {data.get('city')}")
         if mensaje:
-            detail_lines.append(f"💬 Mensaje:\n{mensaje}")
+            detail_lines.append(f"💬 Mensaje / Texto:\n{mensaje}")
 
         extra_meta = data.get("metadata")
         if extra_meta and isinstance(extra_meta, dict):
@@ -559,11 +650,12 @@ class CRMService:
             for k, v in extra_meta.items():
                 detail_lines.append(f"  • {k}: {v}")
 
+        note_title = f"Contacto entrante: {asunto}" if asunto else f"Contacto entrante: {name}"
         note = CRMActivity(
             lead_id=lead.id,
             user_id=assigned_commercial.id if assigned_commercial else 1,
             type=CRMActivityType.NOTA,
-            title=f"Contacto entrante: {asunto}",
+            title=note_title,
             description="\n".join(detail_lines),
             created_at=datetime.utcnow()
         )
@@ -579,9 +671,9 @@ class CRMService:
                     "name": name,
                     "email": email,
                     "phone": phone,
-                    "company": data.get("company") or asunto,
+                    "company": data.get("company") or "No especificada",
                     "city": data.get("city") or "No especificada",
-                    "message": f"Asunto: {asunto}\n\nMensaje:\n{mensaje}" if mensaje else f"Asunto: {asunto}"
+                    "message": f"Asunto: {asunto}\n\n{mensaje}" if (asunto and mensaje) else (mensaje or asunto or "Sin mensaje adicional")
                 }
                 EmailService.send_external_form_director_notification(
                     to_email=assigned_commercial.email,
@@ -650,8 +742,17 @@ class CRMService:
             detail_lines.append(f"🏢 Empresa: {data.get('company')}")
         if data.get("city"):
             detail_lines.append(f"📍 Ciudad / Ubicación: {data.get('city')}")
-        if data.get("message"):
-            detail_lines.append(f"💬 Mensaje / Solicitud:\n{data.get('message')}")
+        
+        msg_text = (
+            data.get("texto") or 
+            data.get("mensaje") or 
+            data.get("message") or 
+            data.get("text") or 
+            data.get("body") or 
+            ""
+        ).strip()
+        if msg_text:
+            detail_lines.append(f"💬 Mensaje / Texto:\n{msg_text}")
         
         extra_meta = data.get("metadata")
         if extra_meta and isinstance(extra_meta, dict):
@@ -675,11 +776,19 @@ class CRMService:
         # Enviar notificación por correo al asesor asignado
         try:
             if assigned_commercial and assigned_commercial.email:
+                payload_for_email = {
+                    "name": name,
+                    "email": email,
+                    "phone": phone,
+                    "company": data.get("company") or "No especificada",
+                    "city": data.get("city") or "No especificada",
+                    "message": msg_text or "Sin mensaje adicional"
+                }
                 EmailService.send_external_form_director_notification(
                     to_email=assigned_commercial.email,
                     director_name=assigned_commercial.name or assigned_commercial.email,
                     platform_name=app_name,
-                    lead_data=data
+                    lead_data=payload_for_email
                 )
         except Exception as e:
             print(f"Error enviando notificación al asesor para lead externo ({app_name}): {e}")
@@ -755,6 +864,8 @@ class CRMService:
                 "project_code": k.project.code if k.project else "N/A",
                 "api_key": k.api_key,
                 "is_active": k.is_active,
+                "usage_count": k.usage_count or 0,
+                "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
                 "created_at": k.created_at.isoformat() if k.created_at else None,
                 "updated_at": k.updated_at.isoformat() if k.updated_at else None
             })
@@ -788,22 +899,35 @@ class CRMService:
         return {"success": True, "message": "Clave de formulario eliminada exitosamente"}
 
     @staticmethod
-    async def authenticate_form_key(db: AsyncSession, raw_key: str) -> CRMFormKey:
-        """Autentica una API Key de formulario y valida que esté activa."""
+    async def find_form_key(db: AsyncSession, raw_key: str) -> Optional[CRMFormKey]:
+        """Busca una API Key de formulario (activa o no)."""
         stmt = (
             select(CRMFormKey)
             .options(selectinload(CRMFormKey.project))
-            .where(
-                CRMFormKey.api_key == raw_key.strip(),
-                CRMFormKey.is_active == True
-            )
+            .where(CRMFormKey.api_key == raw_key.strip())
         )
         res = await db.execute(stmt)
-        form_key = res.scalars().first()
+        return res.scalars().first()
+
+    @staticmethod
+    async def authenticate_form_key(db: AsyncSession, raw_key: str) -> CRMFormKey:
+        """Autentica una API Key de formulario: 401 si no existe, 403 si está desactivada."""
+        form_key = await CRMService.find_form_key(db, raw_key)
         if not form_key:
             raise HTTPException(
                 status_code=401,
-                detail="API Key de formulario ('X-API-Key') inválida o inactiva."
+                detail="API Key de formulario ('X-API-Key') inválida."
+            )
+        if not form_key.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="Esta API Key de formulario está desactivada. Contacta al administrador del CRM."
             )
         return form_key
+
+    @staticmethod
+    async def record_form_key_usage(db: AsyncSession, form_key: CRMFormKey) -> None:
+        form_key.usage_count = (form_key.usage_count or 0) + 1
+        form_key.last_used_at = datetime.utcnow()
+        await db.commit()
 

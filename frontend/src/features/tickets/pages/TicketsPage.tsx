@@ -1,7 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2, MessageSquare, Radio } from 'lucide-react';
+import { 
+  Ticket, 
+  Send, 
+  CheckCircle2, 
+  AlertCircle, 
+  Plus, 
+  List, 
+  Loader2, 
+  MessageSquare, 
+  X,
+  ArrowLeft,
+  Paperclip,
+  Clock
+} from 'lucide-react';
 import { fetchApi, getMediaUrl } from '../../../services/api';
 import { compressImage } from '../../../utils/imageCompression';
 
@@ -303,43 +316,44 @@ export const TicketsPage: React.FC = () => {
     const getStatusBadge = (status: string) => {
         const s = String(status || '').toLowerCase().trim().replace(/_/g, ' ');
         if (s === 'abierto' || s === 'open') {
-            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">Abierto</span>;
+            return <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[10px] font-bold uppercase">Abierto</span>;
         }
         if (s === 'cerrado' || s === 'closed') {
-            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">Cerrado</span>;
+            return <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-full text-[10px] font-bold uppercase">Cerrado</span>;
         }
         if (s === 'resuelto' || s === 'resolved') {
-            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Resuelto</span>;
+            return <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-bold uppercase">Resuelto</span>;
         }
         if (s === 'en proceso' || s === 'en progreso' || s === 'in progress' || s === 'in_progress' || s === 'processing') {
-            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">En Proceso</span>;
+            return <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 border border-blue-200 rounded-full text-[10px] font-bold uppercase">En Proceso</span>;
         }
         if (s === 'esperando respuesta' || s === 'waiting user' || s === 'waiting_user' || s === 'waiting client' || s === 'waiting_client') {
-            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">Esperando Respuesta</span>;
+            return <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 border border-purple-200 rounded-full text-[10px] font-bold uppercase">Esperando Respuesta</span>;
         }
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">{translateStatus(status)}</span>;
+        return <span className="px-2.5 py-0.5 bg-sky-100 text-sky-800 border border-sky-200 rounded-full text-[10px] font-bold uppercase">{translateStatus(status)}</span>;
     };
 
     return (
-        <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
-            <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                <div className="relative z-10 space-y-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-                        <Ticket className="w-4 h-4 text-brand-400" /> Centro de Ayuda
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+        <div className="space-y-6">
+            {/* Encabezado */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+                        <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex">
+                            <Ticket className="w-6 h-6" />
+                        </span>
                         Soporte y Tickets
                     </h1>
-                    <p className="text-slate-300 text-sm max-w-xl">
-                        Crea solicitudes de soporte, reporta problemas y haz seguimiento del estado de tus consultas.
+                    <p className="text-xs text-slate-500 mt-1">
+                        Crea solicitudes de soporte, reporta problemas y haz seguimiento del estado de tus consultas
                     </p>
                 </div>
-                
-                <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+
+                {/* Acciones principales */}
+                <div className="flex items-center gap-2.5 flex-wrap">
                     <button 
                         onClick={() => setIsCreateModalOpen(true)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0 hover:-translate-y-0.5"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 transition-all cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Nuevo Ticket</span>
@@ -347,190 +361,270 @@ export const TicketsPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Alertas */}
+            {errorMsg && (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                        <span>{errorMsg}</span>
+                    </div>
+                    <button onClick={() => setErrorMsg('')} className="p-1 text-rose-500 hover:text-rose-700">
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            )}
+
+            {successMsg && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-semibold flex items-center justify-between gap-2 animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                        <span>{successMsg}</span>
+                    </div>
+                    <button onClick={() => setSuccessMsg(null)} className="p-1 text-emerald-500 hover:text-emerald-700">
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            )}
+
+            {/* Tabs */}
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-px overflow-x-auto">
+                <button
+                    onClick={() => setActiveTab('list')}
+                    className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer flex items-center gap-2 border-b-2 whitespace-nowrap ${
+                        activeTab === 'list'
+                            ? 'border-brand-600 text-brand-600 bg-brand-50/50'
+                            : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                    }`}
+                >
+                    <List className="w-4 h-4" />
+                    <span>Mis Tickets ({tickets.length})</span>
+                </button>
+
+                {selectedTicket && (
+                    <button
+                        onClick={() => setActiveTab('view')}
+                        className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all cursor-pointer flex items-center gap-2 border-b-2 whitespace-nowrap ${
+                            activeTab === 'view'
+                                ? 'border-brand-600 text-brand-600 bg-brand-50/50'
+                                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                        }`}
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Ticket #{selectedTicket.ticket_number || selectedTicket.id}</span>
+                    </button>
+                )}
+            </div>
+
+            {/* Modal de Creación de Ticket */}
             {createPortal(
                 <AnimatePresence>
                     {isCreateModalOpen && (
-                        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6">
-                        <motion.div 
-                            initial={{ opacity: 0 }} 
-                            animate={{ opacity: 1 }} 
-                            exit={{ opacity: 0 }} 
-                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer"
-                            onClick={() => setIsCreateModalOpen(false)}
-                        />
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-2xl bg-white rounded-[2rem] p-6 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar"
-                        >
-                            <button 
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+                            <motion.div 
+                                initial={{ opacity: 0 }} 
+                                animate={{ opacity: 1 }} 
+                                exit={{ opacity: 0 }} 
+                                className="absolute inset-0 cursor-pointer"
                                 onClick={() => setIsCreateModalOpen(false)}
-                                className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer text-slate-400 hover:text-slate-600"
+                            />
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                                className="relative bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] z-10 animate-in zoom-in-95 duration-200"
+                                onClick={(e) => e.stopPropagation()}
                             >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                            </button>
-                            
-                            <div className="mb-8 pr-10">
-                                <h2 className="text-2xl font-black text-slate-800 font-montserrat tracking-tight">Nueva Solicitud de Soporte</h2>
-                                <p className="text-slate-500 text-sm font-medium mt-2">Por favor, detalla tu inconveniente para que nuestro equipo pueda ayudarte rápidamente.</p>
-                            </div>
-                            
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                {successMsg && (
-                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-3 border border-emerald-100/50">
-                                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                                        <span className="font-bold text-sm">{successMsg}</span>
-                                    </motion.div>
-                                )}
-                                {errorMsg && (
-                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-rose-50 text-rose-700 rounded-2xl flex items-center gap-3 border border-rose-100/50">
-                                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                                        <span className="font-bold text-sm">{errorMsg}</span>
-                                    </motion.div>
-                                )}
-
-                                <div className="group">
-                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Asunto del Ticket</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                        className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 shadow-sm"
-                                        placeholder="Ej: Problemas al procesar mi pago..."
-                                    />
+                                {/* Cabecera de modal */}
+                                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-brand-50 text-brand-600 border border-brand-200 shrink-0">
+                                            <Ticket className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-base font-extrabold text-slate-900 font-montserrat tracking-tight">
+                                                Nueva Solicitud de Soporte
+                                            </h2>
+                                            <p className="text-xs text-slate-500 font-medium">
+                                                Describe tu requerimiento o incidencia para brindarte asistencia
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsCreateModalOpen(false)}
+                                        disabled={isLoading}
+                                        className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
+                                
+                                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+                                    {/* Asunto */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+                                            Asunto del Ticket *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={title}
+                                            onChange={(e) => setTitle(e.target.value)}
+                                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                                            placeholder="Ej: Problemas al procesar mi pago..."
+                                        />
+                                    </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    <div className="group">
-                                        <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Categoría</label>
-                                        <div className="relative">
+                                    {/* Categoría y Prioridad en 2 columnas */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+                                                Categoría *
+                                            </label>
                                             <select
                                                 value={category}
                                                 onChange={(e) => setCategory(e.target.value)}
-                                                className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 cursor-pointer appearance-none shadow-sm"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                                             >
                                                 <option value="general">Consulta General</option>
                                                 <option value="billing">Pagos / Facturación</option>
                                                 <option value="technical">Soporte Técnico</option>
                                                 <option value="deliveries">Envíos / Pedidos</option>
                                             </select>
-                                            <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="group">
-                                        <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Prioridad</label>
-                                        <div className="relative">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+                                                Prioridad *
+                                            </label>
                                             <select
                                                 value={priority}
                                                 onChange={(e) => setPriority(e.target.value)}
-                                                className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 cursor-pointer appearance-none shadow-sm"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                                             >
                                                 <option value="low">Baja (Sin urgencia)</option>
                                                 <option value="normal">Normal</option>
                                                 <option value="urgent">Urgente (Bloqueante)</option>
                                             </select>
-                                            <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="group">
-                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Descripción del Problema</label>
-                                    <textarea
-                                        required
-                                        rows={4}
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none resize-none text-sm font-medium text-slate-700 shadow-sm leading-relaxed"
-                                        placeholder="Describe detalladamente lo que sucede..."
-                                    />
-                                </div>
-
-                                <div className="group">
-                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Evidencia / Captura (Opcional)</label>
-                                    <div className="relative border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-slate-50 hover:border-brand-300 transition-all group-focus-within:border-brand-500 group-focus-within:bg-white">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    {/* Descripción */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+                                            Descripción del Problema *
+                                        </label>
+                                        <textarea
+                                            required
+                                            rows={4}
+                                            value={description}
+                                            onChange={(e) => setDescription(e.target.value)}
+                                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all resize-none leading-relaxed"
+                                            placeholder="Describe detalladamente lo que sucede..."
                                         />
-                                        <div className="p-5 flex flex-col items-center justify-center text-center">
-                                            <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center mb-2">
-                                                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+
+                                    {/* Evidencia */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+                                            Evidencia / Captura <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                                        </label>
+                                        <div className="relative border border-dashed border-slate-200 hover:border-brand-300 rounded-2xl bg-slate-50/60 hover:bg-slate-50 transition-all cursor-pointer">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                            />
+                                            <div className="p-4 flex flex-col items-center justify-center text-center gap-1.5">
+                                                <div className="w-8 h-8 bg-white rounded-xl shadow-2xs flex items-center justify-center text-slate-400">
+                                                    <Paperclip className="w-4 h-4" />
+                                                </div>
+                                                <p className="text-xs font-bold text-slate-700">
+                                                    {file ? file.name : "Haz clic o arrastra una imagen aquí"}
+                                                </p>
                                             </div>
-                                            <p className="text-sm font-bold text-slate-700">{file ? file.name : "Haz clic o arrastra una imagen aquí"}</p>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="pt-4 mt-2">
-                                    <button 
-                                        type="submit"
-                                        disabled={isLoading}
-                                        className="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl font-black text-sm tracking-wide transition-all shadow-[0_8px_20px_rgba(var(--brand-500-rgb),0.3)] hover:shadow-[0_12px_25px_rgba(var(--brand-500-rgb),0.4)] flex items-center justify-center gap-3 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed hover:-translate-y-0.5"
-                                    >
-                                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                                        {isLoading ? 'ENVIANDO TICKET...' : 'CREAR TICKET AHORA'}
-                                    </button>
-                                </div>
-                            </form>
-                        </motion.div>
-                    </div>
-                )}
+                                    {/* Botones de acción del Modal */}
+                                    <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setIsCreateModalOpen(false)}
+                                            disabled={isLoading}
+                                            className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer font-montserrat"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button 
+                                            type="submit"
+                                            disabled={isLoading}
+                                            className="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 rounded-2xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-md shadow-brand-500/20 active:scale-95 disabled:opacity-50 font-montserrat uppercase tracking-wider"
+                                        >
+                                            {isLoading ? (
+                                                <>
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    <span>Enviando Ticket...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Send className="w-3.5 h-3.5" />
+                                                    <span>Crear Ticket</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </div>
+                    )}
                 </AnimatePresence>,
                 document.body
             )}
 
+            {/* TAB: VISTA DETALLE & CHAT */}
             {activeTab === 'view' && selectedTicket ? (
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6 items-stretch h-auto md:h-[700px]"
-                >
-                    {/* Panel Izquierdo: Detalles */}
-                    <div className="w-full md:w-1/3 bg-white rounded-3xl p-6 shadow-xs border border-slate-200 flex flex-col overflow-y-auto custom-scrollbar">
-                        <button onClick={() => setActiveTab('list')} className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-2 mb-6 cursor-pointer w-fit">
-                            &larr; Volver a la lista
+                <div className="flex flex-col md:flex-row gap-6 items-stretch h-auto md:h-[700px]">
+                    {/* Panel Izquierdo: Detalles del Ticket */}
+                    <div className="w-full md:w-1/3 bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-slate-200 flex flex-col overflow-y-auto">
+                        <button 
+                            onClick={() => setActiveTab('list')} 
+                            className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 mb-5 cursor-pointer w-fit font-montserrat"
+                        >
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                            <span>Volver a la lista</span>
                         </button>
                         
-                        <div className="mb-6">
-                            <h2 className="text-xl font-bold text-slate-800 font-montserrat leading-tight">
+                        <div className="space-y-2 mb-5">
+                            <span className="font-mono text-xs font-bold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200 inline-block">
+                                #{selectedTicket.ticket_number || selectedTicket.id}
+                            </span>
+                            <h2 className="text-base font-extrabold text-slate-900 font-montserrat leading-snug">
                                 {ticketDetails?.title || selectedTicket.title} 
                             </h2>
-                            <div className="mt-3 font-mono text-xs font-bold text-brand-700 bg-brand-50 px-3 py-1.5 rounded-lg inline-block border border-brand-200">
-                                #{selectedTicket.ticket_number || selectedTicket.id}
-                            </div>
                         </div>
 
-                        <div className="space-y-5 mb-6 flex-1">
+                        <div className="space-y-4 flex-1">
                             <div>
-                                <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Estado Actual</span>
+                                <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1.5 font-montserrat">Estado Actual</span>
                                 {getStatusBadge(ticketDetails?.status || selectedTicket.status)}
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-3">
                                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">Categoría</span>
-                                    <span className="text-sm font-semibold text-slate-700">{translateCategory(ticketDetails?.category || selectedTicket.category)}</span>
+                                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1 font-montserrat">Categoría</span>
+                                    <span className="text-xs font-bold text-slate-700">{translateCategory(ticketDetails?.category || selectedTicket.category)}</span>
                                 </div>
                                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">Prioridad</span>
-                                    <span className="text-sm font-semibold text-slate-700">{translatePriority(ticketDetails?.priority || selectedTicket.priority)}</span>
+                                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1 font-montserrat">Prioridad</span>
+                                    <span className="text-xs font-bold text-slate-700">{translatePriority(ticketDetails?.priority || selectedTicket.priority)}</span>
                                 </div>
                             </div>
 
-                            <div className="pt-5 border-t border-slate-100">
-                                <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Mensaje Original</span>
-                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                    <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{ticketDetails?.description || selectedTicket.description}</p>
+                            <div className="pt-4 border-t border-slate-100">
+                                <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1.5 font-montserrat">Mensaje Original</span>
+                                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                                    <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{ticketDetails?.description || selectedTicket.description}</p>
                                     {ticketDetails?.attachment_url && (
-                                        <a href={getMediaUrl(ticketDetails.attachment_url)} target="_blank" rel="noreferrer" className="block mt-4 border border-slate-200 rounded-xl overflow-hidden hover:opacity-90 transition-opacity bg-white">
+                                        <a href={getMediaUrl(ticketDetails.attachment_url)} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-xl overflow-hidden hover:opacity-90 transition-opacity bg-white">
                                             <img src={getMediaUrl(ticketDetails.attachment_url)} alt="Evidencia inicial" className="max-h-40 object-cover w-full" />
                                         </a>
                                     )}
@@ -541,30 +635,27 @@ export const TicketsPage: React.FC = () => {
 
                     {/* Panel Derecho: Chat */}
                     <div className="w-full md:w-2/3 bg-white rounded-3xl flex flex-col shadow-xs border border-slate-200 overflow-hidden">
-                        <div className="p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                            <h3 className="font-bold text-slate-800 font-montserrat flex items-center gap-2">
-                                <MessageSquare className="w-5 h-5 text-brand-500" />
-                                Historial de Conversación
+                        <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                            <h3 className="font-extrabold text-slate-900 font-montserrat text-sm flex items-center gap-2">
+                                <MessageSquare className="w-4 h-4 text-brand-600" />
+                                <span>Historial de Conversación</span>
                             </h3>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full text-xs font-bold shadow-2xs">
-                                <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                </span>
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full text-[10px] font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <span>En vivo</span>
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-slate-50/30">
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/30">
                             {isLoadingDetails ? (
                                 <div className="text-center py-10 text-slate-400 flex flex-col items-center h-full justify-center">
-                                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-brand-400" />
-                                    <span className="font-medium text-sm">Cargando mensajes...</span>
+                                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-brand-500" />
+                                    <span className="font-semibold text-xs font-montserrat">Cargando mensajes...</span>
                                 </div>
                             ) : (!ticketDetails?.comments || ticketDetails.comments.length === 0) ? (
                                 <div className="text-center py-10 text-slate-400 flex flex-col items-center h-full justify-center">
-                                    <MessageSquare className="w-12 h-12 mb-3 text-slate-200" />
-                                    <span className="font-medium text-sm">Aún no hay respuestas en este ticket.</span>
+                                    <MessageSquare className="w-10 h-10 mb-2 text-slate-300" />
+                                    <span className="font-medium text-xs">Aún no hay respuestas en este ticket.</span>
                                 </div>
                             ) : (
                                 <>
@@ -572,12 +663,12 @@ export const TicketsPage: React.FC = () => {
                                         const isStaff = c.author_type === 'agent';
                                         return (
                                              <div key={i} className={`flex ${isStaff ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-2 duration-200`}>
-                                                <div className={`p-4 rounded-2xl max-w-[90%] sm:max-w-[75%] shadow-sm ${
+                                                <div className={`p-4 rounded-2xl max-w-[90%] sm:max-w-[75%] shadow-xs ${
                                                     isStaff
                                                         ? 'bg-white border border-slate-200 rounded-tl-none' 
-                                                        : 'bg-brand-50 border border-brand-100 rounded-tr-none'
+                                                        : 'bg-brand-50/80 border border-brand-200/80 rounded-tr-none'
                                                 }`}>
-                                                    <div className="text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide flex items-center justify-between gap-4">
+                                                    <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide flex items-center justify-between gap-4 font-montserrat">
                                                         <span>{translateAuthorName(c.author_name, c.author_type)}</span>
                                                         {c.created_at && (
                                                             <span className="text-[10px] text-slate-400 font-normal lowercase">
@@ -585,9 +676,9 @@ export const TicketsPage: React.FC = () => {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
+                                                    <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
                                                     {c.attachment_url && (
-                                                        <a href={getMediaUrl(c.attachment_url)} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity bg-white">
+                                                        <a href={getMediaUrl(c.attachment_url)} target="_blank" rel="noreferrer" className="block mt-2 border border-slate-200 rounded-xl overflow-hidden hover:opacity-90 transition-opacity bg-white">
                                                             <img src={getMediaUrl(c.attachment_url)} alt="Evidencia adjunta" className="max-h-48 object-cover min-w-[150px]" />
                                                         </a>
                                                     )}
@@ -601,16 +692,16 @@ export const TicketsPage: React.FC = () => {
                         </div>
 
                         {/* Reply Form */}
-                        <div className="p-4 sm:p-5 border-t border-slate-100 bg-white shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] relative z-10">
-                            <form onSubmit={handleSendComment} className="flex flex-col sm:flex-row gap-3 items-end">
+                        <div className="p-4 border-t border-slate-100 bg-white">
+                            <form onSubmit={handleSendComment} className="flex flex-col sm:flex-row gap-2.5 items-end">
                                 <div className="flex-1 w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all">
                                     <textarea
                                         required={!commentFile}
                                         value={commentContent}
                                         onChange={(e) => setCommentContent(e.target.value)}
                                         onKeyDown={handleKeyDown}
-                                        placeholder="Escribe una respuesta... (Presiona Enter para enviar)"
-                                        className="w-full bg-transparent resize-none outline-none text-sm font-semibold text-slate-700 p-2 max-h-32 min-h-[50px]"
+                                        placeholder="Escribe una respuesta... (Enter para enviar)"
+                                        className="w-full bg-transparent resize-none outline-none text-xs font-semibold text-slate-700 p-2 max-h-32 min-h-[46px]"
                                         rows={2}
                                     />
                                     <div className="flex justify-between items-center px-2 pb-1 border-t border-slate-200/50 pt-2 mt-1">
@@ -620,8 +711,9 @@ export const TicketsPage: React.FC = () => {
                                             className="hidden"
                                             onChange={(e) => setCommentFile(e.target.files?.[0] || null)}
                                         />
-                                        <label htmlFor="comment-file" className="text-[11px] font-bold uppercase tracking-wide text-slate-500 hover:text-brand-600 cursor-pointer flex items-center gap-1 transition-colors">
-                                            + Adjuntar Archivo
+                                        <label htmlFor="comment-file" className="text-[11px] font-bold uppercase tracking-wide text-slate-500 hover:text-brand-600 cursor-pointer flex items-center gap-1 transition-colors font-montserrat">
+                                            <Paperclip className="w-3.5 h-3.5" />
+                                            <span>Adjuntar Archivo</span>
                                             {commentFile && <span className="text-brand-600 ml-2 max-w-[150px] truncate normal-case font-medium">{commentFile.name}</span>}
                                         </label>
                                         <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">Enter para enviar • Shift+Enter nueva línea</span>
@@ -630,99 +722,112 @@ export const TicketsPage: React.FC = () => {
                                 <button 
                                     type="submit" 
                                     disabled={isSendingComment || (!commentContent.trim() && !commentFile)}
-                                    className="h-14 w-full sm:w-14 flex-shrink-0 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 shadow-md shadow-brand-500/20 cursor-pointer"
+                                    className="h-12 w-full sm:w-12 shrink-0 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 shadow-md shadow-brand-500/20 cursor-pointer active:scale-95"
                                     title="Enviar respuesta"
                                 >
-                                    {isSendingComment ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
+                                    {isSendingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                                 </button>
                             </form>
                         </div>
                     </div>
-                </motion.div>
+                </div>
             ) : (
-                <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
-                    <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <h2 className="text-lg font-bold text-slate-800 font-montserrat flex items-center gap-2">
-                            <span>Tus Tickets Recientes</span>
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full text-[11px] font-bold">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Sincronizado
-                            </span>
-                        </h2>
+                /* TAB: LISTADO DE TICKETS */
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider font-montserrat">
+                            Historial de mis tickets ({tickets.length})
+                        </h3>
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="px-3.5 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl border border-brand-200 transition-all cursor-pointer font-montserrat"
+                        >
+                            + Nuevo Ticket
+                        </button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
-                                <tr>
-                                    <th className="px-6 py-4">Ticket</th>
-                                    <th className="px-6 py-4">Asunto / Título</th>
-                                    <th className="px-6 py-4">Categoría</th>
-                                    <th className="px-6 py-4">Prioridad</th>
-                                    <th className="px-6 py-4">Estado</th>
-                                    <th className="px-6 py-4 text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 font-semibold text-xs">
-                                {isLoadingList ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
-                                            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-brand-400" />
-                                            Cargando tus tickets...
-                                        </td>
-                                    </tr>
-                                ) : tickets.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
-                                            <div className="flex flex-col items-center justify-center gap-2">
-                                                <Ticket className="w-8 h-8 text-slate-300" />
-                                                <p>No tienes tickets creados.</p>
-                                                <button onClick={() => setIsCreateModalOpen(true)} className="text-brand-600 font-bold hover:underline text-xs mt-1 cursor-pointer">
-                                                    Crea tu primer ticket aquí
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    tickets.map((ticket, index) => (
-                                        <tr 
-                                            key={index} 
-                                            onClick={() => handleViewTicket(ticket)}
-                                            className="hover:bg-brand-50/50 transition-colors cursor-pointer group"
-                                        >
-                                            <td className="px-6 py-4">
-                                                <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 group-hover:bg-brand-100 group-hover:text-brand-700 transition-colors px-2.5 py-1 rounded-lg border border-slate-200 group-hover:border-brand-200">
-                                                    #{ticket.id || ticket.ticket_number || index + 1}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-800 text-sm group-hover:text-brand-700 transition-colors">{ticket.title || 'Sin Título'}</div>
-                                                <div className="text-slate-500 font-normal mt-1 line-clamp-1 max-w-xs">{ticket.description}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-slate-600 font-medium">{translateCategory(ticket.category)}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-slate-600 font-medium">{translatePriority(ticket.priority)}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {getStatusBadge(ticket.status)}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <button 
-                                                    className="px-3 py-1.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors shadow-sm"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleViewTicket(ticket);
-                                                    }}
-                                                >
-                                                    Ver Detalle
-                                                </button>
-                                            </td>
+
+                    {isLoadingList ? (
+                        <div className="p-16 flex flex-col items-center justify-center bg-white rounded-3xl border border-slate-200">
+                            <Loader2 className="w-8 h-8 animate-spin text-brand-600 mb-2" />
+                            <p className="text-xs font-semibold text-slate-500 font-montserrat">Cargando tus tickets...</p>
+                        </div>
+                    ) : tickets.length === 0 ? (
+                        <div className="p-12 bg-white rounded-3xl border border-slate-200 text-center flex flex-col items-center justify-center">
+                            <div className="w-12 h-12 bg-brand-50 text-brand-600 rounded-2xl flex items-center justify-center mb-3">
+                                <Ticket className="w-6 h-6" />
+                            </div>
+                            <h4 className="text-sm font-bold text-slate-800 font-montserrat">
+                                No tienes tickets creados
+                            </h4>
+                            <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                                Si tienes alguna duda sobre tus transacciones, saldo o requieres soporte, crea una solicitud.
+                            </p>
+                            <button
+                                onClick={() => setIsCreateModalOpen(true)}
+                                className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                            >
+                                Crear mi Primer Ticket
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm text-slate-600">
+                                    <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+                                        <tr>
+                                            <th className="px-6 py-4">Ticket</th>
+                                            <th className="px-6 py-4">Asunto / Título</th>
+                                            <th className="px-6 py-4">Categoría</th>
+                                            <th className="px-6 py-4">Prioridad</th>
+                                            <th className="px-6 py-4">Estado</th>
+                                            <th className="px-6 py-4 text-center">Acciones</th>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 font-medium text-xs">
+                                        {tickets.map((ticket, index) => (
+                                            <tr 
+                                                key={index} 
+                                                onClick={() => handleViewTicket(ticket)}
+                                                className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
+                                            >
+                                                <td className="px-6 py-4">
+                                                    <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 group-hover:bg-brand-50 group-hover:text-brand-700 transition-colors px-2 py-0.5 rounded-lg border border-slate-200 group-hover:border-brand-200">
+                                                        #{ticket.id || ticket.ticket_number || index + 1}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-extrabold text-slate-900 group-hover:text-brand-700 transition-colors font-montserrat">{ticket.title || 'Sin Título'}</div>
+                                                    {ticket.description && (
+                                                        <div className="text-slate-400 font-normal mt-0.5 text-[11px] line-clamp-1 italic max-w-xs">{ticket.description}</div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-slate-700 font-bold">{translateCategory(ticket.category)}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-slate-600 font-semibold">{translatePriority(ticket.priority)}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {getStatusBadge(ticket.status)}
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <button 
+                                                        className="px-2.5 py-1 text-brand-700 hover:text-brand-800 hover:bg-brand-50 border border-brand-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleViewTicket(ticket);
+                                                        }}
+                                                    >
+                                                        Ver Detalle
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

@@ -11,7 +11,7 @@ export interface Permission {
 export interface Role {
   id: number;
   name: string;
-  display_name: string;
+  display_name?: string; // La API de roles no lo envía: usar siempre `display_name || name`
   description: string | null;
   is_active: boolean;
   is_system_role?: string;

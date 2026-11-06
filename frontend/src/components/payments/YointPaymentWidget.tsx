@@ -1,0 +1,491 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Smartphone, 
+  Landmark, 
+  ExternalLink, 
+  CheckCircle2, 
+  AlertCircle, 
+  Loader2, 
+  RefreshCw,
+  ShieldCheck,
+  Building2,
+  Clock,
+  ChevronLeft
+} from 'lucide-react';
+import { yointService, YointBank, InitPayinResponse, PayinStatusResponse } from '../../services/yoint';
+import { formatCurrency } from '../../utils/format';
+import { NequiLogo, BancolombiaLogo, PseLogo } from './PaymentLogos';
+
+interface YointPaymentWidgetProps {
+  amount: number;
+  payinType: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST' | 'CREDIT_INSTALLMENT';
+  investmentRequestId?: number;
+  onRequestCreate?: () => Promise<number>;
+  userPhone?: string;
+  onSuccess: (status: PayinStatusResponse) => void;
+  onFailed?: (status: PayinStatusResponse | null, error?: string) => void;
+  submitButtonText?: string;
+  isSubmittingParent?: boolean;
+}
+
+export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
+  amount,
+  payinType,
+  investmentRequestId,
+  onRequestCreate,
+  userPhone = '',
+  onSuccess,
+  onFailed,
+  submitButtonText = 'Proceder al Pago en Línea',
+  isSubmittingParent = false
+}) => {
+  const [method, setMethod] = useState<'NEQUI' | 'BOTON_BANCOLOMBIA' | 'PSE'>('NEQUI');
+  const [phone, setPhone] = useState(userPhone.replace(/\D/g, '').slice(-10) || '');
+  const [selectedBank, setSelectedBank] = useState<string>('1007'); // Default Bancolombia ACH
+  const [banks, setBanks] = useState<YointBank[]>([]);
+  const [loadingBanks, setLoadingBanks] = useState(false);
+
+  // Estados de proceso de pago
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [activePayin, setActivePayin] = useState<InitPayinResponse | null>(null);
+  const [pollingStatus, setPollingStatus] = useState<string>('PENDING');
+  const [pollingError, setPollingError] = useState<string | null>(null);
+
+  const IN_PROGRESS_STATUSES = [
+    'PENDING',
+    'IN_PROGRESS',
+    'PROCESSING',
+    'WAITING',
+    'CREATED',
+    'INITIATED',
+    'EN_PROCESO',
+    'PENDIENTE'
+  ];
+
+  const SUCCESS_STATUSES = [
+    'SUCCESS',
+    'APPROVED',
+    'COMPLETED',
+    'PAID',
+    'EXITOSA',
+    'APROBADA'
+  ];
+
+  const FAILED_STATUSES = [
+    'FAILED',
+    'REJECTED',
+    'EXPIRED',
+    'ERROR',
+    'DECLINED',
+    'FALLIDA',
+    'RECHAZADA',
+    'CANCELADA'
+  ];
+
+  const normalizedStatus = (pollingStatus || 'PENDING').toUpperCase();
+  const isPending = IN_PROGRESS_STATUSES.includes(normalizedStatus);
+  const isSuccess = SUCCESS_STATUSES.includes(normalizedStatus);
+  const isFailed = FAILED_STATUSES.includes(normalizedStatus);
+
+  // Cargar entidades financieras cuando se seleccione PSE
+  useEffect(() => {
+    if (method === 'PSE' && banks.length === 0) {
+      setLoadingBanks(true);
+      yointService.getBanks()
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setBanks(data);
+            if (!data.some(b => b.id === selectedBank)) {
+              setSelectedBank(data[0].id);
+            }
+          }
+        })
+        .catch((err) => console.error("Error cargando entidades bancarias:", err))
+        .finally(() => setLoadingBanks(false));
+    }
+  }, [method]);
+
+  const checkStatusOnce = async () => {
+    if (!activePayin) return;
+    try {
+      const res = await yointService.getPayinStatus(activePayin.payin_id);
+      const currentStatus = (res.status || '').toUpperCase();
+      setPollingStatus(currentStatus);
+
+      if (SUCCESS_STATUSES.includes(currentStatus) || res.investment_approved) {
+        onSuccess(res);
+        return true;
+      } else if (FAILED_STATUSES.includes(currentStatus)) {
+        if (onFailed) onFailed(res);
+        return false;
+      }
+    } catch (e: any) {
+      console.warn("Error consultando estado de la pasarela:", e);
+    }
+    return null;
+  };
+
+  // Polling continuo mientras el pago esté en curso
+  useEffect(() => {
+    let intervalId: any = null;
+
+    if (activePayin && isPending) {
+      intervalId = setInterval(async () => {
+        await checkStatusOnce();
+      }, 3000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [activePayin, pollingStatus, isPending]);
+
+  const handleStartPayment = async () => {
+    if (isProcessing) return;
+    try {
+      setIsProcessing(true);
+      setPollingError(null);
+
+      let reqId = investmentRequestId;
+      if (payinType === 'INVESTMENT_REQUEST' && !reqId) {
+        if (!onRequestCreate) {
+          throw new Error('No se pudo generar la solicitud de inversión previa al pago.');
+        }
+        reqId = await onRequestCreate();
+      }
+
+      const res = await yointService.initPayin({
+        payin_type: payinType,
+        amount,
+        payment_method: method,
+        investment_request_id: reqId,
+        phone_nequi: method === 'NEQUI' ? phone : undefined,
+        bank_id: method === 'PSE' ? selectedBank : undefined,
+        redirect_url: window.location.href
+      });
+
+      setActivePayin(res);
+      setPollingStatus('PENDING');
+
+      // Si es Botón Bancolombia o PSE y devuelve URL de redirección, abrirla
+      if (res.redirect_url) {
+        window.open(res.redirect_url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err: any) {
+      console.error("Error iniciando pago:", err);
+      setPollingError(err.message || 'Error al conectar con la pasarela de pagos.');
+      if (onFailed) onFailed(null, err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Vista durante o después del pago iniciado
+  if (activePayin) {
+    return (
+      <div className="p-6 bg-slate-50 border border-slate-200 rounded-3xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+        {/* Barra superior con botón Atrás */}
+        {isPending && (
+          <div className="flex items-center justify-between border-b border-slate-200/70 pb-3">
+            <button
+              type="button"
+              onClick={() => {
+                setActivePayin(null);
+                setPollingStatus('PENDING');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer group"
+              title="Volver a seleccionar método de pago"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Atrás</span>
+            </button>
+            <span className="text-[11px] font-mono font-medium text-slate-400">
+              Orden #{activePayin.order_id || activePayin.payin_id}
+            </span>
+          </div>
+        )}
+
+        {isPending && (
+          <div className="text-center space-y-4">
+            <div className="relative inline-flex items-center justify-center">
+              <div className="relative p-1">
+                {method === 'NEQUI' ? (
+                  <NequiLogo className="w-16 h-16 rounded-2xl shadow-md" size={64} />
+                ) : method === 'BOTON_BANCOLOMBIA' ? (
+                  <BancolombiaLogo className="w-16 h-16 rounded-2xl shadow-md" size={64} />
+                ) : (
+                  <PseLogo className="w-16 h-16 rounded-2xl shadow-md" size={64} />
+                )}
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center border border-slate-200">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-base font-bold text-slate-800">Esperando Confirmación del Pago</h4>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                {method === 'NEQUI' ? (
+                  <>Revisa tu aplicación <strong>Nequi</strong> en el celular y autoriza la notificación push para debitar {formatCurrency(amount)}.</>
+                ) : method === 'BOTON_BANCOLOMBIA' ? (
+                  <>Completa la transferencia en la ventana abierta de <strong>Bancolombia</strong>.</>
+                ) : (
+                  <>Completa la transacción en la plataforma segura de <strong>PSE</strong>.</>
+                )}
+              </p>
+            </div>
+
+            {activePayin.redirect_url && (
+              <div className="pt-1">
+                <a
+                  href={activePayin.redirect_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer font-montserrat"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Reabrir Ventana de Pago</span>
+                </a>
+              </div>
+            )}
+
+            <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3.5 text-xs text-amber-900 text-left space-y-1 font-montserrat">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                <span>Activación 100% Automática en Segundo Plano</span>
+              </div>
+              <p className="text-[11px] text-amber-800/90 leading-relaxed font-normal">
+                Una vez autorices la transacción en tu banco o aplicación, el sistema activará tu {payinType === 'INVESTMENT_REQUEST' ? 'inversión' : 'recarga'} de forma inmediata sin que tengas que realizar ninguna acción adicional, incluso si cierras esta ventana o te sales de la plataforma.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
+              <span>Sincronizando confirmación bancaria en tiempo real...</span>
+            </div>
+          </div>
+        )}
+
+        {isSuccess && (
+          <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2 text-emerald-800">
+            <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+            <h4 className="font-bold text-base text-emerald-900">¡Pago Confirmado Exitosamente!</h4>
+            <p className="text-xs text-emerald-700">
+              {payinType === 'INVESTMENT_REQUEST'
+                ? 'Tu inversión ha sido aprobada y tu contrato fue activado de inmediato.'
+                : 'El saldo ha sido acreditado en tu billetera de forma instantánea.'}
+            </p>
+          </div>
+        )}
+
+        {isFailed && (
+          <div className="p-5 bg-rose-50 border border-rose-200 rounded-2xl text-center space-y-3 text-rose-800">
+            <AlertCircle className="w-10 h-10 text-rose-600 mx-auto" />
+            <div>
+              <h4 className="font-bold text-base text-rose-900">El Pago No Pudo Completarse</h4>
+              <p className="text-xs text-rose-700 mt-1">
+                La transacción fue rechazada o expiró en la pasarela. No se realizó ningún cobro.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActivePayin(null);
+                setPollingStatus('PENDING');
+              }}
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Intentar Nuevamente</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Selector de Método de Pago */}
+      <div className="space-y-2">
+        <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <span>Selecciona tu método de pago en línea</span>
+        </label>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {/* Opción Nequi */}
+          <button
+            type="button"
+            onClick={() => setMethod('NEQUI')}
+            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
+              method === 'NEQUI'
+                ? 'border-purple-600 bg-purple-50/50 ring-2 ring-purple-600/15 shadow-xs'
+                : 'border-slate-200 hover:border-slate-300 bg-white'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full">
+              <NequiLogo className="w-8 h-8 rounded-xl shadow-xs" size={32} />
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                method === 'NEQUI' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                Push App
+              </span>
+            </div>
+            <div>
+              <div className="font-extrabold text-sm text-slate-800">Nequi</div>
+              <div className="text-[10px] text-slate-400">Débito directo al celular</div>
+            </div>
+          </button>
+
+          {/* Opción Botón Bancolombia */}
+          <button
+            type="button"
+            onClick={() => setMethod('BOTON_BANCOLOMBIA')}
+            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
+              method === 'BOTON_BANCOLOMBIA'
+                ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/15 shadow-xs'
+                : 'border-slate-200 hover:border-slate-300 bg-white'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full">
+              <BancolombiaLogo className="w-8 h-8 rounded-xl shadow-xs" size={32} />
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                method === 'BOTON_BANCOLOMBIA' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                Bancolombia
+              </span>
+            </div>
+            <div>
+              <div className="font-extrabold text-sm text-slate-800">Botón Bancolombia</div>
+              <div className="text-[10px] text-slate-400">Transferencia oficial rápida</div>
+            </div>
+          </button>
+
+          {/* Opción PSE */}
+          <button
+            type="button"
+            onClick={() => setMethod('PSE')}
+            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
+              method === 'PSE'
+                ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/15 shadow-xs'
+                : 'border-slate-200 hover:border-slate-300 bg-white'
+            }`}
+          >
+            <div className="flex items-center justify-between w-full">
+              <PseLogo className="w-8 h-8 rounded-xl shadow-xs" size={32} />
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                method === 'PSE' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                Cualquier Banco
+              </span>
+            </div>
+            <div>
+              <div className="font-extrabold text-sm text-slate-800">PSE</div>
+              <div className="text-[10px] text-slate-400">Débito ACH bancario</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Parámetros Específicos según Método */}
+      <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 space-y-3">
+        {method === 'NEQUI' && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <NequiLogo className="w-4 h-4 rounded-md" size={18} />
+              <span>Número de Teléfono Nequi</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 font-mono">
+                +57
+              </span>
+              <input
+                type="tel"
+                maxLength={10}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                placeholder="3001234567"
+                className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-mono"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Recibirás una notificación en tu app Nequi para autorizar el cobro por <strong>{formatCurrency(amount)}</strong>.
+            </p>
+          </div>
+        )}
+
+        {method === 'BOTON_BANCOLOMBIA' && (
+          <div className="flex items-start gap-3 text-xs text-slate-600">
+            <BancolombiaLogo className="w-7 h-7 rounded-xl shrink-0 mt-0.5" size={28} />
+            <div>
+              <span className="font-bold text-slate-800 block text-sm">Redirección a Botón Bancolombia</span>
+              <span className="text-[11px] text-slate-500 leading-relaxed block mt-0.5">
+                Se abrirá la pasarela segura oficial de Bancolombia para validar tu clave dinámica y completar la transacción por <strong className="text-slate-800 font-mono">{formatCurrency(amount)}</strong>.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {method === 'PSE' && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <PseLogo className="w-4 h-4 rounded-md" size={18} />
+              <span>Selecciona tu Banco</span>
+            </label>
+            {loadingBanks ? (
+              <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+                <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+                <span>Cargando lista oficial de entidades ACH...</span>
+              </div>
+            ) : (
+              <select
+                value={selectedBank}
+                onChange={(e) => setSelectedBank(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+              >
+                {banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-[11px] text-slate-500">
+              Al hacer clic en pagar serás redirigido a la pasarela de PSE para autenticarte con tu banco.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {pollingError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-semibold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+          <span>{pollingError}</span>
+        </div>
+      )}
+
+      {/* Botón de Pago Principal con diseño estándar de Gloint y logo */}
+      <button
+        type="button"
+        disabled={isProcessing || isSubmittingParent || (method === 'NEQUI' && phone.length < 10)}
+        onClick={handleStartPayment}
+        className="w-full py-3.5 px-6 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2.5 cursor-pointer font-montserrat"
+      >
+        {isProcessing ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Conectando con la pasarela segura...</span>
+          </>
+        ) : (
+          <>
+            {method === 'NEQUI' && <NequiLogo className="w-5 h-5 rounded-md shrink-0" size={20} />}
+            {method === 'BOTON_BANCOLOMBIA' && <BancolombiaLogo className="w-5 h-5 rounded-md shrink-0" size={20} />}
+            {method === 'PSE' && <PseLogo className="w-5 h-5 rounded-md shrink-0" size={20} />}
+            <span>{submitButtonText} ({formatCurrency(amount)})</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+};

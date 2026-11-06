@@ -28,6 +28,7 @@ export interface YieldCalculationResult {
   total_days: number;
   total_yield: number;
   acceleration_bonus?: number;
+  accelerations?: { id: number; bonus_amount: number; applied: boolean; created_at: string | null }[];
   segments: YieldSegment[];
 }
 
@@ -93,7 +94,29 @@ export interface BulkPayYieldResult {
   global_grand_total: number;
 }
 
+export interface LedgerContinuityReport {
+    transactions: number;
+    pairs_checked: number;
+    breaks: Array<{
+        transaction_id: number;
+        wallet_id: number;
+        user_id: number;
+        user_name: string;
+        created_at: string | null;
+        type: string;
+        previous_balance: number;
+        amount: number;
+        balance_after: number;
+        expected_balance: number;
+        difference: number;
+    }>;
+}
+
 export const auditService = {
+    getLedgerContinuity: async (): Promise<LedgerContinuityReport> => {
+        return await fetchApi('/audit/ledger-continuity');
+    },
+
     getUsers: async (params?: { page?: number; limit?: number; search?: string }) => {
         const queryParams = new URLSearchParams();
         if (params?.page) queryParams.append('page', params.page.toString());
@@ -174,6 +197,8 @@ export const auditService = {
         status?: string;
         start_date?: string;
         end_date?: string;
+        user_id?: number;
+        kind?: 'detailed' | 'generic' | 'all';
     }): Promise<SecurityAuditLogResponse> => {
         const qs = new URLSearchParams();
         if (params?.page) qs.append('page', params.page.toString());
@@ -184,9 +209,45 @@ export const auditService = {
         if (params?.status && params.status !== 'all') qs.append('status', params.status);
         if (params?.start_date) qs.append('start_date', params.start_date);
         if (params?.end_date) qs.append('end_date', params.end_date);
+        if (params?.user_id) qs.append('user_id', params.user_id.toString());
+        if (params?.kind && params.kind !== 'all') qs.append('kind', params.kind);
         return await fetchApi(`/audit/logs?${qs.toString()}`);
+    },
+
+    executeDailyAutomatic: async (): Promise<any> => {
+        return await fetchApi('/audit/execute-daily-automatic', {
+            method: 'POST'
+        });
+    },
+
+    getYieldBatches: async (limit: number = 50): Promise<YieldBatch[]> => {
+        return await fetchApi(`/audit/yield-batches?limit=${limit}`);
+    },
+
+    rollbackYieldBatch: async (batchId: string, reason?: string): Promise<{ success: boolean; message: string; total_reverted_amount: number; total_transfers_reverted: number }> => {
+        return await fetchApi(`/audit/yield-batches/${batchId}/rollback`, {
+            method: 'POST',
+            body: JSON.stringify({ reason })
+        });
     }
 };
+
+export interface YieldBatch {
+    id: number;
+    batch_id: string;
+    action: string;
+    description: string;
+    is_automatic: boolean;
+    cycle_start_date: string;
+    cycle_end_date: string;
+    executed_at_cot: string;
+    executed_at_utc: string;
+    total_users_paid: number;
+    total_transfers_count: number;
+    global_grand_total: number;
+    status: string;
+    created_at: string;
+}
 
 export interface SecurityAuditLog {
     id: number;

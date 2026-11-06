@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
+from src.core.webhook_security import validate_webhook_url_security
 
 class ExternalAppBase(BaseModel):
     name: str
@@ -8,6 +9,11 @@ class ExternalAppBase(BaseModel):
     webhook_url: Optional[str] = None
     redirect_urls: Optional[str] = None
     is_active: bool = True
+
+    @field_validator("webhook_url")
+    @classmethod
+    def check_webhook_url(cls, v: Optional[str]) -> Optional[str]:
+        return validate_webhook_url_security(v)
 
 class ExternalAppCreate(ExternalAppBase):
     pass
@@ -19,10 +25,14 @@ class ExternalAppUpdate(BaseModel):
     redirect_urls: Optional[str] = None
     is_active: Optional[bool] = None
 
+    @field_validator("webhook_url")
+    @classmethod
+    def check_webhook_url(cls, v: Optional[str]) -> Optional[str]:
+        return validate_webhook_url_security(v)
+
 class ExternalAppResponse(ExternalAppBase):
     id: int
     client_id: str
-    webhook_secret: Optional[str] = None
     created_by: Optional[int] = None
     created_at: datetime
     updated_at: datetime
@@ -33,15 +43,24 @@ class ExternalAppResponse(ExternalAppBase):
     model_config = ConfigDict(from_attributes=True)
 
 class ExternalAppCreatedResponse(ExternalAppResponse):
-    api_key: str  # Only returned once on creation/regeneration
+    # H-173: las credenciales solo se devuelven al crear o regenerar, nunca en el listado
+    api_key: str
+    webhook_secret: Optional[str] = None
+
+# H-233: tope técnico = lo que cabe en la columna Numeric(15, 2) de external_payment_orders.amount.
+# No es una regla de negocio: el máximo por cobro que quiera la empresa requiere decisión.
+MAX_PAYMENT_AMOUNT = 9_999_999_999_999.99
+
 
 class CreatePaymentIntentRequest(BaseModel):
     order_reference: str
-    amount: float
+    # El ≤ 0 lo rechaza el servicio con 400 (H-172); aquí se acota el tope y se excluyen NaN/Infinity
+    amount: float = Field(..., le=MAX_PAYMENT_AMOUNT, allow_inf_nan=False)
     description: Optional[str] = None
     redirect_url: Optional[str] = None
     metadata: Optional[dict] = None
-    expires_in_minutes: Optional[int] = 60
+    # H-171: entre 1 minuto y 7 días; un valor negativo creaba órdenes nacidas vencidas
+    expires_in_minutes: Optional[int] = Field(60, ge=1, le=10080)
 
 class CreatePaymentIntentResponse(BaseModel):
     payment_token: str
@@ -72,6 +91,7 @@ class ExternalPaymentOrderResponse(BaseModel):
     payment_token: str
     app_id: int
     app_name: Optional[str] = None
+    webhook_url: Optional[str] = None
     user_id: Optional[int] = None
     user_name: Optional[str] = None
     order_reference: str
@@ -81,7 +101,16 @@ class ExternalPaymentOrderResponse(BaseModel):
     status: str
     redirect_url: Optional[str] = None
     webhook_status: str
+    webhook_attempts: int = 0
+    webhook_response: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class ResendWebhookResponse(BaseModel):
+    status: str
+    webhook_status: str
+    webhook_attempts: int
+    webhook_response: Optional[str] = None
+    message: str

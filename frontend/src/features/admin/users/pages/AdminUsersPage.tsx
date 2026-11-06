@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
+import { sarlaftService } from '../../../../services/sarlaft';
 import { UserModal } from '../components/UserModal';
-import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, LogOut, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet, Clock } from 'lucide-react';
+import { ConfirmationModal } from '../../../../components/common/ConfirmationModal';
 import { Can } from '../../../../components/security/Can';
-import { maskAccountNumber, formatAccountNumber, formatColombiaDate } from '../../../../utils/format';
+import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency, formatApiDateTime } from '../../../../utils/format';
 
 export const AdminUsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -31,20 +32,70 @@ export const AdminUsersPage = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [statementUser, setStatementUser] = useState<User | null>(null);
   const [isGlobalStatementOpen, setIsGlobalStatementOpen] = useState(false);
 
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [revokingUser, setRevokingUser] = useState<User | null>(null);
+  const [isRevoking, setIsRevoking] = useState(false);
 
   // Forzar actualización de perfil (masiva e individual)
   const [isForceAllModalOpen, setIsForceAllModalOpen] = useState(false);
   const [isForcingAll, setIsForcingAll] = useState(false);
   const [togglingUserId, setTogglingUserId] = useState<number | null>(null);
 
+  // Validación masiva SARLAFT para inversionistas (botón temporal)
+  const [isBatchSarlaftModalOpen, setIsBatchSarlaftModalOpen] = useState(false);
+  const [isBatchSarlaftLoading, setIsBatchSarlaftLoading] = useState(false);
+  const [batchSarlaftResult, setBatchSarlaftResult] = useState<{ message: string; processed_users: number; updated_count: number; reverted_count?: number } | null>(null);
+
+  // Gestión individual SARLAFT
+  const [sarlaftTargetUser, setSarlaftTargetUser] = useState<User | null>(null);
+  const [sarlaftNewStatus, setSarlaftNewStatus] = useState<'pending' | 'rejected' | 'approved'>('pending');
+  const [sarlaftJustification, setSarlaftJustification] = useState('');
+  const [isSavingSarlaft, setIsSavingSarlaft] = useState(false);
+  const [validatingUserId, setValidatingUserId] = useState<number | null>(null);
+
   // Menú de acciones por fila
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
+  // H-231: el menú se dibuja con posición fija (fuera del recuadro con scroll de la tabla)
+  const [actionMenuPos, setActionMenuPos] = useState<{ top?: number; bottom?: number; right: number; maxHeight: number } | null>(null);
+
+  const toggleActionMenu = (userId: number, button: HTMLElement) => {
+    if (openActionMenuId === userId) {
+      setOpenActionMenuId(null);
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    const gap = 6;
+    const margin = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - gap - margin;
+    const spaceAbove = rect.top - gap - margin;
+    const MENU_HEIGHT = 360;
+    const openUp = spaceBelow < MENU_HEIGHT && spaceAbove > spaceBelow;
+    setActionMenuPos({
+      right: Math.max(margin, window.innerWidth - rect.right),
+      ...(openUp ? { bottom: window.innerHeight - rect.top + gap } : { top: rect.bottom + gap }),
+      maxHeight: Math.max(160, openUp ? spaceAbove : spaceBelow),
+    });
+    setOpenActionMenuId(userId);
+  };
+
+  // Cerrar el menú al desplazar la página o cambiar el tamaño (la posición fija ya no sería válida)
+  useEffect(() => {
+    if (openActionMenuId === null) return;
+    const close = (e: Event) => {
+      if ((e.target as HTMLElement | Document)?.nodeType === 1 && (e.target as HTMLElement).closest?.('.user-action-menu-panel')) return;
+      setOpenActionMenuId(null);
+    };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [openActionMenuId]);
 
   // Cerrar menú de acciones al hacer clic fuera
   useEffect(() => {
@@ -57,10 +108,6 @@ export const AdminUsersPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const isNearBottom = (index: number) => {
-    return users.length > 2 && index >= users.length - 2;
-  };
-
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -71,16 +118,138 @@ export const AdminUsersPage = () => {
   }, [searchInput]);
 
   const [success, setSuccess] = useState<string | null>(null);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+    const XLSX = await import('xlsx');
+    try {
+      setIsExportingExcel(true);
+      // Obtener todos los usuarios aplicando los filtros activos si existen
+      const res = await usersService.getUsers({
+        page: 1,
+        limit: 10000,
+        search: search || undefined,
+        role_id: roleFilter ? Number(roleFilter) : undefined,
+        is_active: activeFilter !== '' ? activeFilter === 'true' : undefined,
+        has_wallet: walletFilter !== '' ? walletFilter === 'true' : undefined
+      });
+
+      const usersList = res.data || [];
+      if (usersList.length === 0) {
+        alert('No hay usuarios para exportar con los filtros seleccionados.');
+        return;
+      }
+
+      const rows = usersList.map((u, idx) => ({
+        '#': idx + 1,
+        'ID': u.id,
+        'NOMBRE COMPLETO': u.name || '',
+        'CORREO ELECTRÓNICO': u.email || '',
+        'DOCUMENTO': u.document_id || 'N/A',
+        'TELÉFONO': u.phone_number || 'N/A',
+        'FECHA NACIMIENTO': formatApiDateTime(u.date_of_birth, { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        'ROLES': (u.roles || []).map(r => r.name).join(', ') || 'Sin Rol',
+        'ESTADO': u.is_active ? 'ACTIVO' : 'INACTIVO',
+        'SUPERADMIN': u.is_superuser ? 'SÍ' : 'NO',
+        'TIENE BILLETERA': u.wallet ? 'SÍ' : 'NO',
+        'SALDO BILLETERA (COP)': u.wallet ? Number(u.wallet.balance || 0) : 0,
+        'ESTADO BILLETERA': u.wallet ? (u.wallet.status === 'active' ? 'ACTIVA' : 'CONGELADA') : 'N/A',
+        'CUENTAS BANCARIAS': (u.bank_accounts || []).map(b => `${b.banco} - ${b.tipo_cuenta} (${b.numero_cuenta})`).join(' | ') || 'Ninguna',
+        'MENOR DE EDAD': (u.parent_user_id || u.parent) ? 'SÍ' : 'NO',
+        'TUTOR / REPRESENTANTE': u.parent?.name ? `${u.parent.name} (Doc: ${u.parent.document_id || 'N/A'})` : (u.parent_user_id ? `Tutor #${u.parent_user_id}` : 'N/A'),
+        'ACTUALIZACIÓN PERFIL': u.must_update_profile ? 'PENDIENTE' : 'AL DÍA',
+        'FECHA REGISTRO': formatApiDateTime(u.created_at, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 6 },  // #
+        { wch: 8 },  // ID
+        { wch: 28 }, // NOMBRE COMPLETO
+        { wch: 30 }, // CORREO ELECTRÓNICO
+        { wch: 16 }, // DOCUMENTO
+        { wch: 15 }, // TELÉFONO
+        { wch: 18 }, // FECHA NACIMIENTO
+        { wch: 20 }, // ROLES
+        { wch: 12 }, // ESTADO
+        { wch: 14 }, // SUPERADMIN
+        { wch: 16 }, // TIENE BILLETERA
+        { wch: 22 }, // SALDO BILLETERA
+        { wch: 18 }, // ESTADO BILLETERA
+        { wch: 35 }, // CUENTAS BANCARIAS
+        { wch: 15 }, // MENOR DE EDAD
+        { wch: 30 }, // TUTOR / REPRESENTANTE
+        { wch: 22 }, // ACTUALIZACIÓN PERFIL
+        { wch: 22 }  // FECHA REGISTRO
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `gloint_usuarios_${dateStr}.xlsx`);
+    } catch (err: any) {
+      console.error('Error exportando usuarios a Excel:', err);
+      alert('Error al descargar el archivo Excel de usuarios: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const [tempPasswordModal, setTempPasswordModal] = useState<{
+    userName: string;
+    email: string;
+    tempPassword: string;
+    actionType: 'reset' | 'create';
+  } | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+
+  const handleCopyPassword = () => {
+    if (tempPasswordModal?.tempPassword) {
+      navigator.clipboard.writeText(tempPasswordModal.tempPassword);
+      setCopiedPassword(true);
+      setTimeout(() => setCopiedPassword(false), 2500);
+    }
+  };
+
+  const handleConfirmRevokeSessions = async () => {
+    if (!revokingUser) return;
+    const target = revokingUser;
+    try {
+      setIsRevoking(true);
+      setError(null);
+      await usersService.revokeUserSessions(target.id);
+      setRevokingUser(null);
+      setSuccess(`Se cerraron todas las sesiones de ${target.name}.`);
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      setRevokingUser(null);
+      setError(err?.message || 'No se pudieron cerrar las sesiones del usuario.');
+    } finally {
+      setIsRevoking(false);
+    }
+  };
 
   const handleConfirmResetPassword = async () => {
     if (!resettingUser) return;
     try {
       setIsResetting(true);
       setError(null);
-      await usersService.resetPassword(resettingUser.id);
-      setSuccess(`¡Contraseña restablecida exitosamente para ${resettingUser.name}! La nueva clave temporal es 123456789.`);
-      setTimeout(() => setSuccess(null), 6000);
+      const res = await usersService.resetPassword(resettingUser.id);
+      const userReset = resettingUser;
       setResettingUser(null);
+      if (res.temp_password) {
+        setTempPasswordModal({
+          userName: userReset.name,
+          email: userReset.email,
+          tempPassword: res.temp_password,
+          actionType: 'reset'
+        });
+      } else {
+        setSuccess(`¡Contraseña restablecida exitosamente para ${userReset.name}!`);
+        setTimeout(() => setSuccess(null), 5000);
+      }
       fetchData();
     } catch (err: any) {
       setError(err.message || 'Error al restablecer la contraseña.');
@@ -136,6 +305,81 @@ export const AdminUsersPage = () => {
     }
   };
 
+  const handleBatchValidateSarlaft = async () => {
+    try {
+      setIsBatchSarlaftLoading(true);
+      setError(null);
+      const res = await sarlaftService.validateExistingInvestors();
+      setSuccess(res.message);
+      setBatchSarlaftResult(res);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Error al validar SARLAFT masivo.');
+    } finally {
+      setIsBatchSarlaftLoading(false);
+    }
+  };
+
+  const handleQuickApproveSarlaft = async (targetUser: User) => {
+    try {
+      setValidatingUserId(targetUser.id);
+      setError(null);
+      const res = await sarlaftService.setUserStatus({
+        user_id: targetUser.id,
+        status: 'approved',
+        justification: 'Aprobación individual directa desde el panel de administración.'
+      });
+      setSuccess(res.message || `SARLAFT validado y aprobado exitosamente para ${targetUser.name}.`);
+      setTimeout(() => setSuccess(null), 5000);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Error al validar SARLAFT.');
+    } finally {
+      setValidatingUserId(null);
+    }
+  };
+
+  const handleOpenSarlaftModal = async (targetUser: User) => {
+    setSarlaftTargetUser(targetUser);
+    setSarlaftJustification('');
+    setSarlaftNewStatus('pending');
+    try {
+      const res = await sarlaftService.getCheckByUser(targetUser.id);
+      if (res && res.check) {
+        if (res.check.risk_level === 'HIGH' || res.status === 'failed') {
+          setSarlaftNewStatus('rejected');
+        } else if (res.check.tusdatos_status === 'finalizado' && res.check.risk_level === 'CLEAN') {
+          setSarlaftNewStatus('approved');
+        } else {
+          setSarlaftNewStatus('pending');
+        }
+      }
+    } catch {
+      // Si no existe chequeo previo o hay error de red, mantiene 'pending'
+    }
+  };
+
+  const handleSaveSarlaftStatus = async () => {
+    if (!sarlaftTargetUser) return;
+    try {
+      setIsSavingSarlaft(true);
+      setError(null);
+      const res = await sarlaftService.setUserStatus({
+        user_id: sarlaftTargetUser.id,
+        status: sarlaftNewStatus,
+        justification: sarlaftJustification.trim() || undefined
+      });
+      setSuccess(res.message || `Estado SARLAFT actualizado para ${sarlaftTargetUser.name}.`);
+      setTimeout(() => setSuccess(null), 5000);
+      setSarlaftTargetUser(null);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Error al actualizar estado SARLAFT.');
+    } finally {
+      setIsSavingSarlaft(false);
+    }
+  };
+
   const toggleRevealAccount = (accId: number) => {
     const next = new Set(revealedAccounts);
     if (next.has(accId)) next.delete(accId);
@@ -143,7 +387,12 @@ export const AdminUsersPage = () => {
     setRevealedAccounts(next);
   };
 
+  // Solo la petición más reciente puede pintar la tabla: si el usuario cambia filtros rápido,
+  // una respuesta que llega tarde no debe pisar la de la última selección (H-130)
+  const latestRequestRef = useRef(0);
+
   const fetchData = async () => {
+    const requestId = ++latestRequestRef.current;
     setIsTableLoading(true);
     try {
       const usersData = await usersService.getUsers({
@@ -154,24 +403,33 @@ export const AdminUsersPage = () => {
         is_active: activeFilter === 'true' ? true : activeFilter === 'false' ? false : undefined,
         has_wallet: walletFilter === 'true' ? true : walletFilter === 'false' ? false : undefined,
       });
-      
-      const rolesData = await rolesService.getAllRoles();
+      if (requestId !== latestRequestRef.current) return;
       
       setUsers(usersData.data);
       setTotal(usersData.total);
-      setRoles(rolesData);
       setError(null);
     } catch (err: any) {
+      if (requestId !== latestRequestRef.current) return;
       setError(err.message || 'Error al cargar los usuarios.');
     } finally {
-      setIsTableLoading(false);
-      setIsInitialLoading(false);
+      if (requestId === latestRequestRef.current) {
+        setIsTableLoading(false);
+        setIsInitialLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchData();
   }, [page, search, roleFilter, activeFilter, walletFilter]);
+
+  // Los roles solo alimentan el filtro y el modal: se cargan aparte y una vez. Un rol sin
+  // admin.roles.manage recibe 403 aquí y antes eso descartaba el listado de usuarios (H-151)
+  useEffect(() => {
+    rolesService.getAllRoles()
+      .then(setRoles)
+      .catch(() => setRoles([]));
+  }, []);
 
   const handleCreate = () => {
     setEditingUser(null);
@@ -188,45 +446,77 @@ export const AdminUsersPage = () => {
     setEditingUser(null);
   };
 
-  const handleSaved = () => {
+  const handleSaved = (savedUser?: any) => {
     fetchData();
+    if (savedUser?.temp_password) {
+      setTempPasswordModal({
+        userName: savedUser.name,
+        email: savedUser.email,
+        tempPassword: savedUser.temp_password,
+        actionType: 'create'
+      });
+    }
   };
 
+  const activeUsersCount = users.filter(u => u.is_active).length;
+  const walletsCount = users.filter(u => !!u.wallet).length;
+  const totalWalletsBalance = users.reduce((acc, u) => acc + (u.wallet ? Number(u.wallet.balance || 0) : 0), 0);
+  const verifiedAccountsCount = users.filter(u => (u.bank_accounts && u.bank_accounts.length > 0) || u.document_id).length;
+
   if (isInitialLoading) {
-      return (
-          <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-pulse">
-              <div className="bg-slate-900/90 rounded-3xl p-8 h-40 shadow-xl relative overflow-hidden flex flex-col justify-center space-y-3">
-                  <div className="h-5 w-48 bg-slate-800 rounded-full"></div>
-                  <div className="h-8 w-64 bg-slate-800 rounded-xl"></div>
-              </div>
-              <div className="bg-white rounded-3xl border border-slate-200 p-4 h-16 w-full"></div>
-              <div className="bg-white rounded-3xl border border-slate-200 p-6 h-96 space-y-4">
-                  <div className="h-6 w-48 bg-slate-200 rounded"></div>
-                  <div className="space-y-3 pt-2">
-                      {[1, 2, 3, 4, 5].map(i => (
-                          <div key={i} className="h-12 bg-slate-100 rounded-2xl w-full"></div>
-                      ))}
-                  </div>
-              </div>
+    return (
+      <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-pulse font-inter">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-8 w-64 bg-slate-200 rounded-xl"></div>
+            <div className="h-4 w-96 bg-slate-100 rounded-lg"></div>
           </div>
-      );
+          <div className="flex gap-2">
+            <div className="h-10 w-32 bg-slate-200 rounded-xl"></div>
+            <div className="h-10 w-36 bg-slate-200 rounded-xl"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white border border-slate-200/90 rounded-2xl p-5 h-28 space-y-3">
+              <div className="h-4 w-24 bg-slate-100 rounded"></div>
+              <div className="h-6 w-32 bg-slate-200 rounded"></div>
+            </div>
+          ))}
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 h-16 w-full"></div>
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 h-96 space-y-4">
+          <div className="h-6 w-48 bg-slate-200 rounded"></div>
+          <div className="space-y-3 pt-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-12 bg-slate-100 rounded-xl w-full"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-      return (
-          <div className="w-full max-w-7xl mx-auto p-6 bg-red-50 border border-red-200 rounded-3xl flex items-start gap-4 text-red-700 shadow-xs">
-              <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
-              <div>
-                  <h3 className="font-bold font-montserrat text-base">Error cargando usuarios</h3>
-                  <p className="text-sm mt-1">{error}</p>
-                  <button onClick={fetchData} className="mt-3 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-all cursor-pointer">Reintentar</button>
-              </div>
-          </div>
-      );
+    return (
+      <div className="w-full max-w-7xl mx-auto p-6 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-4 text-rose-700 shadow-xs font-inter">
+        <AlertCircle className="w-6 h-6 shrink-0 mt-0.5 text-rose-600" />
+        <div>
+          <h3 className="font-bold font-montserrat text-base text-rose-900">Error cargando usuarios</h3>
+          <p className="text-sm mt-1 text-rose-700">{error}</p>
+          <button 
+            onClick={fetchData} 
+            className="mt-3 px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-all cursor-pointer font-montserrat shadow-xs"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300 font-inter">
       {success && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-emerald-800 shadow-xs font-medium text-sm animate-in fade-in duration-200">
           <div className="flex items-center gap-3">
@@ -239,46 +529,84 @@ export const AdminUsersPage = () => {
         </div>
       )}
 
-      {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <UserIcon className="w-4 h-4 text-emerald-400" /> Administración de Identidad & Accesos
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <UserIcon className="w-6 h-6" />
+              </div>
+              <span>Gestión de Usuarios</span>
+            </h1>
+            <button
+              onClick={fetchData}
+              disabled={isTableLoading}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${isTableLoading ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Usuarios
-          </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
-            Administra los usuarios de la plataforma, roles asignados, billeteras asociadas e historial de seguridad.
+          <p className="text-slate-500 text-sm mt-1 font-normal">
+            Administra usuarios de la plataforma, roles asignados, billeteras asociadas y parámetros de seguridad.
           </p>
         </div>
         
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button 
             onClick={() => setIsGlobalStatementOpen(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl transition-all text-xs font-bold border border-slate-200/90 shadow-2xs cursor-pointer font-montserrat"
             title="Ver auditoría financiera y extracto general de la plataforma"
           >
-            <Landmark className="w-4 h-4 text-emerald-400" />
-            <span>Estado de Cuenta General</span>
+            <Landmark className="w-4 h-4 text-emerald-600" />
+            <span className="whitespace-nowrap">Estado General</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl transition-all text-xs font-bold border border-slate-200/90 shadow-2xs cursor-pointer font-montserrat disabled:opacity-60"
+            title="Descargar todos los usuarios en archivo Excel (.xlsx)"
+          >
+            {isExportingExcel ? (
+              <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            )}
+            <span className="whitespace-nowrap">{isExportingExcel ? 'Descargando...' : 'Descargar Excel'}</span>
           </button>
 
           <Can permission="admin.users.manage">
             <button 
+              onClick={() => {
+                setBatchSarlaftResult(null);
+                setIsBatchSarlaftModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50/80 hover:bg-emerald-100/80 text-emerald-800 rounded-xl transition-all text-xs font-bold border border-emerald-200/80 shadow-2xs cursor-pointer font-montserrat"
+              title="Aprobar SARLAFT masivamente a usuarios que ya cuentan con inversiones"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span className="whitespace-nowrap">Validar SARLAFT</span>
+            </button>
+          </Can>
+
+          <Can permission="admin.users.manage">
+            <button 
               onClick={() => setIsForceAllModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-2xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-amber-50/80 hover:bg-amber-100/80 text-amber-800 rounded-xl transition-all text-xs font-bold border border-amber-200/80 shadow-2xs cursor-pointer font-montserrat"
               title="Obligar a todos los usuarios a actualizar sus datos de perfil"
             >
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span>Forzar Actualización a Todos</span>
+              <ShieldAlert className="w-4 h-4 text-amber-600" />
+              <span className="whitespace-nowrap">Forzar Perfil</span>
             </button>
           </Can>
 
           <Can permission="admin.users.manage">
             <button 
               onClick={handleCreate}
-              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-xl transition-all shadow-md shadow-brand-500/20 text-xs font-bold cursor-pointer font-montserrat shrink-0 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Crear Usuario</span>
@@ -286,26 +614,101 @@ export const AdminUsersPage = () => {
           </Can>
         </div>
       </div>
+
+      {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Usuarios */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Total Usuarios
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <UserIcon className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {total}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            {activeUsersCount} activos en la plataforma
+          </span>
+        </div>
+
+        {/* Billeteras Vinculadas */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Billeteras Activas
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {walletsCount}
+          </span>
+          <span className="text-[11px] text-emerald-600 font-medium block truncate">
+            Cuentas financieras operativas
+          </span>
+        </div>
+
+        {/* Saldo Global Custodiado */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-blue-700 font-bold uppercase tracking-wider block font-montserrat">
+              Saldo en Billeteras (Pág.)
+            </span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+              <Landmark className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-blue-700 block tracking-tight font-mono">
+            {formatCurrency(totalWalletsBalance)}
+          </span>
+          <span className="text-[11px] text-blue-600 font-medium block truncate">
+            Fondos custodiados de usuarios
+          </span>
+        </div>
+
+        {/* Identificación & Bancarización */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Con Trazabilidad
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
+            {verifiedAccountsCount}
+          </span>
+          <span className="text-[11px] text-amber-600 font-medium block truncate">
+            Perfiles con documento o cuenta bancaria
+          </span>
+        </div>
+      </div>
       
       {/* Filters Bar */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200/90 flex flex-col md:flex-row gap-3 items-center">
         <div className="flex-1 w-full relative">
           <input 
             type="text" 
             placeholder="Buscar por nombre, correo o documento..." 
-            className="w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+            className="w-full pl-4 pr-10 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all font-inter"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
           {isTableLoading && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
             </div>
           )}
         </div>
         <div className="w-full md:w-48">
           <select 
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            className="w-full px-3.5 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all cursor-pointer"
             value={roleFilter}
             onChange={(e) => {
               setRoleFilter(e.target.value);
@@ -320,7 +723,7 @@ export const AdminUsersPage = () => {
         </div>
         <div className="w-full md:w-48">
           <select 
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            className="w-full px-3.5 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all cursor-pointer"
             value={activeFilter}
             onChange={(e) => {
               setActiveFilter(e.target.value);
@@ -334,7 +737,7 @@ export const AdminUsersPage = () => {
         </div>
         <div className="w-full md:w-48">
           <select 
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            className="w-full px-3.5 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all cursor-pointer"
             value={walletFilter}
             onChange={(e) => {
               setWalletFilter(e.target.value);
@@ -348,186 +751,214 @@ export const AdminUsersPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200">
-        <div className="overflow-x-auto min-h-[400px] pb-12">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+            <thead className="bg-slate-50/80 text-slate-400 font-bold border-b border-slate-200/80 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
-                <th className="px-6 py-4">Usuario & Contacto</th>
-                <th className="px-6 py-4 hidden md:table-cell">Billetera & Cuentas</th>
-                <th className="px-6 py-4">Roles & Estado</th>
-                <th className="px-6 py-4 text-center w-36">Acciones</th>
+                <th className="px-3.5 py-3 w-[24%]">Usuario</th>
+                <th className="px-3.5 py-3 w-[18%]">Identificación & Contacto</th>
+                <th className="px-3.5 py-3 w-[13%]">Roles</th>
+                <th className="px-3.5 py-3 w-[23%]">Billetera & Cuentas</th>
+                <th className="px-3.5 py-3 w-[11%]">Estado</th>
+                <th className="px-3.5 py-3 text-center w-[11%]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {users.map((user, index) => (
                 <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0 mt-0.5">
-                          <UserIcon className="w-4 h-4 text-brand-600" />
+                  {/* 1. Usuario */}
+                  <td className="px-3.5 py-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100/90 border border-brand-200/60 flex items-center justify-center shrink-0 text-brand-700 font-extrabold text-xs shadow-2xs">
+                        {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="w-3.5 h-3.5 text-brand-600" />}
                       </div>
-                      <div className="space-y-1 text-xs">
-                        <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
-                          {user.name} 
-                          {user.is_superuser && <span className="text-[10px] bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-bold uppercase">Admin</span>}
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5 truncate">
+                          <span className="truncate">{user.name}</span>
+                          {user.is_superuser && (
+                            <span className="text-[8px] bg-purple-100 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded font-bold uppercase shrink-0">Admin</span>
+                          )}
                         </div>
-                        <div className="text-slate-500 font-mono">{user.email}</div>
-                        {user.document_id && <div className="text-slate-500">Doc: <strong className="font-bold text-slate-700">{user.document_id}</strong></div>}
-                        {user.phone_number && <div className="text-slate-500">Tel: <strong className="font-bold text-slate-700">{user.phone_number}</strong></div>}
-                        {user.date_of_birth && <div className="text-slate-500">Nac: <strong className="font-bold text-slate-700">{formatColombiaDate(user.date_of_birth)}</strong></div>}
-                        <div className="text-[10px] text-slate-400">Reg: {formatColombiaDate(user.created_at)}</div>
+                        <div className="text-slate-400 font-mono text-[11px] truncate" title={user.email}>
+                          {user.email}
+                        </div>
                         {user.parent ? (
-                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-md text-[10px]">
-                            <span className="font-bold">Tutor:</span> {user.parent.name} {user.parent.document_id ? `(${user.parent.document_id})` : ''}
+                          <div className="text-[10px] text-amber-800 truncate">
+                            <span className="font-bold">Tutor:</span> {user.parent.name}
                           </div>
                         ) : (user.children && user.children.length > 0) ? (
-                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-md text-[10px]">
+                          <div className="text-[10px] text-blue-800">
                             <span className="font-bold">Tutor de:</span> {user.children.length} menor(es)
                           </div>
                         ) : null}
-                        {user.must_update_profile && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-[10px] font-bold">
-                              <AlertCircle className="w-3 h-3 text-amber-600" />
-                              Actualización de datos obligatoria
-                            </span>
-                          </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* 2. Identificación & Contacto */}
+                  <td className="px-3.5 py-3">
+                    <div className="space-y-0.5 text-xs">
+                      <div className="font-bold text-slate-800 font-mono text-xs">
+                        {user.document_id ? `CC ${user.document_id}` : <span className="text-slate-400 font-normal italic">Sin documento</span>}
+                      </div>
+                      <div className="text-slate-500 text-[11px] flex items-center gap-1">
+                        <span>{user.phone_number || '—'}</span>
+                        {user.date_of_birth && (
+                          <span className="text-slate-400 text-[10px]">
+                            · {formatColombiaDate(user.date_of_birth)}
+                          </span>
                         )}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 hidden md:table-cell">
-                    <div className="space-y-3">
-                      {/* Billetera */}
-                      <div className="text-xs">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Billetera</div>
+
+                  {/* 3. Roles */}
+                  <td className="px-3.5 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {user.roles && user.roles.length > 0 ? (
+                        user.roles.map(r => (
+                          <span key={r.id} className="inline-flex px-2 py-0.5 bg-brand-50 text-brand-800 border border-brand-200/60 rounded-md text-[10px] font-bold whitespace-nowrap">
+                            {r.display_name || r.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-slate-400 italic text-[11px]">Sin roles</span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* 4. Billetera & Cuentas (Consolidada) */}
+                  <td className="px-3.5 py-3">
+                    <div className="space-y-1">
+                      {/* Saldo y Estado de Billetera */}
+                      <div className="flex items-center gap-2">
                         {user.wallet ? (
                           <>
-                            <div className="font-extrabold text-slate-900 font-montserrat">
-                              {Number(user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                            </div>
-                            <div className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase inline-block mt-0.5 border ${
-                              user.wallet.status === 'active' 
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
-                                : 'bg-red-100 text-red-700 border-red-200'
+                            <span className="font-extrabold text-slate-900 font-mono text-xs tracking-tight">
+                              {formatCurrency(Number(user.wallet.balance))}
+                            </span>
+                            <span className={`text-[8px] px-1.5 py-0.2 rounded-full font-bold uppercase border ${
+                              user.wallet.status === 'active'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
                             }`}>
-                              {user.wallet.status === 'active' ? 'ACTIVA' : 'CONGELADA'}
-                            </div>
+                              {user.wallet.status === 'active' ? 'Activa' : 'Congelada'}
+                            </span>
                           </>
                         ) : (
-                          <div className="space-y-1">
-                            <div className="text-slate-400 italic">Sin billetera</div>
-                            <button
-                              onClick={() => handleCreateWallet(user.id, user.name)}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 transition-all cursor-pointer"
-                            >
-                              + Crear Billetera
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleCreateWallet(user.id, user.name)}
+                            className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 underline cursor-pointer"
+                          >
+                            + Crear Billetera
+                          </button>
                         )}
                       </div>
-                      
-                      {/* Cuentas */}
-                      <div className="text-xs">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex justify-between items-center w-48 font-montserrat">
-                          <span>Cuentas Bancarias</span>
-                          <span className="bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-600">{user.bank_accounts?.length || 0}</span>
-                        </div>
-                        {user.bank_accounts && user.bank_accounts.length > 0 ? (
-                          <div className="space-y-1.5 w-48">
-                            {user.bank_accounts.map(acc => {
-                              const isRevealed = revealedAccounts.has(acc.id);
-                              return (
-                                <div key={acc.id} className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
-                                  <div className="font-bold text-slate-800 truncate">{acc.banco} - {acc.tipo_cuenta}</div>
-                                  <div className="flex items-center justify-between gap-1 text-slate-600 font-mono mt-0.5">
-                                    <span className="select-all">
-                                      {isRevealed ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta)}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleRevealAccount(acc.id)}
-                                      className="p-0.5 text-slate-400 hover:text-brand-600 hover:bg-slate-200 rounded transition-colors cursor-pointer"
-                                      title={isRevealed ? "Ocultar número completo" : "Mostrar número completo"}
-                                    >
-                                      {isRevealed ? <EyeOff className="w-3 h-3 text-brand-600" /> : <Eye className="w-3 h-3" />}
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="text-slate-400 italic">Sin cuentas registradas</div>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-1.5 max-w-[150px]">
-                        {user.roles.length > 0 ? user.roles.map(r => (
-                          <span key={r.id} className="inline-flex px-2.5 py-0.5 bg-brand-50 text-brand-800 border border-brand-100 rounded-lg text-[10px] font-bold whitespace-nowrap">
-                            {r.display_name}
+
+                      {/* Cuentas Bancarias */}
+                      {user.bank_accounts && user.bank_accounts.length > 0 && user.bank_accounts[0] ? (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                          <span className="font-semibold text-slate-700 truncate max-w-[90px]" title={user.bank_accounts[0].banco}>
+                            {user.bank_accounts[0].banco}
                           </span>
-                        )) : <span className="text-slate-400 italic text-xs">Sin roles</span>}
-                      </div>
-                      <div>
-                        {user.is_active ? (
-                          <span className="text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">Activo</span>
-                        ) : (
-                          <span className="text-rose-800 bg-rose-100 border border-rose-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">Inactivo</span>
+                          <span className="font-mono text-slate-500 text-[10px]">
+                            {revealedAccounts.has(user.bank_accounts[0].id)
+                              ? formatAccountNumber(user.bank_accounts[0].numero_cuenta)
+                              : maskAccountNumber(user.bank_accounts[0].numero_cuenta)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const accId = user.bank_accounts?.[0]?.id;
+                              if (accId !== undefined) toggleRevealAccount(accId);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-brand-600 rounded cursor-pointer"
+                            title={revealedAccounts.has(user.bank_accounts[0].id) ? "Ocultar" : "Mostrar"}
+                          >
+                            {revealedAccounts.has(user.bank_accounts[0].id) ? <EyeOff className="w-2.5 h-2.5 text-brand-600" /> : <Eye className="w-2.5 h-2.5" />}
+                          </button>
+                          {user.bank_accounts.length > 1 && (
+                            <span className="text-[9px] px-1 rounded bg-slate-100 text-slate-600 font-bold" title={`${user.bank_accounts.length} cuentas registradas`}>
+                              +{user.bank_accounts.length - 1}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 italic">Sin cuentas</div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* 5. Estado & Registro */}
+                  <td className="px-3.5 py-3">
+                    <div className="space-y-0.5 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                          user.is_active 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          {user.is_active ? 'Activo' : 'Inactivo'}
+                        </span>
+                        {user.must_update_profile && (
+                          <span className="p-0.5 text-amber-600" title="Actualización obligatoria de datos">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                          </span>
                         )}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {formatColombiaDate(user.created_at)}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-center">
+
+                  {/* 6. Acciones */}
+                  <td className="px-3.5 py-3 text-center">
                     <Can permission="admin.users.manage">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {/* Botón Editar Principal */}
+                      <div className="flex items-center justify-center gap-1">
                         <button 
                           onClick={() => handleEdit(user)} 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 bg-white cursor-pointer shadow-2xs"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-all border border-brand-200 bg-white cursor-pointer shadow-2xs"
                           title="Editar información de usuario"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3 h-3" />
                           <span>Editar</span>
                         </button>
 
-                        {/* Menú de Más Acciones */}
                         <div className="relative inline-block text-left user-action-menu">
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenActionMenuId(openActionMenuId === user.id ? null : user.id);
+                              toggleActionMenu(user.id, e.currentTarget);
                             }}
-                            className={`p-1.5 rounded-xl transition-all border cursor-pointer ${
+                            className={`p-1 rounded-lg transition-all border cursor-pointer ${
                               openActionMenuId === user.id
                                 ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                                : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200 shadow-2xs'
+                                : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-slate-200 shadow-2xs'
                             }`}
                             title="Más opciones de usuario"
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            <MoreVertical className="w-3.5 h-3.5" />
                           </button>
 
                           {openActionMenuId === user.id && (
-                            <div className={`absolute right-0 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
-                              isNearBottom(index) ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'
-                            }`}>
+                            <div
+                              style={actionMenuPos ?? undefined}
+                              className="user-action-menu-panel fixed w-60 overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+                            >
                               {/* Estado de Cuenta */}
                               <button
                                 onClick={() => {
                                   setOpenActionMenuId(null);
                                   setStatementUser(user);
                                 }}
-                                className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2 transition-colors cursor-pointer"
                               >
-                                <Receipt className="w-4 h-4 text-brand-600 shrink-0" />
+                                <Receipt className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                                 <div>
                                   <div className="font-bold text-slate-800">Estado de Cuenta</div>
-                                  <div className="text-[10px] text-slate-400 font-normal">Extractos y movimientos financieros</div>
+                                  <div className="text-[10px] text-slate-400 font-normal">Extractos y movimientos</div>
                                 </div>
                               </button>
 
@@ -538,23 +969,23 @@ export const AdminUsersPage = () => {
                                   handleToggleForceProfile(user);
                                 }}
                                 disabled={togglingUserId === user.id}
-                                className={`w-full px-4 py-2.5 text-left text-xs flex items-center gap-2.5 transition-colors cursor-pointer border-t border-slate-100 ${
+                                className={`w-full px-3.5 py-2 text-left text-xs flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100 ${
                                   user.must_update_profile
                                     ? 'text-amber-800 hover:bg-amber-50 hover:text-amber-900'
                                     : 'text-slate-700 hover:bg-amber-50 hover:text-amber-800'
                                 }`}
                               >
                                 {togglingUserId === user.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0" />
                                 ) : (
-                                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                 )}
                                 <div className="flex flex-col">
                                   <span className="font-bold">
                                     {user.must_update_profile ? 'Desmarcar Obligatorio' : 'Forzar Actualización'}
                                   </span>
                                   <span className="text-[10px] text-slate-400 font-normal">
-                                    {user.must_update_profile ? 'Exige actualizar datos al ingresar' : 'Pedir validación de datos'}
+                                    {user.must_update_profile ? 'Exige actualizar datos' : 'Pedir validación'}
                                   </span>
                                 </div>
                               </button>
@@ -565,14 +996,81 @@ export const AdminUsersPage = () => {
                                   setOpenActionMenuId(null);
                                   setResettingUser(user);
                                 }}
-                                className="w-full px-4 py-2.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-slate-100"
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
                               >
-                                <KeyRound className="w-4 h-4 text-rose-600 shrink-0" />
+                                <KeyRound className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                                 <div className="flex flex-col">
                                   <span className="font-bold">Restablecer Clave</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">Asignar clave temporal (123456789)</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Asignar clave temporal</span>
                                 </div>
                               </button>
+
+                              {/* Cerrar sesiones abiertas */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  setRevokingUser(user);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <LogOut className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-bold">Cerrar sesiones</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Sale de todos sus dispositivos</span>
+                                </div>
+                              </button>
+
+                              {/* Validar SARLAFT (Aprobar) */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  handleQuickApproveSarlaft(user);
+                                }}
+                                disabled={validatingUserId === user.id}
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
+                              >
+                                {validatingUserId === user.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
+                                ) : (
+                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-emerald-800">Validar SARLAFT</span>
+                                  <span className="text-[10px] text-emerald-600 font-normal">Aprobar y habilitar</span>
+                                </div>
+                              </button>
+
+                              {/* Cambiar Estado SARLAFT (Pendiente / Rechazado) */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  handleOpenSarlaftModal(user);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
+                              >
+                                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-amber-800">Cambiar Estado SARLAFT</span>
+                                  <span className="text-[10px] text-amber-600 font-normal">Pasar a Pendiente o Rechazado</span>
+                                </div>
+                              </button>
+
+                              {/* Crear Billetera si no tiene */}
+                              {!user.wallet && (
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    handleCreateWallet(user.id, user.name);
+                                  }}
+                                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
+                                >
+                                  <Landmark className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  <div>
+                                    <div className="font-bold text-emerald-800">Crear Billetera</div>
+                                    <div className="text-[10px] text-emerald-600 font-normal">Habilita balance financiero</div>
+                                  </div>
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -583,7 +1081,7 @@ export const AdminUsersPage = () => {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                     No se encontraron usuarios.
                   </td>
                 </tr>
@@ -640,9 +1138,9 @@ export const AdminUsersPage = () => {
             </div>
 
             <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-2 text-amber-900">
-              <p>• La contraseña se cambiará temporalmente a: <strong className="font-mono text-amber-950 font-bold bg-amber-200/80 px-2 py-0.5 rounded text-xs">123456789</strong></p>
-              <p>• Se forzará el cambio obligatorio de contraseña cuando el usuario inicie sesión.</p>
-              <p>• Se restablecerán los intentos fallidos de inicio de sesión.</p>
+              <p>• Se generará una <strong>contraseña temporal aleatoria y segura</strong>.</p>
+              <p>• Se forzará el cambio obligatorio de contraseña cuando el usuario inicie sesión, validando un código OTP enviado a su correo.</p>
+              <p>• Se restablecerán los intentos fallidos y el bloqueo de inicio de sesión.</p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
@@ -665,6 +1163,17 @@ export const AdminUsersPage = () => {
         </div>,
         document.body
       )}
+
+      <ConfirmationModal
+        isOpen={!!revokingUser}
+        onClose={() => setRevokingUser(null)}
+        onConfirm={handleConfirmRevokeSessions}
+        title="Cerrar todas las sesiones"
+        description={revokingUser ? `Se cerrarán todas las sesiones abiertas de ${revokingUser.name} en la web y en la app. Su contraseña no cambia; tendrá que iniciar sesión de nuevo.` : ''}
+        confirmText="Cerrar sesiones"
+        variant="warning"
+        isLoading={isRevoking}
+      />
 
       {/* Modal de Confirmación para Forzar Actualización Masiva */}
       {isForceAllModalOpen && createPortal(
@@ -728,15 +1237,6 @@ export const AdminUsersPage = () => {
         roles={roles}
       />
 
-      <BulkUploadModal
-        isOpen={isBulkModalOpen}
-        onClose={() => setIsBulkModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkModalOpen(false);
-          fetchData();
-        }}
-      />
-
       {statementUser && (
         <UserAccountStatementModal
           isOpen={!!statementUser}
@@ -744,6 +1244,340 @@ export const AdminUsersPage = () => {
           userId={statementUser.id}
           userName={statementUser.name}
         />
+      )}
+
+      {/* Modal para mostrar y copiar la contraseña temporal generada (H-76) */}
+      {tempPasswordModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" style={{ margin: 0 }}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-emerald-100 rounded-xl text-emerald-700">
+                <KeyRound className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {tempPasswordModal.actionType === 'create' ? 'Usuario Creado con Éxito' : 'Contraseña Restablecida'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Para: <strong className="text-slate-800">{tempPasswordModal.userName}</strong> ({tempPasswordModal.email})
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center space-y-2">
+              <span className="text-xs text-slate-500 font-medium">Contraseña Temporal Generada:</span>
+              <div className="flex items-center justify-center gap-2">
+                <span className="font-mono text-base font-bold text-slate-900 bg-white px-3.5 py-2 rounded-lg border border-slate-200 select-all tracking-wider">
+                  {tempPasswordModal.tempPassword}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  className="px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                >
+                  {copiedPassword ? (
+                    <>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>¡Copiada!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 text-white" />
+                      <span>Copiar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-blue-600" />
+                Seguridad Obligatoria:
+              </p>
+              <p className="text-blue-800 leading-relaxed">
+                Esta contraseña temporal única solo se muestra en este momento. Compártala por un canal privado con el usuario. Al iniciar sesión, el sistema le exigirá definir su nueva contraseña personal validando un <strong>código OTP de 6 dígitos</strong> enviado a su correo registrado.
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setTempPasswordModal(null);
+                  setCopiedPassword(false);
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
+              >
+                Entendido y Cerrar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Temporal para Validación Masiva SARLAFT de Inversionistas */}
+      {isBatchSarlaftModalOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-6 animate-in fade-in duration-200 border border-slate-100">
+            <div className="flex items-start gap-4">
+              <div className="p-3.5 bg-emerald-100/80 rounded-2xl text-emerald-700 shrink-0">
+                <ShieldCheck className="w-7 h-7 text-emerald-600" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900 font-montserrat">
+                  Validación Masiva SARLAFT (Inversionistas)
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Aprueba administrativamente el estado preventivo de SARLAFT para los usuarios existentes en la base de datos que ya tienen inversiones registradas.
+                </p>
+              </div>
+            </div>
+
+            {batchSarlaftResult ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                  <CheckCircle className="w-5 h-5 text-emerald-600" />
+                  <span>¡Validación Actualizada!</span>
+                </div>
+                <p className="text-xs text-emerald-700">
+                  {batchSarlaftResult.message}
+                </p>
+                <div className="text-[11px] text-emerald-600 font-mono">
+                  Inversionistas evaluados: {batchSarlaftResult.processed_users} | Aprobados: {batchSarlaftResult.updated_count}
+                  {batchSarlaftResult.reverted_count ? ` | Revocados: ${batchSarlaftResult.reverted_count}` : ''}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs text-slate-600 space-y-2">
+                  <p className="font-semibold text-slate-800">
+                    Alcance de la validación:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-600">
+                    <li>Se evaluarán <strong>únicamente los usuarios que cuentan con inversiones reales</strong> registradas en el sistema.</li>
+                    <li>Los usuarios sin inversiones continuarán con el flujo regular de verificación previa.</li>
+                    <li>Cualquier aprobación previa asignada por error a usuarios sin inversiones será revocada automáticamente.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBatchSarlaftModalOpen(false);
+                  setBatchSarlaftResult(null);
+                }}
+                disabled={isBatchSarlaftLoading}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+              >
+                {batchSarlaftResult ? 'Cerrar' : 'Cancelar'}
+              </button>
+
+              {!batchSarlaftResult && (
+                <button
+                  type="button"
+                  onClick={handleBatchValidateSarlaft}
+                  disabled={isBatchSarlaftLoading}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isBatchSarlaftLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Validando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Confirmar Validación Masiva</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal para Gestión Individual de Estado SARLAFT */}
+      {sarlaftTargetUser && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" style={{ margin: 0 }}>
+          <div className="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 border border-slate-100">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-amber-100/80 rounded-2xl text-amber-700 shrink-0">
+                  <ShieldAlert className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 font-montserrat">
+                    Cambiar Estado SARLAFT
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Usuario: <strong className="text-slate-800">{sarlaftTargetUser.name}</strong> ({sarlaftTargetUser.email})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSarlaftTargetUser(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Selector de Estado */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block uppercase tracking-wider">
+                Seleccione el nuevo estado:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* Opción Pendiente */}
+                <button
+                  type="button"
+                  onClick={() => setSarlaftNewStatus('pending')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    sarlaftNewStatus === 'pending'
+                      ? 'border-amber-500 bg-amber-50/70 shadow-sm ring-2 ring-amber-500/20'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                      sarlaftNewStatus === 'pending' ? 'border-amber-500 bg-amber-500' : 'border-slate-300'
+                    }`}>
+                      {sarlaftNewStatus === 'pending' && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Pendiente</span>
+                    <span className="text-[10px] text-slate-500 leading-tight block mt-0.5">
+                      En verificación preventiva
+                    </span>
+                  </div>
+                </button>
+
+                {/* Opción Rechazado */}
+                <button
+                  type="button"
+                  onClick={() => setSarlaftNewStatus('rejected')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    sarlaftNewStatus === 'rejected'
+                      ? 'border-rose-500 bg-rose-50/70 shadow-sm ring-2 ring-rose-500/20'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="p-1.5 rounded-lg bg-rose-100 text-rose-700">
+                      <ShieldAlert className="w-4 h-4" />
+                    </div>
+                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                      sarlaftNewStatus === 'rejected' ? 'border-rose-500 bg-rose-500' : 'border-slate-300'
+                    }`}>
+                      {sarlaftNewStatus === 'rejected' && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Rechazado</span>
+                    <span className="text-[10px] text-slate-500 leading-tight block mt-0.5">
+                      Riesgo alto / Bloqueado
+                    </span>
+                  </div>
+                </button>
+
+                {/* Opción Aprobado */}
+                <button
+                  type="button"
+                  onClick={() => setSarlaftNewStatus('approved')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    sarlaftNewStatus === 'approved'
+                      ? 'border-emerald-500 bg-emerald-50/70 shadow-sm ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                      sarlaftNewStatus === 'approved' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'
+                    }`}>
+                      {sarlaftNewStatus === 'approved' && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Aprobado</span>
+                    <span className="text-[10px] text-slate-500 leading-tight block mt-0.5">
+                      Habilita inversiones
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Justificación opcional */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Motivo / Justificación de la decisión (Opcional):
+              </label>
+              <textarea
+                value={sarlaftJustification}
+                onChange={(e) => setSarlaftJustification(e.target.value)}
+                placeholder="Ej: Aclaración de origen de fondos recibida / Inconsistencia documental / Aprobación por cumplimiento..."
+                rows={3}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all resize-none"
+              />
+              <p className="text-[10px] text-slate-400">
+                Esta nota quedará guardada en el historial de cumplimiento y auditoría interna.
+              </p>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSarlaftTargetUser(null)}
+                disabled={isSavingSarlaft}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSarlaftStatus}
+                disabled={isSavingSarlaft}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50 ${
+                  sarlaftNewStatus === 'approved'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                    : sarlaftNewStatus === 'rejected'
+                    ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+                    : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                }`}
+              >
+                {isSavingSarlaft ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Confirmar Estado</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       <GlobalAccountStatementModal

@@ -113,6 +113,10 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
         setError('Por favor ingresa el número de cuenta');
         return;
       }
+      if (!/^\d{6,20}$/.test(numeroCuenta.trim())) {
+        setError('El número de cuenta debe contener solo dígitos (entre 6 y 20 números)');
+        return;
+      }
     }
 
     setIsSendingOtp(true);
@@ -274,10 +278,13 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={20}
+                  pattern="^[0-9]{6,20}$"
                   value={numeroCuenta}
-                  onChange={(e) => setNumeroCuenta(e.target.value)}
+                  onChange={(e) => setNumeroCuenta(e.target.value.replace(/\D/g, ''))}
                   placeholder="Ej. 1234567890"
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-mono"
                   required
                 />
               </div>

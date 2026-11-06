@@ -1,3 +1,4 @@
+import { CookieConsent } from "./components/cookies/CookieConsent";
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingLayout } from "./features/landing_v2/components/LandingLayout";
@@ -8,6 +9,11 @@ import { PlacePage } from "./features/landing_v2/pages/PlacePage";
 import { TechPage } from "./features/landing_v2/pages/TechPage";
 import { ContactoPage } from "./features/landing_v2/pages/ContactoPage";
 import { EventRegistrationPage } from "./features/landing_v2/pages/EventRegistrationPage";
+import { EventAttendancePage } from "./features/events/pages/EventAttendancePage";
+import { EventLivePage } from "./features/events/pages/EventLivePage";
+import { EventQuestionsPage } from "./features/events/pages/EventQuestionsPage";
+import { EventSurveyPage } from "./features/events/pages/EventSurveyPage";
+import { EventCouponPage } from "./features/events/pages/EventCouponPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
@@ -21,7 +27,6 @@ import { LegalNoticePage } from "./features/landing/pages/LegalNoticePage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { WalletsPage } from "./features/wallets/pages/WalletsPage";
-import { InvestmentsPage } from "./features/investments/pages/InvestmentsPage";
 import { InvestmentDetailPage } from "./features/investments/pages/InvestmentDetailPage";
 import { AdminInvestmentsPage } from "./features/admin/investments/pages/AdminInvestmentsPage";
 import { AdminRolesPage } from "./features/admin/roles/pages/AdminRolesPage";
@@ -35,6 +40,7 @@ import { AdminExternalAppsPage } from "./features/admin/external-apps/pages/Admi
 import { GlointPayCheckoutPage } from "./features/checkout/pages/GlointPayCheckoutPage";
 import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
+import { SecurityLogsPage } from "./features/admin/pages/SecurityLogsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
 import { CommercialDashboardPage } from "./features/commercial/pages/CommercialDashboardPage";
 import { BeneficiariesPage } from "./features/beneficiaries/pages/BeneficiariesPage";
@@ -51,6 +57,15 @@ import { AdminEventsPage } from "./features/admin/events/pages/AdminEventsPage";
 import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
 import { RoomsPage } from "./features/rooms/pages/RoomsPage";
+import { InventoryPage } from "./features/inventory/pages/InventoryPage";
+import { SuppliersPage } from "./features/suppliers/pages/SuppliersPage";
+import { PurchaseOrdersPage } from "./features/purchase_orders/pages/PurchaseOrdersPage";
+import { AssetsPage } from "./features/assets/pages/AssetsPage";
+import { CreditsPage } from "./features/credits/pages/CreditsPage";
+import { AdminCreditsPage } from "./features/admin/credits/pages/AdminCreditsPage";
+import { DailyYieldsPage } from "./features/admin/daily_yields/pages/DailyYieldsPage";
+import { TechnicalAssessmentPage } from "./features/technical_assessment/pages/TechnicalAssessmentPage";
+import { AdminTechnicalEvaluationsPage } from "./features/technical_assessment/pages/AdminTechnicalEvaluationsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -107,6 +122,7 @@ function App() {
   // if (isMaintenanceMode) return <MaintenancePage />;
 
   return (
+    <>
     <Routes>
       <Route element={<GuestRoute><LandingLayout /></GuestRoute>}>
         <Route path="/" element={<LandingHome />} />
@@ -123,6 +139,11 @@ function App() {
         <Route path="/power-tech" element={<EventRegistrationPage />} />
         <Route path="/evento" element={<EventRegistrationPage />} />
         <Route path="/registro-evento" element={<EventRegistrationPage />} />
+        <Route path="/evento/asistencia/:token" element={<EventAttendancePage />} />
+        <Route path="/evento/en-vivo/:token" element={<EventLivePage />} />
+        <Route path="/evento/preguntas/:token" element={<EventQuestionsPage />} />
+        <Route path="/evento/encuesta/:token" element={<EventSurveyPage />} />
+        <Route path="/evento/cupon/:token" element={<EventCouponPage />} />
       </Route>
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />
@@ -134,8 +155,18 @@ function App() {
       <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
       <Route path="/force-change-password" element={<GuestRoute><ForceChangePasswordPage /></GuestRoute>} />
       
+      {/* Alias de compatibilidad con rutas documentadas en especificación */}
+      <Route path="/chat" element={<Navigate to="/dashboard/chat" replace />} />
+      <Route path="/rooms" element={<Navigate to="/dashboard/rooms" replace />} />
+
       {/* Pasarela Pública Gloint Pay Checkout */}
       <Route path="/pay/checkout" element={<GlointPayCheckoutPage />} />
+      
+      {/* Rutas Públicas de Evaluación Técnica para Candidatos (Cero Login / Protegidas por PIN) */}
+      <Route path="/evaluacion-tecnica" element={<TechnicalAssessmentPage />} />
+      <Route path="/evaluaciones-tecnicas" element={<TechnicalAssessmentPage />} />
+      <Route path="/prueba-tecnica" element={<TechnicalAssessmentPage />} />
+      <Route path="/pruebas-tecnicas" element={<TechnicalAssessmentPage />} />
       
       {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
       <Route 
@@ -149,9 +180,11 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
-        <Route path="investments" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentsPage /></RequirePermission>} />
+        <Route path="investments" element={<Navigate to="/dashboard" replace />} />
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
+        <Route path="daily-yields" element={<RequirePermission permissions={["admin.audits.manage", "admin.investors.manage"]}><DailyYieldsPage /></RequirePermission>} />
+        <Route path="security-logs" element={<RequirePermission permissions={["admin.audits.manage", "admin.roles.manage"]}><SecurityLogsPage /></RequirePermission>} />
         <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />
         <Route path="periods" element={<RequirePermission permission="admin.periods.manage"><AdminPeriodsPage /></RequirePermission>} />
@@ -164,7 +197,7 @@ function App() {
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
         {/* Mercado de Acciones */}
-        <Route path="shares-market" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage", "wallets:view", "dashboard:view_investments"]}><SharesMarketPage /></RequirePermission>} />
+        <Route path="shares-market" element={<RequirePermission permissions={["shares:access"]}><SharesMarketPage /></RequirePermission>} />
         <Route path="admin-shares" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage"]}><AdminSharesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<RequirePermission permission="beneficiaries:view"><BeneficiariesPage /></RequirePermission>} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
@@ -178,12 +211,26 @@ function App() {
         <Route path="admin-notifications" element={<RequirePermission permissions={["admin.notifications.manage", "admin.roles.manage"]}><AdminNotificationsPage /></RequirePermission>} />
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
         <Route path="rooms" element={<RequirePermission permissions={["rooms:view", "rooms:reserve", "admin.rooms.manage"]}><RoomsPage /></RequirePermission>} />
+        <Route path="inventory" element={<RequirePermission permissions={["inventory:view", "inventory.view"]}><InventoryPage /></RequirePermission>} />
+        <Route path="suppliers" element={<RequirePermission permissions={["suppliers:view", "suppliers.view", "inventory:view"]}><SuppliersPage /></RequirePermission>} />
+        <Route path="purchase-orders" element={<RequirePermission permissions={["purchase_orders:view", "purchase_orders.view", "inventory:view"]}><PurchaseOrdersPage /></RequirePermission>} />
+        <Route path="assets" element={<RequirePermission permissions={["assets:view", "assets.view", "inventory:view"]}><AssetsPage /></RequirePermission>} />
+        <Route path="credits" element={<RequirePermission permissions={["credits:view", "credits:request"]}><CreditsPage /></RequirePermission>} />
+        <Route path="admin-credits" element={<RequirePermission permissions={["admin.credits.manage", "credits:manage"]}><AdminCreditsPage /></RequirePermission>} />
+        <Route path="evaluaciones-tecnicas" element={<RequirePermission permission="admin.users.manage"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
+        <Route path="pruebas-tecnicas" element={<RequirePermission permission="admin.users.manage"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
+        {/* Alias de compatibilidad documentados en Módulos 12 y 13 */}
+        <Route path="admin/investors" element={<Navigate to="/dashboard/investors" replace />} />
+        <Route path="admin/rankings" element={<Navigate to="/dashboard/rankings" replace />} />
+        <Route path="admin/credits" element={<Navigate to="/dashboard/admin-credits" replace />} />
       </Route>
 
 
       {/* Redirección por defecto si la ruta no existe */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <CookieConsent />
+    </>
   );
 }
 

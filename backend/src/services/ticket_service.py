@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 import httpx
 import logging
 from typing import Dict, Any, Optional
@@ -31,7 +32,7 @@ class TicketService:
                 logger.error(f"Excepción al subir archivo: {str(e)}")
                 raise HTTPException(
                     status_code=500, 
-                    detail=f"Error interno al subir el archivo: {str(e)} - Tipo: {type(e).__name__}"
+                    detail=public_error_detail("Error interno al subir el archivo", e)
                 )
 
     @classmethod
@@ -108,7 +109,7 @@ class TicketService:
                 )
             except Exception as e:
                 logger.error(f"Excepción al obtener tickets: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error interno al obtener tickets: {str(e)}")
+                raise HTTPException(status_code=500, detail=public_error_detail("Error interno al obtener tickets", e))
 
     @classmethod
     async def get_ticket_by_number(cls, ticket_number: str) -> Any:
@@ -131,7 +132,7 @@ class TicketService:
                 )
             except Exception as e:
                 logger.error(f"Excepción al obtener ticket {ticket_number}: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error interno al obtener el ticket: {str(e)}")
+                raise HTTPException(status_code=500, detail=public_error_detail("Error interno al obtener el ticket", e))
 
     @classmethod
     async def add_ticket_comment(
@@ -169,4 +170,4 @@ class TicketService:
                 )
             except Exception as e:
                 logger.error(f"Excepción al responder ticket {ticket_number}: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error interno al responder el ticket: {str(e)}")
+                raise HTTPException(status_code=500, detail=public_error_detail("Error interno al responder el ticket", e))

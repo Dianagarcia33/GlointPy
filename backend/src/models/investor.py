@@ -16,6 +16,8 @@ class Investor(Base):
     
     start_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     observations = Column(Text, nullable=True)
+    # H-192: acciones por paquete otorgadas a este contrato al comprarlo (acumulado). NULL = desconocido.
+    shares_granted_frozen = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

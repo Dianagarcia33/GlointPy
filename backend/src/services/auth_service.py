@@ -8,8 +8,33 @@ from fastapi import HTTPException, status, Request
 from src.models.user import User
 from src.models.security import Role
 from src.schemas.auth import LoginRequest, RegisterRequest, ForceChangePasswordRequest, InvestorRegisterRequest
-from src.core.security import verify_password, get_password_hash, create_access_token, create_password_reset_token, verify_password_reset_token
+from src.core.security import averify_password, aget_password_hash, get_password_hash, create_access_token, create_password_reset_token, verify_password_reset_token
 from src.services.email_service import EmailService
+from src.core.session_revocation import revoke_user_sessions, close_live_connections
+from src.core.password_policy import ensure_valid_password
+
+# Código OTP del cambio obligatorio de contraseña: propósito propio e intentos máximos por código
+FORCE_PASSWORD_PURPOSE = "force_password_change"
+MAX_OTP_ATTEMPTS = 5
+
+# Correos de recuperación: máx. 3 por dirección cada hora (evita llenar el buzón de otra persona desde varias IP)
+RESET_EMAIL_MAX = 3
+RESET_EMAIL_WINDOW_SECONDS = 3600
+_reset_email_log: dict = {}
+
+
+def _reset_email_allowed(email: str) -> bool:
+    import time
+    now = time.time()
+    key = (email or "").strip().lower()
+    recent = [t for t in _reset_email_log.get(key, []) if now - t < RESET_EMAIL_WINDOW_SECONDS]
+    if len(recent) >= RESET_EMAIL_MAX:
+        _reset_email_log[key] = recent
+        return False
+    recent.append(now)
+    _reset_email_log[key] = recent
+    return True
+
 
 class AuthService:
     
@@ -48,7 +73,7 @@ class AuthService:
                 detail="Tu cuenta está bloqueada temporalmente por múltiples intentos fallidos. Intenta de nuevo más tarde.",
             )
             
-        if not verify_password(login_data.password, user.password_hash):
+        if not await averify_password(login_data.password, user.password_hash):
             if request:
                 login_rate_limiter.record_failed_attempt(request)
 
@@ -108,6 +133,16 @@ class AuthService:
                 detail="El correo ya está registrado."
             )
 
+        # H-70: Validar código de referido si fue suministrado
+        if data.referred_by:
+            clean_ref = data.referred_by.strip().upper()
+            ref_check = await db.execute(select(Investor.id).where(Investor.assigned_code == clean_ref))
+            if not ref_check.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El código de referido '{clean_ref}' no es válido o no existe en la plataforma."
+                )
+
         from sqlalchemy import insert
         from src.models.security import user_roles
 
@@ -129,6 +164,14 @@ class AuthService:
             db.add(role)
             await db.flush()
 
+        # H-107: el resultado biométrico lo calcula el servidor; se ignora lo que declare el cliente
+        from src.services.biometric_verification import verify_registration_biometrics
+        biometrics = await verify_registration_biometrics(
+            getattr(data, "kyc_docs", None),
+            bool(getattr(data, "requires_manual_review", False)),
+            getattr(data, "biometric_attempts", 0),
+        )
+
         dob = None
         if data.fecha_nacimiento:
             try:
@@ -139,7 +182,7 @@ class AuthService:
         new_user = User(
             name=data.name,
             email=data.email,
-            password_hash=get_password_hash(data.password),
+            password_hash=await aget_password_hash(data.password),
             document_id=data.documento,
             phone_number=data.numero_celular,
             date_of_birth=dob,
@@ -163,39 +206,86 @@ class AuthService:
         )
         db.add(wallet)
 
-        bank_acc = UserBankAccount(
-            user_id=new_user.id,
-            banco=data.banco,
-            tipo_cuenta=data.tipo_cuenta,
-            numero_cuenta=data.numero_cuenta
-        )
-        db.add(bank_acc)
+        if data.banco and data.numero_cuenta:
+            bank_acc = UserBankAccount(
+                user_id=new_user.id,
+                banco=data.banco,
+                tipo_cuenta=data.tipo_cuenta or "Ahorros",
+                numero_cuenta=data.numero_cuenta
+            )
+            db.add(bank_acc)
 
-        req = InvestmentRequest(
-            user_id=new_user.id,
-            investor_id=None,
-            paquete_inversion_id=data.paquete_id,
-            monto=data.monto,
-            comprobante_path=data.comprobante_path,
-            extra_data={
-                "nombre_completo": data.name,
-                "tipo_documento": data.tipo_documento,
-                "documento": data.documento,
-                "fecha_nacimiento": data.fecha_nacimiento,
-                "numero_celular": data.numero_celular,
-                "ciudad": data.ciudad,
-                "banco": data.banco,
-                "tipo_cuenta": data.tipo_cuenta,
-                "numero_cuenta": data.numero_cuenta,
-                "kyc_docs": getattr(data, "kyc_docs", None),
-                "contract_period_id": getattr(data, "contract_period_id", None) or getattr(data, "periodo_id", None),
-                "referred_by": getattr(data, "referred_by", None),
-                "commercial_id": getattr(data, "commercial_id", None)
-            }
-        )
-        db.add(req)
+        # Si se enviaron datos de paquete y comprobante (llamadas heredadas), crear solicitud de inversión
+        if data.paquete_id and data.monto and data.comprobante_path:
+            req = InvestmentRequest(
+                user_id=new_user.id,
+                investor_id=None,
+                paquete_inversion_id=data.paquete_id,
+                monto=data.monto,
+                comprobante_path=data.comprobante_path,
+                extra_data={
+                    "nombre_completo": data.name,
+                    "tipo_documento": data.tipo_documento,
+                    "documento": data.documento,
+                    "fecha_nacimiento": data.fecha_nacimiento,
+                    "fecha_expedicion": getattr(data, "fecha_expedicion", None),
+                    "numero_celular": data.numero_celular,
+                    "ciudad": data.ciudad,
+                    "banco": data.banco,
+                    "tipo_cuenta": data.tipo_cuenta,
+                    "numero_cuenta": data.numero_cuenta,
+                    "kyc_docs": getattr(data, "kyc_docs", None),
+                    "contract_period_id": getattr(data, "contract_period_id", None) or getattr(data, "periodo_id", None),
+                    "referred_by": getattr(data, "referred_by", None),
+                    "commercial_id": getattr(data, "commercial_id", None),
+                    "biometrics": biometrics
+                }
+            )
+            db.add(req)
 
         await db.commit()
+
+        # Lanzar validación de antecedentes SARLAFT en segundo plano con Tusdatos.co
+        try:
+            from src.services.tusdatos_service import TusdatosService
+            import asyncio
+
+            kyc_metadata = {
+                "kyc_docs": getattr(data, "kyc_docs", None),
+                "biometrics": biometrics,
+                "fecha_nacimiento": data.fecha_nacimiento,
+                "fecha_expedicion": getattr(data, "fecha_expedicion", None),
+                "ciudad": data.ciudad,
+                "numero_celular": data.numero_celular
+            }
+
+            asyncio.create_task(
+                TusdatosService.execute_full_sarlaft_check_background(
+                    user_id=new_user.id,
+                    document_number=data.documento,
+                    document_type=data.tipo_documento,
+                    fecha_expedicion=getattr(data, "fecha_expedicion", None),
+                    initial_details=kyc_metadata
+                )
+            )
+        except Exception as e:
+            print(f"Error al iniciar validación SARLAFT en background: {e}")
+
+        # Enviar correo corporativo de bienvenida y notificación de revisión de cuenta
+        try:
+            from src.services.email_service import EmailService
+            import asyncio
+
+            asyncio.create_task(
+                EmailService.send_welcome_and_review_email(
+                    to_email=new_user.email,
+                    user_name=new_user.name,
+                    document_id=new_user.document_id or data.documento,
+                    document_type=data.tipo_documento or "CC"
+                )
+            )
+        except Exception as mail_err:
+            print(f"Error al programar correo de bienvenida para {new_user.email}: {mail_err}")
 
         # Si el inversionista seleccionó un Directivo de Inversiones, notificar al Directivo
         if data.commercial_id:
@@ -243,7 +333,7 @@ class AuthService:
                 detail="Correo o contraseña incorrectos",
             )
             
-        if not verify_password(data.current_password, user.password_hash):
+        if not await averify_password(data.current_password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Correo o contraseña incorrectos",
@@ -254,13 +344,123 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El usuario no requiere un cambio de contraseña obligatorio."
             )
+
+        # La política se valida antes de tocar el OTP: una clave débil no debe quemar el código
+        ensure_valid_password(data.new_password)
+
+        # Validar el código OTP enviado al correo (H-76)
+        import secrets
+        from datetime import datetime
+        from src.models.withdrawal_verification_code import WithdrawalVerificationCode
+
+        code_res = await db.execute(
+            select(WithdrawalVerificationCode)
+            .where(
+                WithdrawalVerificationCode.user_id == user.id,
+                WithdrawalVerificationCode.purpose == FORCE_PASSWORD_PURPOSE,
+                WithdrawalVerificationCode.used_at == None
+            )
+            .order_by(WithdrawalVerificationCode.created_at.desc())
+        )
+        verification = code_res.scalars().first()
+        if not verification:
+            raise HTTPException(status_code=400, detail="Código de verificación OTP incorrecto o ya utilizado.")
+
+        expires_at = verification.expires_at.replace(tzinfo=None) if verification.expires_at.tzinfo else verification.expires_at
+        if expires_at < datetime.utcnow():
+            raise HTTPException(status_code=400, detail="El código de verificación ha expirado. Por favor solicita uno nuevo.")
+
+        if not secrets.compare_digest(str(verification.code), (data.code or "").strip()):
+            try:
+                attempts = int(verification.attempts or 0) + 1
+            except (TypeError, ValueError):
+                attempts = 1
+            verification.attempts = str(attempts)
+            remaining = max(0, MAX_OTP_ATTEMPTS - attempts)
+            if remaining == 0:
+                verification.used_at = datetime.utcnow()  # agotó los intentos: hay que pedir un código nuevo
+            await db.commit()
+            extra = f" Te quedan {remaining} intento{'s' if remaining != 1 else ''}." if remaining else " Solicita un nuevo código."
+            raise HTTPException(status_code=400, detail="Código de verificación OTP incorrecto o ya utilizado." + extra)
+
+        verification.used_at = datetime.utcnow()
             
-        user.password_hash = get_password_hash(data.new_password)
+        user.password_hash = await aget_password_hash(data.new_password)
         user.must_change_password = False
+        # Las sesiones anteriores (con la clave temporal) dejan de valer; el endpoint emite un token nuevo
+        await revoke_user_sessions(db, user)
         
         await db.commit()
         await db.refresh(user)
+        await close_live_connections(user.id)
         return user
+
+    @staticmethod
+    async def send_force_password_otp(db: AsyncSession, email: str, current_password: str) -> dict:
+        import secrets
+        from datetime import datetime, timedelta
+        from src.models.withdrawal_verification_code import WithdrawalVerificationCode
+
+        result = await db.execute(
+            select(User).where(User.email == email)
+        )
+        user = result.scalars().first()
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Correo o contraseña incorrectos",
+            )
+
+        if not await averify_password(current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Correo o contraseña incorrectos",
+            )
+
+        if not user.must_change_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El usuario no requiere cambio de contraseña obligatorio.",
+            )
+
+        code = f"{secrets.randbelow(900000) + 100000}"
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+        # Solo un código vigente por usuario para este propósito: los anteriores quedan invalidados
+        await db.execute(
+            WithdrawalVerificationCode.__table__.update()
+            .where(WithdrawalVerificationCode.user_id == user.id)
+            .where(WithdrawalVerificationCode.purpose == FORCE_PASSWORD_PURPOSE)
+            .where(WithdrawalVerificationCode.used_at == None)
+            .values(used_at=datetime.utcnow())
+        )
+
+        verification = WithdrawalVerificationCode(
+            user_id=user.id,
+            code=code,
+            expires_at=expires_at,
+            attempts="0",
+            purpose=FORCE_PASSWORD_PURPOSE
+        )
+        db.add(verification)
+        await db.commit()
+
+        from src.services.email_template_service import EmailTemplateService
+        subject, html_content = EmailTemplateService.get_otp_verification_template(
+            user_name=user.name or "Usuario",
+            code=code,
+            purpose="Cambio Obligatorio de Contraseña",
+            action_details="Has ingresado con una clave temporal y se requiere el cambio obligatorio de tu contraseña por seguridad.",
+            expires_minutes=10
+        )
+
+        EmailService.send_html_email(
+            to_email=user.email,
+            subject=subject,
+            html_content=html_content
+        )
+
+        return {"message": "Código de verificación enviado exitosamente a tu correo electrónico."}
 
     @staticmethod
     async def request_password_reset(db: AsyncSession, email: str, background_tasks=None) -> bool:
@@ -272,6 +472,10 @@ class AuthService:
             # devolvemos True o un mensaje genérico aunque no exista el usuario.
             return True
             
+        if not _reset_email_allowed(user.email):
+            # Demasiadas solicitudes para esta dirección: no se envía otro correo, pero la respuesta es idéntica
+            return True
+
         token = create_password_reset_token(user.email, user.password_hash)
         # Enviar email en segundo plano si background_tasks está disponible
         if background_tasks:
@@ -284,6 +488,7 @@ class AuthService:
     @staticmethod
     async def reset_password(db: AsyncSession, token: str, new_password: str) -> bool:
         print("[RESET_PASSWORD] Inicio de reset_password...", flush=True)
+        ensure_valid_password(new_password)
         payload = verify_password_reset_token(token)
         if not payload:
             print("[RESET_PASSWORD] Token o payload inválido", flush=True)
@@ -319,9 +524,12 @@ class AuthService:
         from starlette.concurrency import run_in_threadpool
         user.password_hash = await run_in_threadpool(get_password_hash, new_password)
         user.must_change_password = False
+        # Revoca las sesiones abiertas: si la cuenta estaba comprometida, el atacante pierde su token
+        await revoke_user_sessions(db, user)
         
         print("[RESET_PASSWORD] Ejecutando db.commit()...", flush=True)
         await db.commit()
+        await close_live_connections(user.id)
         print("[RESET_PASSWORD] ¡Contraseña cambiada exitosamente!", flush=True)
         return True
 

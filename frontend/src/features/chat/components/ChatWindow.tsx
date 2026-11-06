@@ -406,6 +406,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
   }
 
   const isGroup = room.type === 'group';
+  const contactOnline = !!room.other_participant?.is_online;
   const participantsCount = room.participants_count || room.participants?.length || 0;
 
   return (
@@ -479,11 +480,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                 </div>
               ) : (
                 <>
-                  <Circle className={`w-2.5 h-2.5 ${isConnected ? 'text-emerald-500 fill-emerald-500' : 'text-slate-400 fill-slate-400'}`} />
+                  {/* H-178: en chats directos el punto refleja la presencia del contacto; la conexión propia va aparte */}
+                  {isGroup ? (
+                    <Circle className={`w-2.5 h-2.5 ${isConnected ? 'text-emerald-500 fill-emerald-500' : 'text-slate-400 fill-slate-400'}`} />
+                  ) : (
+                    <Circle className={`w-2.5 h-2.5 ${contactOnline ? 'text-emerald-500 fill-emerald-500' : 'text-slate-400 fill-slate-400'}`} />
+                  )}
                   <span className="text-xs text-slate-500">
-                    {isConnected 
-                      ? (isGroup ? `${participantsCount} miembros · En tiempo real` : 'Conectado en tiempo real') 
-                      : 'Conectando...'}
+                    {!isConnected
+                      ? 'Conectando...'
+                      : isGroup
+                        ? `${participantsCount} miembros · En tiempo real`
+                        : contactOnline ? 'En línea' : 'Desconectado'}
                   </span>
                 </>
               )}

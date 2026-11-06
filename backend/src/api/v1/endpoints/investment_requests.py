@@ -22,25 +22,8 @@ async def read_investment_requests(
     """
     return await InvestmentRequestService.get_investment_requests(db, page=page, limit=limit, search=search)
 
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investments.manage"))])
-async def bulk_upload_investment_requests(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and create multiple investment requests in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    try:
-        csv_text = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8.")
-        
-    result = await InvestmentRequestService.bulk_create_investment_requests(db, csv_text)
-    return result
-
 from src.api.deps import get_current_user
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 class ApproveRequestPayload(BaseModel):
     commercial_id: Optional[int] = None
@@ -48,6 +31,7 @@ class ApproveRequestPayload(BaseModel):
 class RejectRequestPayload(BaseModel):
     rejection_reason: str
 
+    @field_validator('rejection_reason')
     @classmethod
     def validate_reason(cls, v: str) -> str:
         clean = (v or "").strip()
@@ -56,10 +40,6 @@ class RejectRequestPayload(BaseModel):
         if len(set(clean.lower().replace(" ", ""))) < 4:
             raise ValueError("Por favor ingrese un motivo de rechazo válido y descriptivo para el usuario.")
         return clean
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.rejection_reason = self.validate_reason(self.rejection_reason)
 
 @router.post("/{request_id}/approve", dependencies=[Depends(RequirePermission("admin.investments.approve"))])
 async def approve_investment_request(
@@ -73,7 +53,7 @@ async def approve_investment_request(
     Optionally accepts commercial_id to adjudicate sale volume.
     """
     c_id = payload.commercial_id if payload else None
-    return await InvestmentRequestService.approve_request(db, request_id, current_user.id, override_commercial_id=c_id)
+    return await InvestmentRequestService.approve_request(db, request_id, current_user.id, override_commercial_id=c_id, actor=current_user)
 
 @router.post("/{request_id}/reject", dependencies=[Depends(RequirePermission("admin.investments.reject"))])
 async def reject_investment_request(
@@ -85,4 +65,4 @@ async def reject_investment_request(
     """
     Reject an investment request.
     """
-    return await InvestmentRequestService.reject_request(db, request_id, current_user.id, payload.rejection_reason)
+    return await InvestmentRequestService.reject_request(db, request_id, current_user.id, payload.rejection_reason, actor=current_user)

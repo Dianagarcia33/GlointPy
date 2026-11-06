@@ -2,9 +2,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { APP_DISPLAY_VERSION } from '../../constants/appVersion';
 
+// Fijo al borde inferior solo desde tablet (md): en celular el pie se apila en columna y fijo tapaba cerca de un tercio de la pantalla.
 export const DashboardFooter = () => {
     return (
-        <footer className="sticky bottom-0 z-40 w-full mt-auto bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-6 py-3 transition-all">
+        <footer className="md:sticky md:bottom-0 z-40 w-full mt-auto bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-6 py-3 transition-all">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-2">
                     <span className="text-[13px] font-medium text-slate-400">© {new Date().getFullYear()} GLOINT. Todos los derechos reservados.</span>

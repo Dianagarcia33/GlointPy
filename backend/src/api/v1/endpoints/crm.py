@@ -1,19 +1,39 @@
+from src.core.errors import public_error_detail
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Request
+from src.core.rate_limiter import contact_form_rate_limiter
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 
 from src.core.database import get_db
 from src.models.user import User
 from src.core.pbac import PBACEngine
 from src.api.dependencies.auth_deps import get_current_user, RequirePermission
-from src.services.crm_service import CRMService
+from src.services.crm_service import CRMService, validate_project_dates
 from src.schemas.commercial_sale import CommercialSaleCreate
 from src.services.commercial_sale_service import register_commercial_sale
 
 router = APIRouter(prefix="/crm", tags=["CRM"])
 
 # Pydantic Schemas
+# Límites de las columnas de crm_projects: así un dato fuera de rango se rechaza con un mensaje
+# claro antes de llegar a la base de datos (H-136)
+PROJECT_STATUSES = ("activo", "en_pausa", "meta_alcanzada", "archivado")
+MAX_PROJECT_TARGET = 9_999_999_999_999.99  # Numeric(15, 2)
+
+
+def _validate_project_fields(code, name, target_amount, status, start_date=None, end_date=None):
+    if code is not None and not (1 <= len(code.strip()) <= 50):
+        raise ValueError("El código del proyecto debe tener entre 1 y 50 caracteres.")
+    if name is not None and not (1 <= len(name.strip()) <= 255):
+        raise ValueError("El nombre del proyecto debe tener entre 1 y 255 caracteres.")
+    if target_amount is not None and not (0 < target_amount <= MAX_PROJECT_TARGET):
+        raise ValueError("La meta de recaudación debe ser mayor a $0 y como máximo $9.999.999.999.999,99.")
+    if status is not None and status not in PROJECT_STATUSES:
+        raise ValueError("Estado de proyecto no válido. Usa activo, en_pausa, meta_alcanzada o archivado.")
+    validate_project_dates(start_date, end_date)
+
+
 class ProjectCreateSchema(BaseModel):
     code: str
     name: str
@@ -23,6 +43,11 @@ class ProjectCreateSchema(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
 
+    @model_validator(mode="after")
+    def validate_limits(self):
+        _validate_project_fields(self.code, self.name, self.target_amount, self.status, self.start_date, self.end_date)
+        return self
+
 class ProjectUpdateSchema(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
@@ -31,6 +56,11 @@ class ProjectUpdateSchema(BaseModel):
     status: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_limits(self):
+        _validate_project_fields(self.code, self.name, self.target_amount, self.status, self.start_date, self.end_date)
+        return self
 
 class LeadCreateSchema(BaseModel):
     project_id: int
@@ -73,13 +103,27 @@ class ChatbotLeadCreateSchema(BaseModel):
     preferred_contact_time: Optional[str] = None
     notes: Optional[str] = None
 
+class ChatbotHistoryItem(BaseModel):
+    role: str
+    content: str
+
+class ChatbotAIMessageSchema(BaseModel):
+    message: str
+    history: Optional[List[ChatbotHistoryItem]] = []
+
 class ExternalFormLeadSchema(BaseModel):
     name: Optional[str] = None
+    nombre: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    telefono: Optional[str] = None
     city: Optional[str] = None
     company: Optional[str] = None
+    texto: Optional[str] = None
+    text: Optional[str] = None
     message: Optional[str] = None
+    mensaje: Optional[str] = None
+    body: Optional[str] = None
     estimated_amount: Optional[float] = 0.0
     metadata: Optional[dict] = None
 
@@ -89,10 +133,15 @@ class ContactFormLeadSchema(BaseModel):
     email: Optional[str] = None
     telefono: Optional[str] = None
     phone: Optional[str] = None
-    asunto: Optional[str] = None
-    subject: Optional[str] = None
+    texto: Optional[str] = None
+    text: Optional[str] = None
     mensaje: Optional[str] = None
     message: Optional[str] = None
+    body: Optional[str] = None
+    description: Optional[str] = None
+    # Asunto es totalmente opcional y NO se espera desde sitios externos
+    asunto: Optional[str] = None
+    subject: Optional[str] = None
     proyecto: Optional[str] = None
     project_code: Optional[str] = None
     company: Optional[str] = None
@@ -107,36 +156,41 @@ class CreateFormKeySchema(BaseModel):
 @router.post("/public/contact-form")
 async def register_public_contact_form(
     data: ContactFormLeadSchema,
+    request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     authorization: Optional[str] = Header(None, alias="Authorization"),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint centralizado para recibir formularios de contacto de Gloint y de proyectos externos.
-    Campos idénticos al formulario de contacto oficial:
+    Endpoint centralizado para recibir formularios de contacto de Gloint y de sitios externos.
+    Los sitios externos NO necesitan ni deben enviar asunto; solo envían el texto o mensaje:
       - nombre (o name)
-      - email
+      - email (opcional)
       - telefono (o phone)
-      - asunto (o subject)
-      - mensaje (o message)
+      - texto (o mensaje / message / text)
       - proyecto (o project_code / X-API-Key)
     Asigna de forma equitativa (Round-Robin) estricta a los usuarios con rol Directivo de Inversión
     y dispara notificaciones por correo de inmediato.
     """
+    # Límite por IP para que la API pública no se pueda usar para inundar el CRM (H-138)
+    contact_form_rate_limiter.check_rate_limit(request)
+    contact_form_rate_limiter.record_failed_attempt(request)
+
     app_name_override = None
     raw_key = x_api_key or authorization
     if raw_key:
+        # Si se envía una clave, tiene que ser válida y estar activa. Antes cualquier error se
+        # ignoraba y el lead se registraba igual, así que desactivar una clave no cortaba el acceso.
         raw_clean = raw_key.replace("Bearer ", "").strip()
-        try:
-            form_key = await CRMService.authenticate_form_key(db, raw_clean)
+        form_key = await CRMService.find_form_key(db, raw_clean)
+        if form_key:
+            form_key = await CRMService.authenticate_form_key(db, raw_clean)  # 403 si está desactivada
+            await CRMService.record_form_key_usage(db, form_key)
             app_name_override = form_key.project.name if form_key.project else form_key.name
-        except Exception:
-            try:
-                from src.services.external_app_service import ExternalAppService
-                app = await ExternalAppService.authenticate_api_key(db, raw_clean)
-                app_name_override = app.name
-            except Exception:
-                pass
+        else:
+            from src.services.external_app_service import ExternalAppService
+            app = await ExternalAppService.authenticate_api_key(db, raw_clean)  # 401 si es inválida o inactiva
+            app_name_override = app.name
 
     return await CRMService.register_contact_form_lead(
         db=db,
@@ -155,6 +209,25 @@ async def register_public_chatbot_lead(
     Asigna equitativamente (Round-Robin) a los Directivos de Inversión y envía notificaciones por correo.
     """
     return await CRMService.register_chatbot_lead(db, data.dict())
+
+
+@router.post("/public/chatbot-message")
+async def process_public_chatbot_message(
+    data: ChatbotAIMessageSchema,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint público para procesar mensajes de texto libre con el Concierge de Inteligencia Artificial (Gemini),
+    utilizando el archivo Markdown de conocimiento y datos en tiempo real de paquetes y plazos.
+    """
+    from src.services.gemini_service import GeminiService
+    history_dicts = [{"role": h.role, "content": h.content} for h in (data.history or [])]
+    return await GeminiService.generate_response(
+        message=data.message,
+        history=history_dicts,
+        db=db
+    )
+
 
 
 @router.post("/public/external-form")
@@ -224,8 +297,10 @@ async def create_crm_project(
     try:
         project = await CRMService.create_project(db, data.dict())
         return {"message": "Proyecto creado exitosamente", "id": project.id, "code": project.code}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al crear el proyecto: {str(e)}")
+        raise HTTPException(status_code=400, detail=public_error_detail("Error al crear el proyecto", e))
 
 
 @router.put("/projects/{project_id}", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
@@ -242,7 +317,7 @@ async def update_crm_project(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al actualizar el proyecto: {str(e)}")
+        raise HTTPException(status_code=400, detail=public_error_detail("Error al actualizar el proyecto", e))
 
 
 @router.delete("/projects/{project_id}", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
@@ -258,7 +333,7 @@ async def delete_crm_project(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al eliminar el proyecto: {str(e)}")
+        raise HTTPException(status_code=400, detail=public_error_detail("Error al eliminar el proyecto", e))
 
 
 @router.get("/projects/{project_id}/leads", dependencies=[Depends(RequirePermission("crm:view"))])
@@ -312,6 +387,22 @@ async def update_lead_stage(
     if not updated:
         raise HTTPException(status_code=404, detail="Prospecto no encontrado")
     return {"message": "Etapa actualizada correctamente", "data": updated}
+
+
+class LeadArchiveSchema(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/leads/{lead_id}/archive", dependencies=[Depends(RequirePermission("crm:leads:manage"))])
+async def archive_lead(
+    lead_id: int,
+    data: LeadArchiveSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Archiva un prospecto de prueba, duplicado o spam (borrado lógico, H-139)."""
+    result = await CRMService.archive_lead(db, lead_id, current_user, data.reason)
+    return {"message": "Prospecto archivado correctamente", "data": result}
 
 
 @router.get("/leads/{lead_id}/activities", dependencies=[Depends(RequirePermission("crm:view"))])
@@ -373,7 +464,7 @@ async def convert_lead_to_sale(
             "lead_id": lead.id
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al registrar la venta comercial: {str(e)}")
+        raise HTTPException(status_code=400, detail=public_error_detail("Error al registrar la venta comercial", e))
 
 
 # ==========================================

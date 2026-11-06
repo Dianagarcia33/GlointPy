@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from datetime import timedelta
 from typing import List, Optional
 
 from src.core.database import get_db
@@ -13,7 +14,11 @@ from src.schemas.security import AssignRoleToUser
 from src.models.user import User
 from src.models.security import Role
 from src.services.user_service import UserService
-from src.api.deps import RequirePermission, get_current_user
+from src.services.audit_trail_service import log_audit_trail
+from src.api.deps import RequirePermission, get_current_user, get_auth_payload
+from src.core.security import create_access_token
+from src.core.config import settings
+from src.services.device_session_service import DeviceSessionService
 
 router = APIRouter()
 
@@ -41,35 +46,56 @@ async def update_my_profile(
 @router.post("/me/change-password")
 async def change_my_password(
     pwd_in: UserChangePassword,
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
+    auth_payload: dict = Depends(get_auth_payload),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Permite al usuario cambiar su contraseña validando la contraseña actual.
+    Cierra las demás sesiones de la cuenta; esta sigue activa con un token nuevo (cookie y campo access_token).
     """
-    return await UserService.change_password(db, current_user.id, pwd_in.current_password, pwd_in.new_password)
+    result = await UserService.change_password(db, current_user.id, pwd_in.current_password, pwd_in.new_password, actor=current_user)
+
+    # Si es una sesión de supervisión (imp_by), se conserva el vínculo con el tutor
+    carried = {k: auth_payload[k] for k in ("imp_by", "imp_tv", "sid") if k in auth_payload}
+    # Sesión de la app móvil: el dispositivo que cambió la clave sigue vivo con la versión nueva (los demás caen)
+    session_id = auth_payload.get("sid")
+    await DeviceSessionService.keep_session_alive(db, session_id, current_user.id, result["token_version"])
+    access_token = create_access_token(
+        subject=current_user.id,
+        token_version=result["token_version"],
+        expires_delta=timedelta(minutes=settings.MOBILE_ACCESS_TOKEN_MINUTES) if session_id else None,
+        extra_claims=carried or None,
+    )
+    from src.api.v1.endpoints.auth import set_auth_cookie
+    set_auth_cookie(response, access_token, request=request)
+    return {"message": result["message"], "access_token": access_token, "token_type": "bearer"}
 
 @router.post("/admin/force-profile-update", dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def force_profile_update(
     data: ForceProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Fuerza a los usuarios a actualizar sus datos la próxima vez que ingresen/naveguen.
     Puede aplicarse a todos los usuarios o a un listado específico de IDs.
     """
-    return await UserService.force_profile_update(db, data.user_ids, data.force_all)
+    return await UserService.force_profile_update(db, data.user_ids, data.force_all, actor=current_user)
 
 @router.post("/{user_id}/toggle-force-profile", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def toggle_force_profile(
     user_id: int,
     force_value: Optional[bool] = Query(None, description="Valor explícito opcional (true/false). Si se omite, invierte el valor actual."),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Fuerza o desmarca individualmente la actualización obligatoria de perfil de un usuario.
     """
-    return await UserService.toggle_force_profile_update(db, user_id, force_value)
+    return await UserService.toggle_force_profile_update(db, user_id, force_value, actor=current_user)
 
 @router.get("/my-children", response_model=List[UserResponse])
 async def get_my_children(
@@ -95,7 +121,7 @@ async def get_my_children(
 @router.get("", response_model=UserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def list_users(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=50000),
     search: Optional[str] = None,
     role_id: Optional[int] = None,
     is_active: Optional[bool] = None,
@@ -108,29 +134,34 @@ async def list_users(
     return await UserService.get_all_users(db, page, limit, search, role_id, is_active, has_wallet)
 
 @router.post("/{user_id}/create-wallet", dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def create_user_wallet(user_id: int, db: AsyncSession = Depends(get_db)):
+async def create_user_wallet(user_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Crea una billetera para un usuario que no tenga una asignada.
     """
-    return await UserService.create_wallet_for_user(db, user_id)
+    return await UserService.create_wallet_for_user(db, user_id, actor=current_user)
 
 @router.post("", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def create_user(user_in: UserCreateAdmin, db: AsyncSession = Depends(get_db)):
+async def create_user(user_in: UserCreateAdmin, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Crea un usuario desde el panel admin (con contraseña temporal).
     """
-    return await UserService.create_user_admin(db, user_in.model_dump())
+    return await UserService.create_user_admin(db, user_in.model_dump(), actor=current_user)
 
 @router.put("/{user_id}", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def update_user(user_id: int, user_in: UserUpdateAdmin, db: AsyncSession = Depends(get_db)):
+async def update_user(user_id: int, user_in: UserUpdateAdmin, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Actualiza la información de un usuario desde el panel admin.
     """
     update_data = user_in.model_dump(exclude_unset=True)
-    return await UserService.update_user_admin(db, user_id, update_data)
+    return await UserService.update_user_admin(db, user_id, update_data, actor=current_user)
 
 @router.post("/{user_id}/roles", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def assign_roles(user_id: int, assign_data: AssignRoleToUser, db: AsyncSession = Depends(get_db)):
+async def assign_roles(
+    user_id: int, 
+    assign_data: AssignRoleToUser, 
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Asigna un conjunto de roles a un usuario específico.
     Sobrescribe los roles anteriores con los nuevos proporcionados en la lista.
@@ -149,37 +180,96 @@ async def assign_roles(user_id: int, assign_data: AssignRoleToUser, db: AsyncSes
     else:
         new_roles = []
         
+    # Blindaje contra escalada de privilegios (H-150 / H-35):
+    # Solo un SuperAdmin puede asignar o despojar el rol SuperAdmin
+    had_super = any(r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (user.roles or []))
+    will_have_super = any(r.name.lower() in ["superadmin", "super admin", "superuser"] for r in new_roles)
+    
+    if had_super or will_have_super:
+        caller_is_super = current_user and (
+            getattr(current_user, 'is_superuser', False) or any(
+                r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (current_user.roles or [])
+            )
+        )
+        if not caller_is_super:
+            raise HTTPException(
+                status_code=403,
+                detail="Solo un SuperAdministrador puede otorgar o remover el rol SuperAdmin."
+            )
     # 3. Reasignar
     user.roles = new_roles
     
     await db.commit()
     await db.refresh(user)
+
+    # Registro inmutable en Audit Trail (H-65)
+    role_names = [r.name for r in new_roles]
+    await log_audit_trail(
+        db=db,
+        action="USER_ROLES_ASSIGN",
+        module="users",
+        user=current_user,
+        entity_type="User",
+        entity_id=user_id,
+        description=f"Reasignación de roles para usuario '{user.name}' ({user.email}). Nuevos roles: {', '.join(role_names) if role_names else 'Sin roles'}",
+        details={"user_id": user_id, "new_roles": role_names}
+    )
     
     return user
 
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def bulk_upload_users(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Sube un archivo CSV y crea usuarios masivamente.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    try:
-        csv_text = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8.")
-        
-    result = await UserService.bulk_create_users(db, csv_text)
-    return result
-
 @router.post("/{user_id}/reset-password", dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def reset_user_password(user_id: int, db: AsyncSession = Depends(get_db)):
+async def reset_user_password(
+    user_id: int, 
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Restablece la contraseña de un usuario a la clave temporal '123456789' y fuerza el cambio de contraseña al ingresar.
+    Restablece la contraseña de un usuario a una clave temporal aleatoria segura y fuerza el cambio de contraseña al ingresar (H-76).
     """
-    return await UserService.reset_user_password(db, user_id)
+    res = await UserService.reset_user_password(db, user_id, current_user=current_user)
+
+    # Registro inmutable en Audit Trail (H-65)
+    await log_audit_trail(
+        db=db,
+        action="USER_PASSWORD_RESET",
+        module="users",
+        user=current_user,
+        entity_type="User",
+        entity_id=user_id,
+        description=f"Restablecimiento de contraseña forzado para usuario ID #{user_id}",
+        details={"target_user_id": user_id},
+        request=request
+    )
+
+    return res
+
+@router.post("/{user_id}/revoke-sessions", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def revoke_user_sessions_endpoint(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cierra todas las sesiones abiertas de un usuario en todos sus dispositivos (cuenta comprometida, equipo perdido).
+    El usuario deberá iniciar sesión de nuevo; su contraseña no cambia.
+    """
+    res = await UserService.revoke_sessions(db, user_id, current_user=current_user)
+
+    await log_audit_trail(
+        db=db,
+        action="USER_SESSIONS_REVOKED",
+        module="users",
+        user=current_user,
+        entity_type="User",
+        entity_id=user_id,
+        description=f"Cierre de todas las sesiones del usuario ID #{user_id}",
+        details={"target_user_id": user_id},
+        request=request
+    )
+
+    return res
 
 @router.get("/statement/global", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage", "admin.payments.manage", "admin.audits.manage", "admin.roles.manage"]))])
 async def get_global_statement(

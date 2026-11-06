@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, Text, DateTime, Boolean, Numeric, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, BigInteger, Integer, String, Text, DateTime, Boolean, Numeric, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -70,6 +70,9 @@ class CRMLead(Base):
     source = Column(String(100), nullable=True, default="Directo")  # 'Web', 'Referido', 'Evento', 'Directo'
     commercial_id = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     loss_reason = Column(String(255), nullable=True)
+    # Borrado lógico (H-139): un lead archivado (prueba, duplicado o spam) deja de verse en el CRM
+    archived_at = Column(DateTime, nullable=True, index=True)
+    archived_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -110,6 +113,9 @@ class CRMFormKey(Base):
     project_id = Column(BigInteger, ForeignKey("crm_projects.id", ondelete="CASCADE"), nullable=False, index=True)
     api_key = Column(String(120), unique=True, nullable=False, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Uso de la clave en el formulario público (H-138)
+    usage_count = Column(Integer, default=0, nullable=False, server_default="0")
+    last_used_at = Column(DateTime, nullable=True)
     created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

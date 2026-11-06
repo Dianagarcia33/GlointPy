@@ -23,11 +23,17 @@ export interface SarlaftCheckResponse {
         infos?: any[];
       };
     };
+    tusdatos_status?: string;
+    tusdatos_hallazgos_corregidos?: boolean;
     created_at?: string;
   } | null;
 }
 
 export const sarlaftService = {
+  async getMyCheck(): Promise<SarlaftCheckResponse> {
+    return await fetchApi('/sarlaft/me');
+  },
+
   async getCheckByUser(userId: number): Promise<SarlaftCheckResponse> {
     return await fetchApi(`/sarlaft/user/${userId}`);
   },
@@ -47,5 +53,22 @@ export const sarlaftService = {
 
   getPdfUrl(checkId: number): string {
     return getMediaUrl(`/api/v1/sarlaft/pdf/${checkId}`);
+  },
+
+  async validateExistingInvestors(): Promise<{ message: string; processed_users: number; updated_count: number; reverted_count?: number }> {
+    return await fetchApi('/sarlaft/admin/validate-existing-investors', {
+      method: 'POST'
+    });
+  },
+
+  async setUserStatus(data: {
+    user_id: number;
+    status: 'approved' | 'pending' | 'rejected';
+    justification?: string;
+  }): Promise<{ success: boolean; message: string; status: string; check_id: number }> {
+    return await fetchApi('/sarlaft/admin/set-status', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };

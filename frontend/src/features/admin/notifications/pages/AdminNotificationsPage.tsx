@@ -16,7 +16,12 @@ import {
   Smartphone, 
   Sparkles,
   Info,
-  Radio
+  Radio,
+  AlertCircle,
+  RefreshCw,
+  X,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { 
   notificationAdminService, 
@@ -24,6 +29,7 @@ import {
   TargetOptionsResponse 
 } from '../../../../services/notificationAdmin';
 
+import { Skeleton, SkeletonRegion } from '../../../../components/common/Skeleton';
 export const AdminNotificationsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'send' | 'history'>('send');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -34,10 +40,14 @@ export const AdminNotificationsPage: React.FC = () => {
   const [type, setType] = useState<'sistema' | 'anuncio' | 'mantenimiento' | 'alerta'>('sistema');
   const [targetAudience, setTargetAudience] = useState<'all' | 'role' | 'specific_users'>('all');
   const [targetRoleId, setTargetRoleId] = useState<number | undefined>(undefined);
+  const [availableRoles, setAvailableRoles] = useState<Array<{ id: number; name: string; description?: string }>>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [selectedUsersMap, setSelectedUsersMap] = useState<Map<number, { id: number; name: string; email: string; document_id?: string }>>(new Map());
   const [link, setLink] = useState('');
   const [sendPush, setSendPush] = useState(true);
   const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [userPage, setUserPage] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // History Search
@@ -48,24 +58,53 @@ export const AdminNotificationsPage: React.FC = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  // Query Options (Roles & Users list)
-  const { data: targetOptions, isLoading: isLoadingOptions } = useQuery<TargetOptionsResponse>({
-    queryKey: ['admin_notification_target_options'],
-    queryFn: () => notificationAdminService.getTargetOptions()
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(userSearchTerm);
+      setUserPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [userSearchTerm]);
+
+  // Query Options (Roles & Users list with server-side search)
+  const { 
+    data: targetOptions, 
+    isLoading: isLoadingOptions, 
+    isFetching: isFetchingOptions,
+    isError: isErrorOptions, 
+    error: optionsError, 
+    refetch: refetchOptions 
+  } = useQuery<TargetOptionsResponse>({
+    queryKey: ['admin_notification_target_options', debouncedSearch, userPage],
+    queryFn: () => notificationAdminService.getTargetOptions({
+      search: debouncedSearch.trim() || undefined,
+      page: userPage,
+      limit: 50
+    })
   });
 
   // Query History
-  const { data: historyList, isLoading: isLoadingHistory, refetch: refetchHistory } = useQuery<AdminBroadcastLogItem[]>({
+  const { 
+    data: historyList, 
+    isLoading: isLoadingHistory, 
+    isError: isErrorHistory, 
+    error: historyError, 
+    refetch: refetchHistory 
+  } = useQuery<AdminBroadcastLogItem[]>({
     queryKey: ['admin_notification_history'],
     queryFn: () => notificationAdminService.getBroadcastHistory(50),
     enabled: activeTab === 'history'
   });
 
   useEffect(() => {
-    if (targetOptions?.roles && targetOptions.roles.length > 0 && !targetRoleId) {
-      setTargetRoleId(targetOptions.roles[0].id);
+    if (targetOptions?.roles && targetOptions.roles.length > 0) {
+      setAvailableRoles(targetOptions.roles);
+      if (!targetRoleId) {
+        setTargetRoleId(targetOptions.roles[0].id);
+      }
     }
-  }, [targetOptions]);
+  }, [targetOptions?.roles]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,6 +138,10 @@ export const AdminNotificationsPage: React.FC = () => {
       setMessage('');
       setLink('');
       setSelectedUserIds([]);
+      setSelectedUsersMap(new Map());
+      setUserSearchTerm('');
+      setDebouncedSearch('');
+      setUserPage(1);
 
       refetchHistory();
     } catch (err: any) {
@@ -108,19 +151,38 @@ export const AdminNotificationsPage: React.FC = () => {
     }
   };
 
-  const toggleUserSelection = (userId: number) => {
-    if (selectedUserIds.includes(userId)) {
-      setSelectedUserIds(selectedUserIds.filter(id => id !== userId));
-    } else {
-      setSelectedUserIds([...selectedUserIds, userId]);
-    }
+  const toggleUserSelection = (u: { id: number; name: string; email: string; document_id?: string }) => {
+    setSelectedUserIds((prev) => {
+      if (prev.includes(u.id)) {
+        return prev.filter(id => id !== u.id);
+      } else {
+        return [...prev, u.id];
+      }
+    });
+
+    setSelectedUsersMap((prev) => {
+      const next = new Map(prev);
+      if (next.has(u.id)) {
+        next.delete(u.id);
+      } else {
+        next.set(u.id, u);
+      }
+      return next;
+    });
   };
 
-  const filteredUsers = targetOptions?.users.filter(u => 
-    u.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-    (u.document_id && u.document_id.includes(userSearchTerm))
-  ) || [];
+  const removeSelectedUser = (userId: number) => {
+    setSelectedUserIds((prev) => prev.filter(id => id !== userId));
+    setSelectedUsersMap((prev) => {
+      const next = new Map(prev);
+      next.delete(userId);
+      return next;
+    });
+  };
+
+  const currentUsers = targetOptions?.users || [];
+  const totalUsersCount = targetOptions?.total_users ?? currentUsers.length;
+  const totalPages = Math.ceil(totalUsersCount / (targetOptions?.limit || 50));
 
   const filteredHistory = historyList?.filter(item => 
     item.title.toLowerCase().includes(historySearch.toLowerCase()) ||
@@ -155,65 +217,162 @@ export const AdminNotificationsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Main Executive Banner */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-brand-500/20 text-brand-300 rounded-full text-xs font-bold border border-brand-500/30 flex items-center gap-1.5">
-              <Radio className="w-3.5 h-3.5 animate-pulse text-brand-400" />
-              Módulo de Difusión Masiva
-            </span>
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <Radio className="w-6 h-6" />
+              </div>
+              <span>Notificaciones Administrativas</span>
+            </h1>
+            <button
+              onClick={() => {
+                refetchOptions();
+                if (activeTab === 'history') refetchHistory();
+              }}
+              disabled={isFetchingOptions || isLoadingHistory}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${isFetchingOptions || isLoadingHistory ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Notificaciones Administrativas
-          </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
+          <p className="text-slate-500 text-sm mt-1 font-normal">
             Envío de comunicados oficiales, avisos de mantenimiento, actualizaciones del sistema y alertas push masivas o segmentadas.
           </p>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="relative z-10 flex bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700/80 backdrop-blur-sm shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
+            type="button"
             onClick={() => setActiveTab('send')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
-              activeTab === 'send' 
-                ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-            }`}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white px-4 sm:px-5 py-2.5 rounded-xl transition-all shadow-md shadow-brand-500/20 text-xs font-bold font-montserrat cursor-pointer whitespace-nowrap"
           >
             <Send className="w-4 h-4" />
-            Redactar Comunicado
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
-              activeTab === 'history' 
-                ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            Historial de Envíos
+            <span>Nuevo Comunicado</span>
           </button>
         </div>
+      </div>
+
+      {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1 */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Historial Envíos
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <Radio className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {isLoadingHistory ? '...' : (historyList?.length ?? 0)}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            comunicados registrados
+          </span>
+        </div>
+
+        {/* KPI 2 */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Total Destinatarios
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {isLoadingOptions ? '...' : totalUsersCount}
+          </span>
+          <span className="text-[11px] text-emerald-600 font-medium block truncate">
+            usuarios en la plataforma
+          </span>
+        </div>
+
+        {/* KPI 3 */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-blue-700 font-bold uppercase tracking-wider block font-montserrat">
+              Roles Disponibles
+            </span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-blue-700 block tracking-tight font-mono">
+            {availableRoles.length || targetOptions?.roles?.length || 0}
+          </span>
+          <span className="text-[11px] text-blue-600 font-medium block truncate">
+            segmentaciones activas
+          </span>
+        </div>
+
+        {/* KPI 4 */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Alertas y Avisos
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
+            {historyList ? historyList.filter(h => h.type === 'alerta' || h.type === 'mantenimiento').length : 0}
+          </span>
+          <span className="text-[11px] text-amber-600 font-medium block truncate">
+            avisos emitidos
+          </span>
+        </div>
+      </div>
+
+      {/* Tabs Selector Cápsula */}
+      <div className="flex bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveTab('send')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
+            activeTab === 'send' 
+              ? 'bg-white text-brand-700 shadow-2xs' 
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Send className="w-3.5 h-3.5" />
+          <span>Redactar Comunicado</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
+            activeTab === 'history' 
+              ? 'bg-white text-brand-700 shadow-2xs' 
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <History className="w-3.5 h-3.5" />
+          <span>Historial de Envíos ({historyList?.length ?? 0})</span>
+        </button>
       </div>
 
       {/* Tab 1: Redactar y Enviar Comunicado */}
       {activeTab === 'send' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Formulario Principal (8 columnas) */}
-          <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-6">
+          {/* Formulario Principal (7 columnas) */}
+          <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-100 space-y-6">
             
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-brand-50 text-brand-700 rounded-2xl">
+                <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs">
                   <Send className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 text-lg">Nueva Notificación</h3>
+                  <h3 className="font-bold text-slate-800 text-lg font-montserrat">Nueva Notificación</h3>
                   <p className="text-xs text-slate-500">Configura la audiencia y el contenido del comunicado</p>
                 </div>
               </div>
@@ -330,17 +489,37 @@ export const AdminNotificationsPage: React.FC = () => {
                     <label className="block text-xs font-bold text-slate-800">
                       Selecciona el Rol Destinatario *
                     </label>
-                    <select
-                      value={targetRoleId || ''}
-                      onChange={(e) => setTargetRoleId(Number(e.target.value))}
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                    >
-                      {targetOptions?.roles.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name} {r.description ? `(${r.description})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    {isLoadingOptions && availableRoles.length === 0 ? (
+                      <SkeletonRegion label="Cargando roles…">
+                        <Skeleton className="h-11 w-full rounded-xl" />
+                      </SkeletonRegion>
+                    ) : isErrorOptions && availableRoles.length === 0 ? (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>Error al cargar roles: {(optionsError as any)?.message || 'No se pudieron obtener los datos.'}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => refetchOptions()}
+                          className="px-2.5 py-1 bg-white border border-rose-300 rounded-lg text-[11px] font-bold text-rose-700 hover:bg-rose-100 cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Reintentar
+                        </button>
+                      </div>
+                    ) : (
+                      <select
+                        value={targetRoleId || ''}
+                        onChange={(e) => setTargetRoleId(Number(e.target.value))}
+                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                      >
+                        {(availableRoles.length > 0 ? availableRoles : (targetOptions?.roles || [])).map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} {r.description ? `(${r.description})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 )}
 
@@ -351,43 +530,137 @@ export const AdminNotificationsPage: React.FC = () => {
                       <label className="block text-xs font-bold text-slate-800">
                         Buscar y Seleccionar Usuarios ({selectedUserIds.length} seleccionados)
                       </label>
+                      {selectedUsersMap.size > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedUserIds([]);
+                            setSelectedUsersMap(new Map());
+                          }}
+                          className="text-[11px] text-rose-600 hover:text-rose-800 font-semibold cursor-pointer"
+                        >
+                          Deseleccionar todos
+                        </button>
+                      )}
                     </div>
 
+                    {/* Chips de usuarios seleccionados */}
+                    {selectedUsersMap.size > 0 && (
+                      <div className="flex flex-wrap gap-1.5 p-2 bg-white border border-slate-200 rounded-xl max-h-24 overflow-y-auto">
+                        {Array.from(selectedUsersMap.values()).map((u) => (
+                          <span
+                            key={u.id}
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-brand-50 text-brand-800 text-[11px] font-semibold rounded-lg border border-brand-200"
+                          >
+                            <span className="truncate max-w-[150px]">{u.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeSelectedUser(u.id)}
+                              className="text-brand-400 hover:text-rose-600 cursor-pointer"
+                              title="Quitar de destinatarios"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Campo de búsqueda con debounce */}
                     <div className="relative">
                       <input
                         type="text"
                         value={userSearchTerm}
                         onChange={(e) => setUserSearchTerm(e.target.value)}
-                        placeholder="Filtrar por nombre, email o cédula..."
-                        className="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                        placeholder="Buscar por nombre, email o cédula en toda la base..."
+                        className="w-full pl-9 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                       />
                       <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                      {isFetchingOptions && (
+                        <Loader2 className="w-4 h-4 animate-spin text-brand-500 absolute right-3 top-2.5" />
+                      )}
                     </div>
 
-                    <div className="max-h-48 overflow-y-auto space-y-1 bg-white p-2 border border-slate-200 rounded-xl divide-y divide-slate-100">
-                      {filteredUsers.map((u) => {
-                        const isChecked = selectedUserIds.includes(u.id);
-                        return (
-                          <label
-                            key={u.id}
-                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
-                              isChecked ? 'bg-brand-50/80 text-brand-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                            }`}
-                          >
-                            <div className="space-y-0.5">
-                              <span className="block">{u.name}</span>
-                              <span className="text-[11px] text-slate-400 font-normal">{u.email} {u.document_id ? `• Doc: ${u.document_id}` : ''}</span>
+                    {isLoadingOptions ? (
+                      <div className="flex items-center justify-center p-8 text-xs text-slate-500 bg-white border border-slate-200 rounded-xl gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
+                        <span>Cargando usuarios...</span>
+                      </div>
+                    ) : isErrorOptions ? (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                          <span>Error al cargar usuarios: {(optionsError as any)?.message || 'No se pudieron obtener los datos.'}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => refetchOptions()}
+                          className="px-2.5 py-1 bg-white border border-rose-300 rounded-lg text-[11px] font-bold text-rose-700 hover:bg-rose-100 cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Reintentar
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="max-h-48 overflow-y-auto space-y-1 bg-white p-2 border border-slate-200 rounded-xl divide-y divide-slate-100">
+                          {currentUsers.length === 0 ? (
+                            <div className="text-center py-6 text-slate-400 text-xs">
+                              {debouncedSearch ? 'No se encontraron usuarios con ese criterio de búsqueda' : 'No hay usuarios disponibles'}
                             </div>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => toggleUserSelection(u.id)}
-                              className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer"
-                            />
-                          </label>
-                        );
-                      })}
-                    </div>
+                          ) : (
+                            currentUsers.map((u) => {
+                              const isChecked = selectedUserIds.includes(u.id);
+                              return (
+                                <label
+                                  key={u.id}
+                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                    isChecked ? 'bg-brand-50/80 text-brand-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                                  }`}
+                                >
+                                  <div className="space-y-0.5">
+                                    <span className="block">{u.name}</span>
+                                    <span className="text-[11px] text-slate-400 font-normal">{u.email} {u.document_id ? `• Doc: ${u.document_id}` : ''}</span>
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => toggleUserSelection(u)}
+                                    className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer"
+                                  />
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Paginación */}
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500">
+                            <span>
+                              Página {userPage} de {totalPages} ({totalUsersCount} usuarios)
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={userPage <= 1 || isFetchingOptions}
+                                onClick={() => setUserPage((p) => Math.max(1, p - 1))}
+                                className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 cursor-pointer inline-flex items-center gap-0.5 font-bold"
+                              >
+                                <ChevronLeft className="w-3 h-3" /> Ant
+                              </button>
+                              <button
+                                type="button"
+                                disabled={userPage >= totalPages || isFetchingOptions}
+                                onClick={() => setUserPage((p) => p + 1)}
+                                className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 cursor-pointer inline-flex items-center gap-0.5 font-bold"
+                              >
+                                Sig <ChevronRight className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -556,11 +829,11 @@ export const AdminNotificationsPage: React.FC = () => {
 
       {/* Tab 2: Historial de Comunicados Masivos */}
       {activeTab === 'history' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-6">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-100 space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
             <div>
-              <h3 className="font-bold text-slate-800 text-lg">Historial de Comunicaciones Enviadas</h3>
-              <p className="text-xs text-slate-500">Registro completo y auditoría de notificaciones masivas</p>
+              <h3 className="font-bold text-slate-800 text-lg font-montserrat">Historial de Comunicaciones Enviadas</h3>
+              <p className="text-xs text-slate-500 font-normal">Registro completo y auditoría de notificaciones masivas</p>
             </div>
 
             <div className="relative w-full sm:w-72">
@@ -569,7 +842,7 @@ export const AdminNotificationsPage: React.FC = () => {
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 placeholder="Buscar en historial..."
-                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             </div>
@@ -580,19 +853,34 @@ export const AdminNotificationsPage: React.FC = () => {
               <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
               <span className="text-xs font-semibold">Cargando historial de envíos...</span>
             </div>
+          ) : isErrorHistory ? (
+            <div className="text-center py-16 bg-rose-50/50 rounded-2xl border border-dashed border-rose-200 space-y-3">
+              <AlertCircle className="w-10 h-10 text-rose-500 mx-auto" />
+              <p className="text-sm font-bold text-rose-800">Error al cargar el historial</p>
+              <p className="text-xs text-rose-600 max-w-sm mx-auto">
+                {(historyError as any)?.message || 'No se pudo conectar con el servidor para obtener las comunicaciones.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => refetchHistory()}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer inline-flex items-center gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Reintentar
+              </button>
+            </div>
           ) : filteredHistory.length === 0 ? (
             <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-3">
               <History className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700">No hay comunicaciones registradas</p>
+              <p className="text-sm font-bold text-slate-700 font-montserrat">No hay comunicaciones registradas</p>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
                 Las notificaciones masivas o avisos de sistema que transmitas aparecerán registradas aquí.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-2xs">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-400 font-bold uppercase tracking-wider text-[11px] font-montserrat">
                     <th className="py-3 px-4">Fecha</th>
                     <th className="py-3 px-4">Tipo</th>
                     <th className="py-3 px-4">Título & Mensaje</th>

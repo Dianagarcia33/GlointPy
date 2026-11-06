@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Nav as Navbar } from '../../landing_v2/components/Nav';
 import { Footer } from '../../landing_v2/components/Footer';
-import { ShieldCheck, FileText, Lock, Eye, Mail, Server, ChevronRight } from 'lucide-react';
+import { ShieldCheck, FileText, Lock, Eye, Mail, Server, ChevronRight, Cookie } from 'lucide-react';
+import { useCookieConsentStore } from '../../../store/cookieConsentStore';
 import { CONTACT_INFO } from '../../../constants/contactInfo';
 
 export const PrivacyPolicyPage = () => {
@@ -54,6 +55,17 @@ export const PrivacyPolicyPage = () => {
             title: "6. Canales para la Atención de Consultas y Reclamos",
             icon: <Mail className="w-5 h-5 text-brand-500" />,
             content: `Para ejercer tus derechos de Hábeas Data, puedes enviar tu solicitud por escrito al correo electrónico ${CONTACT_INFO.pqrsEmail} o a la dirección física ${CONTACT_INFO.fullAddress}. Las peticiones se resolverán dentro de los términos legalmente establecidos (10 días hábiles para consultas, 15 días hábiles para reclamos).`
+        },
+        {
+            title: "7. Cookies y Almacenamiento en el Navegador",
+            icon: <Cookie className="w-5 h-5 text-brand-500" />,
+            content: `Usamos únicamente lo necesario para que tu sesión funcione y sea segura y, solo si lo autorizas, una preferencia para recordar tu última sala de chat. No usamos cookies de publicidad ni de analítica. Puedes cambiar tu decisión en cualquier momento desde "Configurar cookies" y borrar lo guardado desde los ajustes de tu navegador.`,
+            list: [
+                "Necesarias (siempre activas): la cookie de sesión (access_token), los datos locales de sesión (auth-storage y gloint_last_activity_time, que cierra la sesión tras 5 minutos de inactividad), el token de notificaciones push (gloint_fcm_token, solo si aceptas el permiso del navegador), el PIN de la evaluación técnica y los avisos temporales del evento.",
+                "Preferencias (opcionales): recordar la última sala de chat abierta (gloint_active_chat_room_id).",
+                "Servicios de terceros: Google Fonts carga las tipografías y recibe tu dirección IP al hacerlo; Firebase, de Google, entrega las notificaciones push cuando las activas.",
+            ],
+            cookieSettings: true
         }
     ];
 
@@ -92,6 +104,16 @@ export const PrivacyPolicyPage = () => {
                             <p className="text-slate-600 text-sm leading-relaxed">
                                 {sec.content}
                             </p>
+                            {sec.cookieSettings && (
+                                <button
+                                    type="button"
+                                    onClick={() => useCookieConsentStore.getState().openPreferences()}
+                                    className="mt-2 inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-800 hover:border-slate-900 transition-colors"
+                                >
+                                    <Cookie className="w-4 h-4" />
+                                    Configurar cookies
+                                </button>
+                            )}
                             {sec.list && (
                                 <ul className="space-y-2 mt-3 pl-2">
                                     {sec.list.map((item, iIdx) => (

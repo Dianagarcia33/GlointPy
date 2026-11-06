@@ -28,7 +28,7 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
     withdrawalDateMessage,
     bankInfo
 }) => {
-    const [step, setStep] = useState<1 | 2>(1);
+    const [step, setStep] = useState<1 | 2 | 3>(1);
     const [loading, setLoading] = useState(false);
     const [code, setCode] = useState('');
     const [error, setError] = useState('');
@@ -94,11 +94,19 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                     bank_account_id: selectedAccountId
                 })
             });
-            onSuccess();
+            setStep(3);
         } catch (err: any) {
             setError(err.message || 'Código inválido o expirado. Por favor verifica.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleModalClose = () => {
+        if (step === 3) {
+            onSuccess();
+        } else {
+            onClose();
         }
     };
 
@@ -108,9 +116,9 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                 <div className="flex justify-between items-center p-6 border-b border-slate-100">
                     <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
                         <DollarSign className="w-5 h-5 text-brand-500" />
-                        Retiro de Capital
+                        {step === 3 ? 'Confirmación de Retiro' : 'Retiro de Capital'}
                     </h3>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+                    <button onClick={handleModalClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -130,7 +138,7 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                         </div>
                     )}
 
-                    {step === 1 ? (
+                    {step === 1 && (
                         <div className="space-y-6">
                             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
                                 <div className="flex justify-between text-sm">
@@ -199,10 +207,12 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                                 {loading ? 'Enviando...' : 'Solicitar Código por Correo'}
                             </button>
                         </div>
-                    ) : (
-                        <div className="space-y-6 text-center">
-                            <div className="w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle2 className="w-8 h-8" />
+                    )}
+
+                    {step === 2 && (
+                        <div className="space-y-6 text-center animate-in fade-in zoom-in duration-200">
+                            <div className="w-16 h-16 bg-blue-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <DollarSign className="w-8 h-8" />
                             </div>
                             <div>
                                 <h4 className="font-bold text-slate-900 text-lg mb-2">Revisa tu correo</h4>
@@ -220,12 +230,71 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                                 className="w-full p-4 text-center text-3xl font-bold tracking-[0.5em] bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all"
                             />
 
-                            <button 
-                                onClick={handleConfirm}
-                                disabled={loading || code.length !== 6}
-                                className="w-full py-3.5 rounded-xl font-bold text-sm bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md shadow-brand-500/20"
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(1)}
+                                    disabled={loading}
+                                    className="py-3.5 px-4 rounded-xl font-bold text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                                >
+                                    Atrás
+                                </button>
+                                <button 
+                                    onClick={handleConfirm}
+                                    disabled={loading || code.length !== 6}
+                                    className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md shadow-brand-500/20"
+                                >
+                                    {loading ? 'Verificando...' : 'Confirmar Retiro'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div className="space-y-6 text-center animate-in fade-in zoom-in duration-200">
+                            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                                <CheckCircle2 className="w-9 h-9" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-slate-900 text-xl font-montserrat mb-1.5">
+                                    ¡Retiro Solicitado con Éxito!
+                                </h4>
+                                <p className="text-xs text-slate-500 leading-relaxed px-2">
+                                    Tu solicitud de retiro de capital ha sido registrada y está siendo procesada para su transferencia bancaria.
+                                </p>
+                            </div>
+
+                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-left space-y-2.5 text-xs">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500 font-medium">Monto Solicitado:</span>
+                                    <span className="font-semibold text-slate-800">{formatCurrency(montoDisponible)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-500 font-medium">Costo Operativo (3.2%):</span>
+                                    <span className="font-semibold text-red-500">-{formatCurrency(tax)}</span>
+                                </div>
+                                <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
+                                    <span className="font-bold text-slate-900">Monto a Transferir:</span>
+                                    <span className="font-bold text-base text-brand-600">{formatCurrency(netAmount)}</span>
+                                </div>
+                                {activeBankInfo && (
+                                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-[11px]">
+                                        <span className="text-slate-500 font-medium">Cuenta de Destino:</span>
+                                        <span className="font-semibold text-slate-700">
+                                            {activeBankInfo.banco} ({activeBankInfo.tipo_cuenta}) •••{String(activeBankInfo.numero_cuenta).slice(-4)}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onSuccess();
+                                }}
+                                className="w-full py-3.5 rounded-xl font-bold text-sm bg-brand-500 hover:bg-brand-600 text-white transition-colors shadow-md shadow-brand-500/20 cursor-pointer"
                             >
-                                {loading ? 'Verificando...' : 'Confirmar Retiro'}
+                                Entendido
                             </button>
                         </div>
                     )}

@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import datetime
+from pydantic import BaseModel, Field, field_validator
+from typing import Any, Optional, List
+from datetime import datetime, timedelta
 
 # --- Esquemas de Valoración & Creación de Acciones ---
 class SharePriceUpdate(BaseModel):
@@ -48,7 +48,13 @@ class ShareIssuanceOut(BaseModel):
 # --- Esquemas de Mercado Secundario / Ofertas P2P ---
 class ShareListingCreate(BaseModel):
     shares_quantity: int = Field(..., gt=0, description="Cantidad de acciones a poner en venta")
-    price_per_share: float = Field(..., gt=0, description="Precio unitario por acción en COP")
+    # H-238 (decisión de negocio): el precio de una oferta SIEMPRE es el precio oficial vigente que
+    # fija el administrador; nadie puede cambiarlo. El campo se conserva solo por compatibilidad con
+    # clientes existentes (web/móvil): si llega, el servidor lo IGNORA (no se valida ni se usa).
+    price_per_share: Optional[Any] = Field(
+        default=None,
+        description="DEPRECADO/IGNORADO: el servidor usa el precio oficial vigente.",
+    )
 
 class ShareListingOut(BaseModel):
     id: int
@@ -152,4 +158,16 @@ class AdminManualShareGrant(BaseModel):
     operation: Optional[str] = Field("add", description="Tipo de operación: 'add' (sumar/acreditar) o 'deduct' (restar/descontar)")
     reason: str = Field(..., min_length=3, max_length=500, description="Motivo / concepto del ajuste manual")
     custom_date: Optional[datetime] = Field(None, description="Fecha de acreditación/deducción personalizada opcional")
+
+    @field_validator("custom_date")
+    @classmethod
+    def validate_custom_date(cls, v: Optional[datetime]) -> Optional[datetime]:
+        if v:
+            now = datetime.utcnow()
+            target = v.replace(tzinfo=None) if v.tzinfo else v
+            if target > now + timedelta(minutes=5):
+                raise ValueError("La fecha de acreditación/deducción no puede ser futura.")
+            if target < now - timedelta(days=365):
+                raise ValueError("La fecha no puede ser anterior a un año atrás (período contable cerrado).")
+        return v
 

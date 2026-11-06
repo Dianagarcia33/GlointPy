@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from src.core.search import like_contains, LIKE_ESCAPE
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -8,7 +9,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
 from src.core.database import get_db
-from src.api.deps import RequirePermission
+from src.api.deps import RequirePermission, get_current_user
 from src.models.user import User
 from src.models.investor import Investor
 from src.schemas.user import UserResponse
@@ -34,9 +35,11 @@ from src.models.wallet import Wallet, WalletTransaction
 from src.models.withdrawal import Withdrawal
 from pydantic import computed_field
 from dateutil.relativedelta import relativedelta
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from src.schemas.acceleration import AccelerationResponse
+from src.services.audit_trail_service import audit_in_tx
+from src.core.audit_context import audit_request_ctx
 
 class SimpleInvestorAuditResponse(InvestorBase):
     id: int
@@ -65,15 +68,11 @@ class SimpleInvestorAuditResponse(InvestorBase):
     @computed_field
     @property
     def dias_totales(self) -> int:
+        # Regla única de vigencia (H-140): días del periodo - días acelerados, no meses de calendario
+        from src.services.contract_terms import contract_days
         if not self.period:
             return 1
-        base_date = self.start_date or datetime.utcnow()
-        if self.period.months:
-            fecha_fin_orig = base_date + relativedelta(months=self.period.months)
-            dias_orig = (fecha_fin_orig.date() - base_date.date()).days
-        else:
-            dias_orig = int(self.period.days or 0)
-        return max(1, int(round(dias_orig - self.total_days_reduced)))
+        return max(1, contract_days(self))
 
     @computed_field
     @property
@@ -81,15 +80,15 @@ class SimpleInvestorAuditResponse(InvestorBase):
         base_date = self.start_date or datetime.utcnow()
         if not self.period:
             return base_date
-        return base_date + relativedelta(days=self.dias_totales)
+        return datetime.combine(base_date.date(), datetime.min.time()) + timedelta(days=self.dias_totales)
 
     @computed_field
     @property
     def dias_transcurridos(self) -> int:
         if not self.start_date:
             return 0
-        from datetime import date
-        today = date.today()
+        from src.core.timezone import get_colombia_today
+        today = get_colombia_today()
         start = self.start_date.date() if isinstance(self.start_date, datetime) else self.start_date
         diff = (today - start).days
         return max(0, diff)
@@ -97,9 +96,10 @@ class SimpleInvestorAuditResponse(InvestorBase):
     @computed_field
     @property
     def capital_diario(self) -> float:
+        from src.services.contract_terms import exact_contract_days
         total = self.capital_total
-        dias = self.dias_totales
-        return (total / dias) if dias > 0 else 0.0
+        dias = float(exact_contract_days(self))
+        return (total / dias) if dias > 0 else total
 
     @computed_field
     @property
@@ -121,8 +121,10 @@ class SimpleInvestorAuditResponse(InvestorBase):
         retirado = 0.0
         if self.withdrawals:
             for w in self.withdrawals:
-                tipo = str(getattr(w, 'tipo', '')).lower()
-                estado = str(getattr(w, 'estado', '')).lower()
+                # .value: str() de un Enum da "WithdrawalType.CAPITAL", nunca "capital" (H-167)
+                tipo_raw, estado_raw = getattr(w, 'tipo', ''), getattr(w, 'estado', '')
+                tipo = str(getattr(tipo_raw, 'value', tipo_raw)).lower()
+                estado = str(getattr(estado_raw, 'value', estado_raw)).lower()
                 if tipo == "capital" and estado in ["pendiente", "aprobado", "procesado"]:
                     retirado += float(getattr(w, 'monto', 0) or getattr(w, 'monto_neto', 0) or 0)
         return retirado
@@ -220,10 +222,14 @@ async def get_audit_logs(
     status: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    user_id: Optional[int] = Query(None, ge=1, description="Filtra por el id exacto del usuario que realizó la acción"),
+    kind: Optional[str] = Query(None, pattern="^(detailed|generic|all)$",
+                                description="detailed = registros con antes/después; generic = HTTP_WRITE automáticos; all/omitido = todos"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Retorna la pista de auditoría inmutable de seguridad y acciones administrativas (Audit Trail).
+    Los registros genéricos automáticos (action=HTTP_WRITE, H-65) se distinguen con `kind`.
     """
     from src.models.audit_log import AuditLog
 
@@ -233,21 +239,29 @@ async def get_audit_logs(
         query = query.where(AuditLog.module == module)
         
     if action:
-        query = query.where(AuditLog.action.ilike(f"%{action}%"))
+        query = query.where(AuditLog.action.ilike(like_contains(action), escape=LIKE_ESCAPE))
         
     if status and status != "all":
         query = query.where(AuditLog.status == status)
+
+    if user_id:
+        query = query.where(AuditLog.user_id == user_id)
+
+    if kind == "generic":
+        query = query.where(AuditLog.action == "HTTP_WRITE")
+    elif kind == "detailed":
+        query = query.where(AuditLog.action != "HTTP_WRITE")
         
     if search:
-        search_term = f"%{search}%"
+        search_term = like_contains(search)
         query = query.where(
             or_(
-                AuditLog.user_name.ilike(search_term),
-                AuditLog.user_email.ilike(search_term),
-                AuditLog.action.ilike(search_term),
-                AuditLog.description.ilike(search_term),
-                AuditLog.entity_id.ilike(search_term),
-                AuditLog.ip_address.ilike(search_term)
+                AuditLog.user_name.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.user_email.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.action.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.description.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.entity_id.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.ip_address.ilike(search_term, escape=LIKE_ESCAPE)
             )
         )
         
@@ -288,6 +302,53 @@ async def get_audit_logs(
         "modules": sorted(list(set(modules)))
     }
 
+@router.get("/ledger-continuity", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def check_ledger_continuity(
+    tolerance: float = Query(1.0, ge=0, description="Diferencia máxima aceptada por redondeo (COP)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Revisa la continuidad del libro mayor de billeteras (H-169): en cada billetera, ordenada por fecha
+    e id, el saldo resultante de un movimiento debe ser el saldo anterior ± su monto. Devuelve los
+    movimientos donde no se cumple (faltan asientos intermedios o se cambió el saldo sin asiento).
+    """
+    from src.models.wallet import Wallet, WalletTransaction
+    rows = (await db.execute(
+        select(WalletTransaction.id, WalletTransaction.wallet_id, WalletTransaction.created_at,
+               WalletTransaction.type, WalletTransaction.amount, WalletTransaction.balance_after,
+               Wallet.user_id, User.name)
+        .join(Wallet, Wallet.id == WalletTransaction.wallet_id)
+        .join(User, User.id == Wallet.user_id)
+        .order_by(WalletTransaction.wallet_id, WalletTransaction.created_at, WalletTransaction.id)
+    )).all()
+
+    breaks = []
+    prev = None
+    pairs = 0
+    for r in rows:
+        if prev is not None and prev.wallet_id == r.wallet_id:
+            pairs += 1
+            expected = float(prev.balance_after or 0) + float(r.amount or 0)
+            diff = float(r.balance_after or 0) - expected
+            if abs(diff) > tolerance:
+                breaks.append({
+                    "transaction_id": r.id,
+                    "wallet_id": r.wallet_id,
+                    "user_id": r.user_id,
+                    "user_name": r.name,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "type": r.type,
+                    "previous_balance": float(prev.balance_after or 0),
+                    "amount": float(r.amount or 0),
+                    "balance_after": float(r.balance_after or 0),
+                    "expected_balance": expected,
+                    "difference": diff,
+                })
+        prev = r
+
+    return {"transactions": len(rows), "pairs_checked": pairs, "breaks": breaks}
+
+
 @router.get("/users", response_model=AuditUserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def get_audit_users(
     page: int = Query(1, ge=1),
@@ -298,12 +359,12 @@ async def get_audit_users(
     query = select(User)
     
     if search:
-        search_term = f"%{search}%"
+        search_term = like_contains(search)
         query = query.where(
             or_(
-                User.name.ilike(search_term),
-                User.email.ilike(search_term),
-                User.document_id.ilike(search_term)
+                User.name.ilike(search_term, escape=LIKE_ESCAPE),
+                User.email.ilike(search_term, escape=LIKE_ESCAPE),
+                User.document_id.ilike(search_term, escape=LIKE_ESCAPE)
             )
         )
         
@@ -358,6 +419,7 @@ async def preview_investment_yield(
 async def pay_investment_yield(
     investment_id: int,
     request: PayYieldRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     query = select(Investor).where(Investor.id == investment_id).options(
@@ -382,6 +444,7 @@ async def pay_investment_yield(
         raise HTTPException(status_code=400, detail="El usuario no tiene una billetera activa")
         
     # Update balance
+    balance_before = wallet.balance
     wallet.balance += calc_result.total_yield
     
     # Create transaction
@@ -395,7 +458,14 @@ async def pay_investment_yield(
         balance_after=wallet.balance
     )
     db.add(transaction)
-    
+
+    await audit_in_tx(
+        db, "YIELD_PAY_INVESTMENT", "audit", current_user, "Investor", investment.id,
+        f"Pago manual de rendimiento del contrato {investment.assigned_code or investment.id} por ${float(calc_result.total_yield):,.0f}",
+        {"investor_id": investment.id, "usuario_id": investment.user_id, "wallet_id": wallet.id,
+         "desde": str(calc_result.effective_start_date), "hasta": str(calc_result.effective_end_date),
+         "monto": float(calc_result.total_yield), "saldo_antes": float(balance_before), "saldo_despues": float(wallet.balance)},
+    )
     await db.commit()
     return {"message": "Pago de rendimiento procesado exitosamente", "amount_paid": calc_result.total_yield}
 
@@ -444,6 +514,7 @@ async def preview_user_yields(
 async def pay_user_yields(
     user_id: int,
     request: PayUserYieldRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     query = select(User).where(User.id == user_id).options(
@@ -509,6 +580,7 @@ async def pay_user_yields(
         raise HTTPException(status_code=400, detail="No hay rendimientos ni bonos para pagar en este ciclo según el modo seleccionado")
         
     current_balance = user.wallet.balance
+    balance_before = current_balance
     
     for obj in db.new:
         if isinstance(obj, WalletTransaction):
@@ -516,6 +588,14 @@ async def pay_user_yields(
             obj.balance_after = current_balance
             
     user.wallet.balance = current_balance
+    await audit_in_tx(
+        db, "YIELD_PAY_USER", "audit", current_user, "User", user.id,
+        f"Pago manual de rendimientos/bonos al usuario #{user.id} por ${float(grand_total):,.0f}",
+        {"usuario_id": user.id, "wallet_id": user.wallet.id, "desde": str(request.start_date), "hasta": str(request.end_date),
+         "modo": request.pay_mode or "all", "monto_rendimientos": float(total_yield),
+         "monto_bonos": float(total_acceleration_bonus), "monto_total": float(grand_total),
+         "contratos": len(investments_yields), "saldo_antes": float(balance_before), "saldo_despues": float(current_balance)},
+    )
     await db.commit()
     
     return {
@@ -530,6 +610,8 @@ async def pay_user_yields(
 async def update_acceleration_date(
     acceleration_id: int,
     req: UpdateAccelerationDateRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     from src.models.acceleration import Acceleration
@@ -545,13 +627,29 @@ async def update_acceleration_date(
     except Exception:
         raise HTTPException(status_code=400, detail="Formato de fecha inválido")
         
+    previous_date = acc.created_at.isoformat() if acc.created_at else None
     acc.created_at = new_date
     await db.commit()
     await db.refresh(acc)
+
+    # Registro en el Audit Trail (H-65): cambiar la fecha de un bono es un dato financiero
+    from src.services.audit_trail_service import log_audit_trail
+    await log_audit_trail(
+        db=db,
+        action="ACCELERATION_DATE_UPDATE",
+        module="audit",
+        user=current_user,
+        request=request,
+        entity_type="Acceleration",
+        entity_id=acceleration_id,
+        description=f"Cambio de fecha del bono de aceleración #{acceleration_id}",
+        details={"investor_id": getattr(acc, "investor_id", None), "before": previous_date, "after": acc.created_at.isoformat()},
+    )
     return {"message": "Fecha del bono de aceleración actualizada exitosamente", "id": acc.id, "created_at": acc.created_at.isoformat()}
 
 
 @router.get("/users/{user_id}/wallet-transactions", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+@router.get("/users/{user_id}/wallet-history", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def get_user_wallet_transactions(
     user_id: int,
     db: AsyncSession = Depends(get_db)
@@ -569,8 +667,10 @@ async def get_user_wallet_transactions(
     return transactions
 
 @router.post("/users/{user_id}/create-wallet", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+@router.post("/wallets/{user_id}", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def create_user_wallet(
     user_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     query = select(User).where(User.id == user_id).options(selectinload(User.wallet))
@@ -589,6 +689,12 @@ async def create_user_wallet(
         status="active"
     )
     db.add(new_wallet)
+    await db.flush()
+    await audit_in_tx(
+        db, "WALLET_CREATE", "wallets", current_user, "Wallet", new_wallet.id,
+        f"Creación de la billetera #{new_wallet.id} del usuario #{user.id}",
+        {"wallet_id": new_wallet.id, "usuario_id": user.id},
+    )
     await db.commit()
     
     return {"message": "Billetera creada exitosamente"}
@@ -675,102 +781,106 @@ async def bulk_calculate_yields(
 @router.post("/bulk-pay-yields", response_model=BulkPayYieldResult, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def bulk_pay_yields(
     request: PayUserYieldRequest,
+    req: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Ejecuta masivamente la transferencia de rendimientos y bonos de aceleración a las wallets de todos los usuarios beneficiarios.
+    Aplica blindaje de idempotencia (no duplica si ya fue pagado) y genera un registro de auditoría forense inmutable.
     """
-    from decimal import Decimal
+    from src.services.daily_yield_service import DailyYieldService
 
-    pay_mode = request.pay_mode or "all"
-    include_yields = pay_mode in ("all", "yields_only")
-    include_bonuses = pay_mode in ("all", "bonuses_only")
+    ip = (audit_request_ctx.get() or {}).get("ip") or (req.client.host if req.client else None)
+    ua = req.headers.get("user-agent")
 
-    query = select(User).options(
-        selectinload(User.wallet),
-        selectinload(User.investments).selectinload(Investor.package),
-        selectinload(User.investments).selectinload(Investor.period),
-        selectinload(User.investments).selectinload(Investor.withdrawals),
-        selectinload(User.investments).selectinload(Investor.accelerations)
+    res = await DailyYieldService.execute_yield_dispersal(
+        db=db,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        pay_mode=request.pay_mode or "all",
+        is_automatic=False,
+        triggered_by_user=current_user,
+        ip_address=ip,
+        user_agent=ua
     )
-    result = await db.execute(query)
-    users = result.scalars().all()
-
-    total_users_paid = 0
-    global_yield_total = Decimal("0.00")
-    global_acceleration_bonus_total = Decimal("0.00")
-    global_grand_total = Decimal("0.00")
-
-    for user in users:
-        if not user.investments:
-            continue
-
-        user_yield_total = Decimal("0.00")
-        user_acc_bonus_total = Decimal("0.00")
-        transactions_to_add = []
-
-        for investment in user.investments:
-            calc_res = calculate_investment_yield(investment, request.start_date, request.end_date)
-            
-            if include_yields and calc_res.total_yield > 0:
-                user_yield_total += calc_res.total_yield
-                transactions_to_add.append({
-                    "amount": calc_res.total_yield,
-                    "type": "ingreso",
-                    "reference_type": "rendimiento_inversion",
-                    "reference_id": investment.id,
-                    "description": f"Rendimiento del {calc_res.effective_start_date} al {calc_res.effective_end_date} (Inv. {investment.assigned_code})"
-                })
-
-            if include_bonuses and calc_res.acceleration_bonus > 0:
-                user_acc_bonus_total += calc_res.acceleration_bonus
-                transactions_to_add.append({
-                    "amount": calc_res.acceleration_bonus,
-                    "type": "ingreso",
-                    "reference_type": "bono_aceleracion",
-                    "reference_id": investment.id,
-                    "description": f"Bono de aceleración de inversión {investment.assigned_code}"
-                })
-
-        user_grand_total = user_yield_total + user_acc_bonus_total
-
-        if user_grand_total > 0 and transactions_to_add:
-            # Ensure wallet exists
-            wallet = user.wallet
-            if not wallet:
-                wallet = Wallet(user_id=user.id, balance=Decimal("0.00"), status="active")
-                db.add(wallet)
-                await db.flush()
-
-            current_balance = wallet.balance
-            for tx_data in transactions_to_add:
-                current_balance += tx_data["amount"]
-                tx = WalletTransaction(
-                    wallet_id=wallet.id,
-                    amount=tx_data["amount"],
-                    type=tx_data["type"],
-                    reference_type=tx_data["reference_type"],
-                    reference_id=tx_data["reference_id"],
-                    description=tx_data["description"],
-                    balance_after=current_balance
-                )
-                db.add(tx)
-
-            wallet.balance = current_balance
-            total_users_paid += 1
-            global_yield_total += user_yield_total
-            global_acceleration_bonus_total += user_acc_bonus_total
-            global_grand_total += user_grand_total
-
-    await db.commit()
 
     return BulkPayYieldResult(
-        message=f"Transferencia masiva ({pay_mode}) ejecutada exitosamente a las billeteras",
+        message=res["message"],
         requested_start_date=request.start_date,
         requested_end_date=request.end_date,
-        total_users_paid=total_users_paid,
-        global_yield_total=global_yield_total,
-        global_acceleration_bonus_total=global_acceleration_bonus_total,
-        global_grand_total=global_grand_total
+        total_users_paid=res["total_users_paid"],
+        global_yield_total=res["global_yield_total"],
+        global_acceleration_bonus_total=res["global_acceleration_bonus_total"],
+        global_grand_total=res["global_grand_total"]
     )
+
+
+@router.post("/execute-daily-automatic", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def trigger_daily_automatic(
+    req: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Fuerza bajo demanda la ejecución de la liquidación automática diaria correspondiente al día inmediatamente anterior (ayer -> hoy).
+    """
+    from src.services.daily_yield_service import DailyYieldService
+    from src.core.timezone import get_colombia_today
+    from datetime import timedelta
+
+    today_cot = get_colombia_today()
+    yesterday_cot = today_cot - timedelta(days=1)
+
+    ip = (audit_request_ctx.get() or {}).get("ip") or (req.client.host if req.client else None)
+    ua = req.headers.get("user-agent")
+
+    return await DailyYieldService.execute_yield_dispersal(
+        db=db,
+        start_date=yesterday_cot,
+        end_date=today_cot,
+        pay_mode="all",
+        is_automatic=True,
+        triggered_by_user=current_user,
+        ip_address=ip,
+        user_agent=ua
+    )
+
+
+@router.get("/yield-batches", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def get_yield_batches(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene el historial de lotes de dispersión ejecutados (automáticos y manuales) para control y auditoría.
+    """
+    from src.services.daily_yield_service import DailyYieldService
+    return await DailyYieldService.get_historical_batches(db=db, limit=limit)
+
+
+class RollbackBatchRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/yield-batches/{batch_id}/rollback", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def rollback_yield_batch_endpoint(
+    batch_id: str,
+    payload: Optional[RollbackBatchRequest] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reversa de manera segura e inmutable un lote de dispersión de rendimientos, debitando los saldos y generando contrapartidas contables (EGRESO).
+    """
+    from src.services.daily_yield_service import DailyYieldService
+    try:
+        return await DailyYieldService.rollback_yield_batch(
+            db=db,
+            batch_id=batch_id,
+            operator_user=current_user,
+            reason=payload.reason if payload else None
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 

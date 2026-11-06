@@ -67,6 +67,8 @@ export interface CRMFormKey {
   project_code: string;
   api_key: string;
   is_active: boolean;
+  usage_count?: number;
+  last_used_at?: string | null;
   created_at: string;
   updated_at?: string;
 }
@@ -142,6 +144,13 @@ export const crmService = {
     });
   },
 
+  archiveLead: async (leadId: number, reason?: string): Promise<any> => {
+    return fetchApi(`/crm/leads/${leadId}/archive`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason || null })
+    });
+  },
+
   updateLeadStage: async (leadId: number, data: {
     stage: string;
     loss_reason?: string;
@@ -203,12 +212,27 @@ export const crmService = {
     });
   },
 
+  sendChatbotAIMessage: async (
+    message: string,
+    history: Array<{ role: 'user' | 'model'; content: string }> = []
+  ): Promise<{
+    success: boolean;
+    reply: string;
+    needs_key?: boolean;
+  }> => {
+    return fetchApi('/crm/public/chatbot-message', {
+      method: 'POST',
+      body: JSON.stringify({ message, history })
+    });
+  },
+
   registerContactForm: async (data: {
     nombre: string;
     email?: string;
     telefono?: string;
     asunto?: string;
     mensaje?: string;
+    texto?: string;
     proyecto?: string;
     metadata?: Record<string, any>;
   }): Promise<{

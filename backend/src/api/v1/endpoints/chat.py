@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 import os
 import uuid
 import shutil
@@ -9,6 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from jose import jwt, JWTError
+from src.core.session_revocation import is_session_current
+from src.core.csrf import origin_allowed, request_host
+
+
+def ws_origin_ok(websocket) -> bool:
+    """Navegadores envían Origin en el handshake; apps nativas no. Si viene, debe ser propio o de la lista blanca."""
+    return origin_allowed(
+        websocket.headers.get("origin"),
+        request_host({k.lower().encode(): v for k, v in websocket.headers.items()}),
+        settings.get_credentialed_origins(),
+    )
 
 from src.core.database import get_db, async_session_maker
 from src.core.config import settings
@@ -249,6 +261,20 @@ async def forward_message_endpoint(
             detail="No tienes permiso para reenviar este mensaje"
         )
 
+    # Destinos: solo chats en los que participa (o administra el chat) y personas que existan
+    can_manage = PBACEngine.has_permission(current_user, "admin.chat.manage")
+    for target_room_id in set(body.target_room_ids):
+        if not can_manage and not await ChatService.is_participant(db, target_room_id, current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No eres participante de uno de los chats de destino"
+            )
+    target_users = {uid for uid in body.target_user_ids if uid != current_user.id}
+    if target_users:
+        found = (await db.execute(select(User.id).where(User.id.in_(target_users)))).scalars().all()
+        if len(set(found)) != len(target_users):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Uno de los usuarios de destino no existe")
+
     try:
         results = await ChatService.forward_message(
             db=db,
@@ -262,7 +288,7 @@ async def forward_message_endpoint(
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al reenviar mensaje: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al reenviar mensaje", e))
 
 @router.post("/upload", dependencies=[Depends(RequirePermission("chat:send"))])
 async def upload_chat_file(
@@ -358,14 +384,23 @@ async def upload_chat_file(
 async def websocket_chat_endpoint(
     websocket: WebSocket,
     room_id: int,
-    token: str = Query(...)
+    token: Optional[str] = Query(None)
 ):
     """Endpoint en tiempo real para transmisión de mensajes mediante WebSockets con guardas PBAC."""
     await websocket.accept()
+    # Defensa extra contra secuestro de WebSocket entre sitios: si el navegador envía Origin debe ser propio
+    if not ws_origin_ok(websocket):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+        return
 
-    # 1. Autenticar JWT desde query token
+    # 1. Autenticar JWT desde cookie HttpOnly o query token
+    auth_token = websocket.cookies.get("access_token") or token
+    if not auth_token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token de autenticación no proporcionado")
+        return
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if not user_id:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido")
@@ -385,6 +420,10 @@ async def websocket_chat_endpoint(
 
         if not user or not user.is_active or not PBACEngine.has_permission(user, "chat:view"):
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Acceso denegado: permiso chat:view requerido")
+            return
+
+        if not await is_session_current(db, payload, user):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Sesión revocada o expirada")
             return
 
         # Verificar membresía de sala (o permiso admin)
@@ -480,12 +519,21 @@ async def websocket_chat_endpoint(
 @router.websocket("/ws/notifications/global")
 async def websocket_global_notifications(
     websocket: WebSocket,
-    token: str = Query(...)
+    token: Optional[str] = Query(None)
 ):
     """Endpoint en tiempo real para notificaciones globales del usuario (sin sala específica)."""
-    # 1. Autenticar JWT desde query token
+    # Defensa extra contra secuestro de WebSocket entre sitios: si el navegador envía Origin debe ser propio
+    if not ws_origin_ok(websocket):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+        return
+    # 1. Autenticar JWT desde cookie HttpOnly o query token
+    auth_token = websocket.cookies.get("access_token") or token
+    if not auth_token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token de autenticación no proporcionado")
+        return
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id_str: str = payload.get("sub")
         if not user_id_str:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido")
@@ -502,6 +550,10 @@ async def websocket_global_notifications(
         user = user_res.scalars().first()
         if not user or not user.is_active:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Usuario inactivo o no encontrado")
+            return
+
+        if not await is_session_current(db, payload, user):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Sesión revocada o expirada")
             return
 
     # Conectar al manager usando el nuevo método user-only

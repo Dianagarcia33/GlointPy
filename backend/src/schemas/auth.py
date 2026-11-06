@@ -1,17 +1,45 @@
-from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, Any
+import re
+from datetime import datetime
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from typing import Optional, Any, Literal
 
 from src.schemas.user import UserResponse
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    refresh_token: Optional[str] = None
+    refresh_token: Optional[str] = None   # solo en sesiones de la app móvil
+    expires_in: Optional[int] = None      # segundos de vida del access_token (solo app móvil)
+    session_id: Optional[int] = None      # id de la sesión del dispositivo (solo app móvil)
     user: Optional[UserResponse] = None
-    
+
+
+class ClientInfo(BaseModel):
+    """Datos del dispositivo. Si se envían en el login, se abre una sesión móvil con token de refresco."""
+    device_id: str = Field(..., min_length=8, max_length=100)  # identificador estable de la instalación
+    device_name: Optional[str] = Field(None, max_length=150)
+    platform: Optional[Literal["ios", "android"]] = None
+    app_version: Optional[str] = Field(None, max_length=30)
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=10, max_length=300)
+
+
+class DeviceSessionOut(BaseModel):
+    id: int
+    device_name: Optional[str] = None
+    platform: Optional[str] = None
+    app_version: Optional[str] = None
+    created_at: datetime
+    last_used_at: datetime
+    current: bool = False
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    client: Optional[ClientInfo] = None
 
 class RegisterRequest(BaseModel):
     name: str
@@ -23,22 +51,51 @@ class InvestorRegisterRequest(BaseModel):
     name: str
     documento: str
     tipo_documento: str
+    fecha_expedicion: Optional[str] = None
     email: EmailStr
     password: str
     numero_celular: str
     fecha_nacimiento: str
     ciudad: str
-    banco: str
-    tipo_cuenta: str
-    numero_cuenta: str
-    monto: float
-    paquete_id: int
+    banco: Optional[str] = None
+    tipo_cuenta: Optional[str] = None
+    numero_cuenta: Optional[str] = None
+    monto: Optional[float] = None
+    paquete_id: Optional[int] = None
     periodo_id: Optional[int] = None
     contract_period_id: Optional[int] = None
-    comprobante_path: str
+    comprobante_path: Optional[str] = None
     kyc_docs: Optional[Any] = None
+    biometric_verified: Optional[bool] = False
+    biometric_similarity: Optional[float] = None
+    biometric_attempts: Optional[int] = 0
+    requires_manual_review: Optional[bool] = False
     referred_by: Optional[str] = None
     commercial_id: Optional[int] = None
+
+    @field_validator("numero_celular")
+    @classmethod
+    def validate_numero_celular(cls, v: str) -> str:
+        # Celular colombiano de 10 dígitos que empieza por 3 (H-148)
+        clean = re.sub(r"[\s\-\(\)\.]", "", (v or "").strip())
+        if clean.startswith("+57"):
+            clean = clean[3:]
+        elif clean.startswith("57") and len(clean) == 12:
+            clean = clean[2:]
+        if not re.fullmatch(r"3\d{9}", clean):
+            raise ValueError("El celular debe ser un número colombiano de 10 dígitos que empiece por 3 (ej. 3001234567).")
+        return clean
+
+    @field_validator("numero_cuenta")
+    @classmethod
+    def validate_numero_cuenta(cls, v: Optional[str]) -> Optional[str]:
+        # Solo dígitos (se permiten espacios y guiones al escribir), entre 6 y 20 (H-148)
+        if v is None or not v.strip():
+            return None
+        clean = re.sub(r"[\s\-]", "", v.strip())
+        if not re.fullmatch(r"\d{6,20}", clean):
+            raise ValueError("El número de cuenta debe tener solo dígitos (entre 6 y 20).")
+        return clean
 
     @field_validator("fecha_nacimiento")
     @classmethod
@@ -75,10 +132,16 @@ class InvestorRegisterRequest(BaseModel):
         return v_clean
 
 
+class SendForcePasswordOtpRequest(BaseModel):
+    email: EmailStr
+    current_password: str
+
 class ForceChangePasswordRequest(BaseModel):
     email: EmailStr
     current_password: str
     new_password: str
+    code: str
+    client: Optional[ClientInfo] = None
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

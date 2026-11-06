@@ -1,8 +1,10 @@
-
+from src.core.errors import public_error_detail
+from src.core.search import like_contains, LIKE_ESCAPE
 import os
 import uuid
+import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException, BackgroundTasks, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -10,19 +12,27 @@ from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
 from src.core.database import get_db
+from src.core.timezone import get_colombia_today
+from src.core.uploads import validate_receipt_upload
+from src.services.contract_terms import contract_days, contract_end, exact_contract_days, is_contract_finished
 from src.api.deps import get_current_user, RequirePermission
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
 from sqlalchemy import or_, and_, func, desc
+from src.models.user import User
+from src.models.period import Period
 from src.models.contract_history import ContractHistory
 from src.models.investor import Investor
 from src.models.package import Package
 from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
 
 from src.api.v1.endpoints.wallets import check_withdrawal_dates_active
+from src.services.audit_trail_service import audit_in_tx
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/me")
+@router.get("/my-investments", include_in_schema=False)  # H-175: nombre usado en la documentación del Módulo 1
 async def get_my_investments(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the investments (requests) of the current logged-in user.
@@ -111,23 +121,13 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
                     dias_reducidos_totales += float(acc.days_to_reduce or 0)
 
         if fecha_ingreso and inv_record.period:
-            inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
-            if inv_record.period.months:
-                fecha_fin_orig = inv_start + relativedelta(months=inv_record.period.months)
-                dias_base = (fecha_fin_orig - inv_start).days
-            else:
-                dias_base = getattr(inv_record.period, 'days', 0) or (inv_record.period.months * 30 if inv_record.period.months else 0)
-            
-            dias_contrato = max(1, int(dias_base - dias_reducidos_totales))
-            fecha_fin_date = inv_start + timedelta(days=dias_contrato)
+            # Regla única de vigencia (H-140): días del periodo - días acelerados
+            dias_contrato = max(1, contract_days(inv_record))
+            fecha_fin_date = contract_end(inv_record)
             fecha_fin = datetime.combine(fecha_fin_date, datetime.min.time()) if isinstance(fecha_ingreso, datetime) else fecha_fin_date
 
-        # Contrato en curso (fecha_fin > hoy) es ACTIVO, vencido (fecha_fin <= hoy) es FINALIZADO
-        is_active = True
-        current_today = date.today()
-        check_date = fecha_fin.date() if isinstance(fecha_fin, datetime) else fecha_fin
-        if check_date and check_date <= current_today:
-            is_active = False
+        # Contrato en curso (fecha_fin > hoy) es ACTIVO, vencido (fecha_fin <= hoy) es FINALIZADO (fecha de Colombia, H-156)
+        is_active = not is_contract_finished(inv_record)
 
         monto_original = float(inv_record.package.value) if inv_record.package else 0.0
 
@@ -232,7 +232,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             "paquete": {
                 "id": inv_record.package.id if inv_record.package else 0,
                 "paquete_accion_adquirido": str(inv_record.package.value) if inv_record.package else "0",
-                "acciones_otorgadas": inv_record.package.granted_shares if inv_record.package else 0
+                "acciones_otorgadas": (inv_record.shares_granted_frozen if inv_record.shares_granted_frozen is not None else (inv_record.package.granted_shares if inv_record.package else 0))
             } if inv_record.package else None
         }
         investments.append(inv)
@@ -263,11 +263,12 @@ async def create_investment_request(
     if comprobantes:
         for i, file in enumerate(comprobantes):
             if file.filename:
-                file_ext = os.path.splitext(file.filename)[1] if os.path.splitext(file.filename)[1] else ".png"
+                content = await file.read()
+                # H-190: solo imágenes o PDF reales, de hasta 10 MB; se valida antes de guardar nada
+                file_ext = validate_receipt_upload(file.filename, content)
                 filename = f"{uuid.uuid4()}{file_ext}"
                 file_path = os.path.join(UPLOAD_DIR, filename)
                 
-                content = await file.read()
                 with open(file_path, "wb") as f:
                     f.write(content)
                     
@@ -314,10 +315,51 @@ async def create_investment_request(
     if paquete_inversion_id:
         pkg_res = await db.execute(select(Package).where(Package.id == paquete_inversion_id))
         target_pkg = pkg_res.scalars().first()
-        if target_pkg:
-            extra_data["new_package_id"] = target_pkg.id
-            extra_data["new_package_value"] = float(target_pkg.value)
-        
+        # Verificar cumplimiento SARLAFT del usuario y heredar documentos KYC
+        from src.models.sarlaft_check import SarlaftCheck
+        sarlaft_res = await db.execute(
+            select(SarlaftCheck)
+            .where(SarlaftCheck.user_id == target_user_id)
+            .order_by(SarlaftCheck.id.desc())
+        )
+        last_sarlaft = sarlaft_res.scalars().first()
+
+        user_roles = [getattr(r, "name", "") for r in getattr(current_user, "roles", [])]
+        is_admin = any(role_name in ["Super Admin", "Admin"] for role_name in user_roles)
+        is_owner = (current_user.id == target_user_id)
+
+        # Regla: Si la validación está pendiente o fue rechazada, el usuario no podrá solicitar inversiones
+        if is_owner or not is_admin:
+            if not last_sarlaft or str(last_sarlaft.status or "").lower() in ["processing", "procesando", "pending"] or str(last_sarlaft.tusdatos_status or "").lower() in ["processing", "procesando"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Tu validación de antecedentes e identidad (SARLAFT) se encuentra en proceso. No puedes solicitar inversiones hasta que la verificación finalice satisfactoriamente."
+                )
+
+            is_rejected = (
+                (last_sarlaft.risk_level == "HIGH" and not last_sarlaft.tusdatos_hallazgos_corregidos) or
+                str(last_sarlaft.status or "").lower() in ["failed", "error"] or
+                str(last_sarlaft.tusdatos_status or "").lower() in ["failed", "error"]
+            )
+            if is_rejected:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Tu validación SARLAFT fue rechazada o presenta hallazgos de alto riesgo en listas restrictivas. No es posible generar solicitudes de inversión hasta que un oficial de cumplimiento revise tu expediente."
+                )
+        else:
+            # Si un administrador crea la solicitud en nombre del usuario, bloquear si presenta riesgo alto no corregido
+            if last_sarlaft and last_sarlaft.risk_level == "HIGH" and not last_sarlaft.tusdatos_hallazgos_corregidos:
+                raise HTTPException(
+                    status_code=403,
+                    detail="El usuario presenta hallazgos de alto riesgo en la verificación SARLAFT (listas restrictivas). No es posible generar solicitudes de inversión hasta que un oficial de cumplimiento revise y apruebe el expediente."
+                )
+
+        if last_sarlaft and last_sarlaft.details and isinstance(last_sarlaft.details, dict):
+            if "kyc_docs" in last_sarlaft.details and not extra_data.get("kyc_docs"):
+                extra_data["kyc_docs"] = last_sarlaft.details["kyc_docs"]
+            if "biometrics" in last_sarlaft.details and not extra_data.get("biometrics"):
+                extra_data["biometrics"] = last_sarlaft.details["biometrics"]
+
     new_request = InvestmentRequest(
         user_id=target_user_id,
         investor_id=investor_id,
@@ -362,7 +404,43 @@ async def create_investment_request(
         await db.refresh(new_request)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
+
+    # Notificar al inversionista por correo electrónico corporativo
+    try:
+        target_user = current_user
+        if target_user_id != current_user.id:
+            u_res = await db.execute(select(User).where(User.id == target_user_id))
+            target_user = u_res.scalars().first() or current_user
+
+        if target_user and target_user.email:
+            pkg_name = f"Paquete ${monto:,.0f} COP"
+            if 'target_pkg' in locals() and target_pkg:
+                pkg_name = getattr(target_pkg, 'name', None) or f"Paquete ${float(target_pkg.value or monto):,.0f} COP"
+
+            period_str = f"{periodo_contrato} meses"
+            p_res = await db.execute(select(Period).where(Period.id == periodo_contrato))
+            p_obj = p_res.scalar_one_or_none()
+            if p_obj:
+                period_str = f"{p_obj.months} meses ({p_obj.percentage}% mensual)"
+
+            pay_method_desc = "Pasarela en línea Yoint (PSE / Bancolombia / Nequi)" if not comprobante_path else "Transferencia bancaria con soporte adjunto"
+            if monto_billetera_usado > 0:
+                pay_method_desc += f" + Saldo de Billetera (${monto_billetera_usado:,.0f} COP)"
+
+            from src.services.email_service import EmailService
+            EmailService.send_investment_request_created_email(
+                to_email=target_user.email,
+                user_name=target_user.name or "Inversionista",
+                request_id=new_request.id,
+                amount=float(monto),
+                package_name=pkg_name,
+                period_months=period_str,
+                is_upgrade=is_upgrade,
+                payment_method=pay_method_desc
+            )
+    except Exception as email_err:
+        logger.warning(f"Error enviando correo de solicitud de inversión radicada #{new_request.id}: {email_err}")
         
     return {"message": "Solicitud creada exitosamente", "id": new_request.id}
 
@@ -384,14 +462,14 @@ async def admin_search_user(
         res = await db.execute(select(User).where(User.is_active == True).limit(30))
         users = res.scalars().all()
     else:
-        search_term = f"%{q}%"
+        search_term = like_contains(q)
         res = await db.execute(
             select(User).where(
                 User.is_active == True,
                 or_(
-                    User.name.ilike(search_term),
-                    User.email.ilike(search_term),
-                    User.document_id.ilike(search_term)
+                    User.name.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_term, escape=LIKE_ESCAPE)
                 )
             ).limit(30)
         )
@@ -415,7 +493,10 @@ async def admin_search_user(
 
 
 @router.get("/{investment_id}")
-async def get_investment_details(investment_id: str, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_investment_details(
+    # H-175: id numérico de un contrato o "req_<id>" de una solicitud; cualquier otro valor es 422, no 500
+    investment_id: str = Path(..., pattern=r"^(req_)?\d+$", description="Id del contrato o req_<id> de la solicitud"),
+    current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get detailed information about a single investment.
     """
@@ -424,7 +505,7 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     from sqlalchemy import desc
     from src.models.investment_request import InvestmentRequest
 
-    today = date.today()
+    today = get_colombia_today()
     user_perms = {p.name for r in getattr(current_user, 'roles', []) for p in getattr(r, 'permissions', [])}
     is_admin = (
         current_user.is_superuser
@@ -513,20 +594,14 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
                 })
     
     if fecha_ingreso and inv_record.period:
-        fecha_fin_original = fecha_ingreso + relativedelta(months=inv_record.period.months)
-        dias_contrato_original = (fecha_fin_original.date() - fecha_ingreso.date()).days
-        
-        # Descontar los días reducidos por bonos/aceleraciones
-        dias_contrato = max(1, int(dias_contrato_original - dias_reducidos_totales))
-        from datetime import timedelta
-        fecha_fin = fecha_ingreso + timedelta(days=dias_contrato)
+        # Regla única de vigencia (H-140): días del periodo - días acelerados
+        dias_contrato = max(1, contract_days(inv_record))
+        fecha_fin = datetime.combine(contract_end(inv_record), datetime.min.time())
         
         diffTime = (today - fecha_ingreso.date()).days
         dias_transcurridos = diffTime if diffTime > 0 else 0
 
-    is_active = True
-    if fecha_fin and fecha_fin.date() < today:
-        is_active = False
+    is_active = not is_contract_finished(inv_record, today)
 
     monto = float(inv_record.package.value) if inv_record.package else 0
     
@@ -546,6 +621,7 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     # --- Fetch Movements (Withdrawals linked to this investment) ---
     w_res = await db.execute(
         select(Withdrawal)
+        .options(selectinload(Withdrawal.yoint_dispersions))
         .where(Withdrawal.investor_id == inv_id)
         .order_by(desc(Withdrawal.created_at))
     )
@@ -556,17 +632,31 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     movements = []
     
     for w in withdrawals:
-        w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else w.tipo
-        if w_tipo.lower() == "capital" and w.estado.lower() in ["pendiente", "aprobado", "procesado"]:
+        w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else str(w.tipo)
+        w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+        if w_tipo.lower() == "capital" and w_estado.lower() in ["pendiente", "aprobado", "procesado"]:
             capital_retirado += float(w.monto)
             
+        monto_float = float(w.monto or 0)
+        impuesto_float = float(w.impuesto) if w.impuesto is not None else 0.0
+        neto_float = float(w.monto_neto) if w.monto_neto is not None else (monto_float - impuesto_float)
+
         movements.append({
             "id": w.id,
             "tipo": w_tipo,
-            "monto": float(w.monto),
-            "estado": w.estado.value if hasattr(w.estado, 'value') else w.estado,
-            "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
-            "metodo_pago": w.metodo_pago
+            "monto": monto_float,
+            "impuesto": impuesto_float,
+            "monto_neto": neto_float,
+            "estado": w_estado,
+            "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else (w.created_at.isoformat() if w.created_at else None),
+            "fecha_retiro": w.fecha_retiro.isoformat() if w.fecha_retiro else None,
+            "metodo_pago": w.metodo_pago,
+            "banco": w.banco,
+            "tipo_cuenta": w.tipo_cuenta,
+            "numero_cuenta": w.numero_cuenta,
+            "comprobante_pago": w.comprobante_pago,
+            "motivo_rechazo": w.motivo_rechazo,
+            "created_at": w.created_at.isoformat() if w.created_at else None
         })
         
     capital_disponible = capital_liberado - capital_retirado
@@ -714,7 +804,7 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "paquete": {
             "id": inv_record.package.id if inv_record.package else 0,
             "paquete_accion_adquirido": str(inv_record.package.value) if inv_record.package else "0",
-            "acciones_otorgadas": inv_record.package.granted_shares if inv_record.package else 0
+            "acciones_otorgadas": (inv_record.shares_granted_frozen if inv_record.shares_granted_frozen is not None else (inv_record.package.granted_shares if inv_record.package else 0))
         } if inv_record.package else None,
         "periodo": {
             "id": inv_record.period.id,
@@ -727,6 +817,7 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "can_withdraw_capital": (await check_withdrawal_dates_active(db))[0] and (capital_disponible > 0),
         "withdrawal_date_message": (await check_withdrawal_dates_active(db))[1],
         "can_upgrade": can_upgrade,
+        "capital_withdrawals": [m for m in movements if str(m.get("tipo", "")).lower() == "capital"],
         "movements": movements,
         "history": history,
         "projection": projection_table,
@@ -762,7 +853,7 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
     # 1. Fetch Investor
     inv_res = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period))
+        .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
         .where(Investor.id == investment_id, Investor.user_id == current_user.id)
     )
     inv_record = inv_res.scalars().first()
@@ -777,18 +868,18 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
         raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa configurada. Por favor, añádela en tu perfil.")
         
     # 3. Calculate Available Capital
-    today = date.today()
+    today = get_colombia_today()
     fecha_ingreso = inv_record.start_date
     dias_contrato = 0
     dias_transcurridos = 0
     if fecha_ingreso and inv_record.period:
-        fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
-        dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+        # Regla única de vigencia (H-140): el capital se libera a lo largo de la vigencia real
+        dias_contrato = float(exact_contract_days(inv_record))
         diffTime = (today - fecha_ingreso.date()).days
         dias_transcurridos = diffTime if diffTime > 0 else 0
 
     monto = float(inv_record.package.value) if inv_record.package else 0
-    capital_diario = monto / dias_contrato if dias_contrato > 0 else 0
+    capital_diario = monto / dias_contrato if dias_contrato > 0 else monto
     bloques_cumplidos = dias_transcurridos // 60
     capital_liberado = (capital_diario * 60) * bloques_cumplidos
     
@@ -831,52 +922,20 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al generar el código: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al generar el código", e))
     
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Código de Verificación - Retiro de Capital</title>
-        <style>
-            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 0; background-color: #f7f9fc; }}
-            .container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
-            .header {{ background-color: #6366f1; padding: 30px; text-align: center; }}
-            .header h1 {{ margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }}
-            .content {{ padding: 40px 30px; }}
-            .code-box {{ background-color: #f0fdf4; border: 2px dashed #22c55e; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0; }}
-            .code {{ font-size: 36px; font-weight: bold; color: #166534; letter-spacing: 5px; margin: 0; }}
-            .footer {{ background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; }}
-            .footer p {{ margin: 0; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Retiro de Capital - Gloint</h1>
-            </div>
-            <div class="content">
-                <p>Hola <strong>{current_user.name}</strong>,</p>
-                <p>Has solicitado retirar capital disponible de tu inversión <strong>#{inv_record.id}</strong>.</p>
-                <p>Para confirmar y procesar esta solicitud, por favor ingresa el siguiente código de 6 dígitos en la plataforma:</p>
-                <div class="code-box">
-                    <p class="code">{code}</p>
-                </div>
-                <p style="font-size: 14px; color: #64748b; text-align: center;">Este código expirará en 10 minutos por razones de seguridad.</p>
-                <p style="margin-top: 30px;">Si no has solicitado este retiro, por favor ignora este correo y contacta a soporte inmediatamente.</p>
-            </div>
-            <div class="footer">
-                <p>&copy; {datetime.now().year} Gloint. Todos los derechos reservados.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    from src.services.email_template_service import EmailTemplateService
+    subject, html_content = EmailTemplateService.get_otp_verification_template(
+        user_name=current_user.name or "Inversionista",
+        code=code,
+        purpose=f"Retiro de Capital (Inversión #{inv_record.id})",
+        action_details=f"Has solicitado retirar capital disponible de tu contrato de inversión #{inv_record.id}.",
+        expires_minutes=10
+    )
+    
     EmailService.send_html_email(
         to_email=current_user.email,
-        subject="Código de Verificación - Retiro de Capital Gloint",
+        subject=subject,
         html_content=html_content
     )
     
@@ -884,7 +943,13 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
 
 
 @router.post("/{investment_id}/withdraw-capital")
-async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalConfirmRequest, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def withdraw_investment_capital(
+    investment_id: int, 
+    req: WithdrawCapitalConfirmRequest, 
+    background_tasks: BackgroundTasks,
+    current_user = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
     """
     Verify code and withdraw available released capital for an investment to a registered bank account.
     """
@@ -906,7 +971,8 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         .where(
             WithdrawalVerificationCode.user_id == current_user.id,
             WithdrawalVerificationCode.code == req.code,
-            WithdrawalVerificationCode.used_at == None
+            WithdrawalVerificationCode.used_at == None,
+            WithdrawalVerificationCode.purpose.is_(None)
         )
     )
     verification = code_res.scalars().first()
@@ -925,7 +991,7 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
     # 2. Fetch Investor
     inv_res = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period))
+        .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
         .where(Investor.id == investment_id, Investor.user_id == current_user.id)
     )
     inv_record = inv_res.scalars().first()
@@ -955,18 +1021,18 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa configurada. Por favor, añádela en tu perfil.")
         
     # 4. Calculate Available Capital
-    today = date.today()
+    today = get_colombia_today()
     fecha_ingreso = inv_record.start_date
     dias_contrato = 0
     dias_transcurridos = 0
     if fecha_ingreso and inv_record.period:
-        fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
-        dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+        # Regla única de vigencia (H-140): el capital se libera a lo largo de la vigencia real
+        dias_contrato = float(exact_contract_days(inv_record))
         diffTime = (today - fecha_ingreso.date()).days
         dias_transcurridos = diffTime if diffTime > 0 else 0
 
     monto = float(inv_record.package.value) if inv_record.package else 0
-    capital_diario = monto / dias_contrato if dias_contrato > 0 else 0
+    capital_diario = monto / dias_contrato if dias_contrato > 0 else monto
     bloques_cumplidos = dias_transcurridos // 60
     capital_liberado = (capital_diario * 60) * bloques_cumplidos
     
@@ -1008,11 +1074,67 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
     )
     
     db.add(withdrawal)
-    
+    await db.flush()
+
+    # 6. Acreditar el 3.2% de retención a la Billetera Corporativa de la Empresa
+    try:
+        from src.services.company_wallet_service import CompanyWalletService
+        await CompanyWalletService.credit_tax_retention(db, withdrawal, current_user.name)
+    except Exception as cw_err:
+        logger.warning(f"Aviso al acreditar retención 3.2% de capital a Billetera Corporativa: {cw_err}")
+
+    await audit_in_tx(
+        db, "INVESTMENT_CAPITAL_WITHDRAW", "investments", current_user, "Investor", investment_id,
+        f"Solicitud de retiro de capital #{withdrawal.id} del contrato #{investment_id} por ${capital_disponible:,.0f}",
+        {"investor_id": investment_id, "withdrawal_id": withdrawal.id, "monto": float(capital_disponible),
+         "impuesto": float(tax), "monto_neto": float(net_amount), "capital_liberado": float(capital_liberado),
+         "capital_retirado_antes": float(capital_retirado), "banco": bank_account.banco,
+         "cuenta_ultimos4": str(bank_account.numero_cuenta or "")[-4:]},
+    )
+
     try:
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
+
+    # 7. Disparar dispersión automática a la API v2 de Yoint (idéntico a retiros de wallet)
+    yoint_tracking = None
+    try:
+        from src.services.yoint_service import YointService
+        dispersion = await YointService.send_dispersion(db=db, withdrawal=withdrawal, user=current_user)
+        yoint_tracking = {
+            "dispersion_id": dispersion.id,
+            "order_id": dispersion.order_id,
+            "status": dispersion.status
+        }
+    except Exception as y_err:
+        logger.error(f"Error al enviar dispersión a Yoint para retiro de capital #{withdrawal.id}: {y_err}")
         
-    return {"message": "Retiro de capital solicitado exitosamente", "monto": capital_disponible}
+    # 8. Enviar correo corporativo de solicitud de retiro de capital pendiente
+    try:
+        if current_user and current_user.email:
+            from src.services.email_service import EmailService
+            background_tasks.add_task(
+                EmailService.send_withdrawal_request_pending_email,
+                to_email=current_user.email,
+                user_name=current_user.name or "Inversionista",
+                amount=float(withdrawal.monto),
+                tax=float(withdrawal.impuesto or 0),
+                net_amount=float(withdrawal.monto_neto or withdrawal.monto),
+                bank=withdrawal.banco or (bank_account.banco if bank_account else "Entidad Bancaria"),
+                account_type=withdrawal.tipo_cuenta or (bank_account.tipo_cuenta if bank_account else "Cuenta"),
+                account_number=withdrawal.numero_cuenta or (bank_account.numero_cuenta if bank_account else "N/A"),
+                withdrawal_id=withdrawal.id
+            )
+    except Exception as em_err:
+        logger.warning(f"Aviso al encolar correo de retiro de capital pendiente #{withdrawal.id}: {em_err}")
+
+    return {
+        "message": "Retiro de capital solicitado exitosamente", 
+        "monto": capital_disponible,
+        "monto_neto": net_amount,
+        "impuesto": tax,
+        "withdrawal_id": withdrawal.id,
+        "yoint": yoint_tracking
+    }

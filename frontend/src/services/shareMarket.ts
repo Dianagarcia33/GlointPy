@@ -81,7 +81,7 @@ export interface ShareIssuance {
 export interface ShareMovement {
     id: number;
     user_id: number;
-    movement_type: 'package_grant' | 'market_buy' | 'market_sell' | 'listing_lock' | 'listing_unlock' | 'admin_adjustment';
+    movement_type: 'package_grant' | 'package_grant_reverted' | 'package_revoke' | 'market_buy' | 'market_sell' | 'listing_lock' | 'listing_unlock' | 'admin_adjustment';
     shares_quantity: number;
     balance_before: number;
     balance_after: number;
@@ -145,8 +145,9 @@ export const shareMarketService = {
     // Administrador
     getUserMovementsAdmin: (userId: number) => fetchApi<ShareMovement[]>(`/shares-market/admin/users/${userId}/movements`),
     getUserAccountAdmin: (userId: number) => fetchApi<UserShareAccount>(`/shares-market/admin/users/${userId}/account`),
-    syncLegacyShares: () =>
-        fetchApi<{ message: string; details: any }>('/shares-market/admin/sync-legacy-shares', {
+    // H-192: por defecto solo acredita lo que falta; allowReductions permite restar acciones ya otorgadas
+    syncLegacyShares: (allowReductions: boolean = false) =>
+        fetchApi<{ message: string; details: any }>(`/shares-market/admin/sync-legacy-shares?allow_reductions=${allowReductions}`, {
             method: 'POST'
         }),
     updateOfficialPrice: (newPrice: number, justificationNotes: string, availableShares?: number) =>

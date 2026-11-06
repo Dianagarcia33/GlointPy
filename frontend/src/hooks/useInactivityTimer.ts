@@ -4,6 +4,13 @@ import { useAuthStore } from '../store/authStore';
 const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutos de inactividad
 const STORAGE_KEY = 'gloint_last_activity_time';
 
+// Páginas donde la persona está viendo contenido en vivo: mirar una transmisión no genera clics ni movimientos,
+// así que no se cierra la sesión por inactividad mientras esté ahí (se reinicia el conteo al salir).
+const PASSIVE_VIEWING_PATHS = ['/evento/en-vivo/'];
+
+const isWatchingLive = (): boolean =>
+    typeof window !== 'undefined' && PASSIVE_VIEWING_PATHS.some((p) => window.location.pathname.startsWith(p));
+
 export const useInactivityTimer = () => {
     const logout = useAuthStore((state) => state.logout);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -21,7 +28,13 @@ export const useInactivityTimer = () => {
 
     const checkInactivity = useCallback((): boolean => {
         if (!isAuthenticated) return false;
-        
+
+        // Viendo la transmisión en vivo: cuenta como actividad (no se cierra la sesión por no mover el mouse)
+        if (isWatchingLive()) {
+            localStorage.setItem(STORAGE_KEY, Date.now().toString());
+            return false;
+        }
+
         const lastActiveStr = localStorage.getItem(STORAGE_KEY);
         if (!lastActiveStr) {
             localStorage.setItem(STORAGE_KEY, Date.now().toString());
@@ -49,11 +62,14 @@ export const useInactivityTimer = () => {
         const lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : Date.now();
         const remaining = Math.max(0, INACTIVITY_TIMEOUT - (Date.now() - lastActive));
 
+        // H-230: al vencer, se vuelve a leer la marca compartida entre pestañas. Si otra pestaña
+        // registró actividad, solo se reprograma con el tiempo restante; únicamente se cierra la
+        // sesión cuando la marca realmente tiene 5 min o más (checkInactivity ya hace el cierre).
         timeoutRef.current = setTimeout(() => {
             if (checkInactivity()) return;
-            performLogout();
-        }, remaining || INACTIVITY_TIMEOUT);
-    }, [isAuthenticated, checkInactivity, performLogout]);
+            scheduleTimer();
+        }, remaining > 0 ? remaining : INACTIVITY_TIMEOUT);
+    }, [isAuthenticated, checkInactivity]);
 
     const handleUserActivity = useCallback(() => {
         // 1. Validar primero si ya expiró el tiempo real durante la ausencia
@@ -109,6 +125,15 @@ export const useInactivityTimer = () => {
         document.addEventListener('visibilitychange', handleVisibilityOrFocus);
         window.addEventListener('focus', handleVisibilityOrFocus);
 
+        // H-230: la actividad de otra pestaña actualiza la marca compartida; esta pestaña
+        // reprograma su temporizador con ese valor en lugar de cerrar la sesión por su cuenta.
+        const handleStorage = (e: StorageEvent) => {
+            if (e.key === STORAGE_KEY && e.newValue) {
+                scheduleTimer();
+            }
+        };
+        window.addEventListener('storage', handleStorage);
+
         return () => {
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
@@ -118,6 +143,7 @@ export const useInactivityTimer = () => {
             });
             document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
             window.removeEventListener('focus', handleVisibilityOrFocus);
+            window.removeEventListener('storage', handleStorage);
         };
     }, [isAuthenticated, checkInactivity, scheduleTimer, handleUserActivity]);
 };

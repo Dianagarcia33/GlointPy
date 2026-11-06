@@ -1,3 +1,4 @@
+from src.services.audit_trail_service import log_audit_trail
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
@@ -5,6 +6,7 @@ from typing import Optional, List
 from src.core.database import get_db
 from src.api.deps import RequirePermission, get_current_user
 from src.models.user import User
+from src.models.external_app import ExternalPaymentStatus
 from src.schemas.external_app import (
     ExternalAppCreate,
     ExternalAppUpdate,
@@ -14,9 +16,12 @@ from src.schemas.external_app import (
     CreatePaymentIntentResponse,
     CheckoutOrderInfoResponse,
     ConfirmPaymentRequest,
-    ExternalPaymentOrderResponse
+    ExternalPaymentOrderResponse,
+    ResendWebhookResponse
 )
 from src.services.external_app_service import ExternalAppService
+from src.services.event_coupon_service import EventCouponService
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -42,7 +47,7 @@ async def create_external_app(
     """
     Crea una nueva aplicación externa y genera su client_id y API Key secreta.
     """
-    app, api_key = await ExternalAppService.create_app(db, app_in, current_user.id)
+    app, api_key = await ExternalAppService.create_app(db, app_in, current_user.id, actor=current_user)
     return {
         "id": app.id,
         "name": app.name,
@@ -64,23 +69,25 @@ async def create_external_app(
 async def update_external_app(
     app_id: int,
     app_in: ExternalAppUpdate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Actualiza la configuración de una aplicación externa.
     """
-    app = await ExternalAppService.update_app(db, app_id, app_in)
+    app = await ExternalAppService.update_app(db, app_id, app_in, actor=current_user)
     return app
 
 @router.post("/admin/external-apps/{app_id}/regenerate-key", dependencies=[Depends(RequirePermission(["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def regenerate_api_key(
     app_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Regenera la API Key y el Webhook Secret de una aplicación externa.
     """
-    app, api_key = await ExternalAppService.regenerate_api_key(db, app_id)
+    app, api_key = await ExternalAppService.regenerate_api_key(db, app_id, actor=current_user)
     return {
         "app_id": app.id,
         "name": app.name,
@@ -93,12 +100,13 @@ async def regenerate_api_key(
 @router.delete("/admin/external-apps/{app_id}", dependencies=[Depends(RequirePermission(["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def delete_external_app(
     app_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Elimina una aplicación externa registrada.
     """
-    return await ExternalAppService.delete_app(db, app_id)
+    return await ExternalAppService.delete_app(db, app_id, actor=current_user)
 
 @router.get("/admin/external-apps/orders/all", response_model=List[ExternalPaymentOrderResponse], dependencies=[Depends(RequirePermission(["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def list_all_external_orders(
@@ -109,6 +117,31 @@ async def list_all_external_orders(
     Historial global de todas las órdenes y cobros procesados por apps externas.
     """
     return await ExternalAppService.get_all_orders(db, limit)
+
+@router.post(
+    "/admin/external-apps/orders/{order_id}/resend-webhook",
+    response_model=ResendWebhookResponse,
+    dependencies=[Depends(RequirePermission(["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]))]
+)
+async def resend_order_webhook(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reintenta el despacho manual de webhook para una orden completada y retorna el código y cuerpo de respuesta inmediato.
+    """
+    result = await ExternalAppService.resend_webhook(db, order_id)
+    # Best-effort A PROPÓSITO: el reenvío ya salió al comercio (irreversible) y no cambia dinero; si el registro
+    # fallara, deshacer el estado del webhook sería peor que perder esta fila.
+    await log_audit_trail(
+        db=db, action="EXTERNAL_APP_WEBHOOK_RESEND", module="external-apps", user=current_user,
+        entity_type="ExternalPaymentOrder", entity_id=order_id,
+        description=f"Reenvío manual del webhook de la orden #{order_id}",
+        details={"order_id": order_id, "resultado": result.get("status"), "intentos": result.get("webhook_attempts")},
+        status="SUCCESS" if result.get("status") == "success" else "WARNING",
+    )
+    return result
 
 
 # ==============================================================================
@@ -170,6 +203,51 @@ async def get_payment_status(
 
 
 # ==============================================================================
+# CUPONES DEL EVENTO: la tienda (app externa) valida el código y lo marca como usado
+# ==============================================================================
+class CouponValidateRequest(BaseModel):
+    code: str
+
+class CouponRedeemRequest(BaseModel):
+    code: str
+    order_reference: str  # referencia de la compra en la tienda
+
+@router.post("/external-pay/coupons/validate")
+async def validate_event_coupon(
+    req_body: CouponValidateRequest,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    La tienda consulta si un cupón del evento es válido y de cuánto es el descuento.
+    Respuesta: {"valid": true, "percent": 20, "expires_at": ...} o {"valid": false, "reason": "not_found|expired|redeemed|inactive"}.
+    """
+    api_key = x_api_key or authorization
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Se requiere X-API-Key o Authorization Bearer")
+    await ExternalAppService.authenticate_api_key(db, api_key)
+    return await EventCouponService.validate(db, req_body.code)
+
+@router.post("/external-pay/coupons/redeem")
+async def redeem_event_coupon(
+    req_body: CouponRedeemRequest,
+    authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    La tienda marca el cupón como usado al confirmar la compra. Un solo uso por código;
+    repetir la misma order_reference es seguro (idempotente). Si ya se usó o venció responde 409.
+    """
+    api_key = x_api_key or authorization
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Se requiere X-API-Key o Authorization Bearer")
+    app = await ExternalAppService.authenticate_api_key(db, api_key)
+    return await EventCouponService.redeem(db, app.id, req_body.code, req_body.order_reference)
+
+
+# ==============================================================================
 # 3. CHECKOUT INTERACTIVO: Endpoints para la pantalla de pago (/pay/checkout)
 # ==============================================================================
 
@@ -182,6 +260,8 @@ async def get_checkout_order_info(
     Devuelve la información pública de la orden de cobro para mostrar en la interfaz de Checkout.
     """
     order = await ExternalAppService.get_order_by_token(db, token)
+    if order.status != ExternalPaymentStatus.COMPLETED:
+        ExternalAppService.ensure_order_payable(order)  # H-171: vencida o de app inactiva no se muestra
     return {
         "payment_token": order.payment_token,
         "app_name": order.app.name if order.app else "Comercio Aliado",

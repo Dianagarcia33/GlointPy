@@ -33,6 +33,7 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const [referenceCode, setReferenceCode] = useState('');
   const [notes, setNotes] = useState('');
+  const [creditToWallet, setCreditToWallet] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +86,8 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
         month: selectedMonth,
         year: selectedYear,
         reference_code: referenceCode.trim() || undefined,
-        notes: notes.trim() || undefined
+        notes: notes.trim() || undefined,
+        credit_to_wallet: creditToWallet
       });
       onSuccess();
       onClose();
@@ -101,23 +103,23 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
     : 'Todo lo pendiente (Histórico acumulado)';
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-950/60 backdrop-blur-xs" style={{ margin: 0 }}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl">
+            <div className="p-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-2xl inline-flex shadow-xs">
               <DollarSign className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800 font-montserrat">Liquidar Comisiones y Bonos</h3>
+              <h3 className="text-lg font-bold text-slate-900 font-montserrat">Liquidar Comisiones y Bonos</h3>
               <p className="text-xs text-slate-500">Liquidación Consolidada • Registro de comprobante bancario</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -242,19 +244,33 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
             />
           </div>
 
+          {/* Acreditación en billetera (H-205) */}
+          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={creditToWallet}
+              onChange={(e) => setCreditToWallet(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-emerald-600"
+            />
+            <span className="text-xs text-slate-700">
+              <strong>Acreditar el total en la billetera del asesor.</strong> Desmarca esta opción si ya le pagaste por
+              transferencia bancaria, para no pagarle dos veces.
+            </span>
+          </label>
+
           {/* Acciones */}
           <div className="pt-2 flex justify-end gap-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold cursor-pointer"
+              className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all text-xs font-bold cursor-pointer font-montserrat"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting || totalAmount <= 0}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20 font-montserrat"
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20 font-montserrat"
             >
               {isSubmitting ? (
                 <>

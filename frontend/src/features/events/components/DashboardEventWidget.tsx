@@ -14,7 +14,7 @@ import {
   Zap,
   Tv
 } from 'lucide-react';
-import { getActiveEvent, getMyEventRegistration, EventData, AttendeeData } from '../../../services/events';
+import { getActiveEvent, getMyEventRegistration, EventData, MyEventRegistration } from '../../../services/events';
 import { InvestorEventRsvpModal } from './InvestorEventRsvpModal';
 import { useAuthStore } from '../../../store/authStore';
 
@@ -64,7 +64,7 @@ export const DashboardEventWidget: React.FC = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: myRegistration = null } = useQuery<AttendeeData | null>({
+  const { data: myRegistration = null, isFetched: registrationFetched } = useQuery<MyEventRegistration | null>({
     queryKey: ['my_event_registration', user?.id],
     queryFn: async () => {
       try {
@@ -75,6 +75,7 @@ export const DashboardEventWidget: React.FC = () => {
     },
     enabled: isInvestor && !!user?.id,
     staleTime: 60 * 1000,
+    refetchInterval: 30 * 1000, // la transmisión, las preguntas y la encuesta se abren durante el evento
   });
 
   // Temporizador regresivo en vivo
@@ -134,6 +135,12 @@ export const DashboardEventWidget: React.FC = () => {
       return;
     }
 
+    // Con la transmisión abierta el evento ya está ocurriendo: no se pide "actualizar asistencia",
+    // el banner del dashboard lleva directo a la transmisión. Se espera a conocer la inscripción para decidir.
+    if (!registrationFetched || myRegistration?.live_open) {
+      return;
+    }
+
     // Recordatorio de asistencia al iniciar sesión (solo si el banner está activo)
     if (isInvestor) {
       const sessionKey = `gloint_event_reminder_session_${eventData.id}_${user?.id}`;
@@ -152,11 +159,13 @@ export const DashboardEventWidget: React.FC = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [isInvestor, eventData?.id, eventData?.is_active, eventData?.banner_active, user?.id]);
+  }, [isInvestor, eventData?.id, eventData?.is_active, eventData?.banner_active, user?.id, registrationFetched, myRegistration?.live_open]);
 
-  if (!isInvestor || !eventData || !eventData.is_active || !eventData.banner_active) {
+  // H-194: 'Banner Visible' controla solo el banner; 'Inscripciones Abiertas' (is_active) solo la acción de confirmar
+  if (!isInvestor || !eventData || !eventData.banner_active) {
     return null;
   }
+  const registrationsClosed = !eventData.is_active;
 
   const formattedDate = eventData.event_date 
     ? new Date(eventData.event_date).toLocaleDateString('es-CO', { 
@@ -210,6 +219,10 @@ export const DashboardEventWidget: React.FC = () => {
                   <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-400/25 border border-emerald-300/50 text-white text-[11px] font-bold shadow-sm font-montserrat backdrop-blur-md">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
                     <span>Asistencia VIP Confirmada ({myRegistration.attendance_mode === 'in_person' ? 'Presencial' : 'Virtual'})</span>
+                  </span>
+                ) : registrationsClosed ? (
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-500/30 border border-slate-300/40 text-white text-[11px] font-black shadow-sm font-montserrat backdrop-blur-md">
+                    <span>Inscripciones cerradas</span>
                   </span>
                 ) : (
                   <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-black border shadow-sm font-montserrat backdrop-blur-md ${
@@ -329,6 +342,46 @@ export const DashboardEventWidget: React.FC = () => {
               <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0 pt-2 lg:pt-0">
                 {myRegistration ? (
                   <>
+                    {/* Acceso al evento: transmisión en vivo (virtuales), preguntas y encuesta, con su enlace personal */}
+                    {myRegistration.access_token && myRegistration.attendance_mode === 'virtual' && myRegistration.live_open && (
+                      <a
+                        href={`/evento/en-vivo/${encodeURIComponent(myRegistration.access_token)}`}
+                        className="px-7 py-4 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 text-white font-black text-xs sm:text-sm rounded-2xl shadow-[0_0_35px_rgba(244,63,94,0.55)] transition-all flex items-center justify-center gap-2.5 font-montserrat tracking-wide"
+                      >
+                        <Radio className="w-4 h-4 animate-pulse" />
+                        <span>Entrar a la transmisión en vivo</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </a>
+                    )}
+                    {myRegistration.access_token && myRegistration.attendance_mode === 'virtual' && !myRegistration.live_open && (
+                      <span className="text-[11px] text-cyan-200 font-medium text-center sm:text-right">
+                        La transmisión se habilitará aquí cuando comience el evento.
+                      </span>
+                    )}
+                    {myRegistration.access_token && myRegistration.attendance_mode === 'in_person' && myRegistration.questions_open && (
+                      <a
+                        href={`/evento/preguntas/${encodeURIComponent(myRegistration.access_token)}`}
+                        className="px-6 py-3 bg-white/15 hover:bg-white/25 border border-white/40 text-white font-bold text-xs sm:text-sm rounded-2xl transition-all text-center font-montserrat"
+                      >
+                        Enviar una pregunta a los presentadores
+                      </a>
+                    )}
+                    {myRegistration.access_token && myRegistration.survey_open && (
+                      <a
+                        href={`/evento/encuesta/${encodeURIComponent(myRegistration.access_token)}`}
+                        className="px-6 py-3 bg-white/15 hover:bg-white/25 border border-white/40 text-white font-bold text-xs sm:text-sm rounded-2xl transition-all text-center font-montserrat"
+                      >
+                        Responder la encuesta de satisfacción
+                      </a>
+                    )}
+                    {myRegistration.access_token && myRegistration.coupon_active && (
+                      <a
+                        href={`/evento/cupon/${encodeURIComponent(myRegistration.access_token)}`}
+                        className="px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-[0_0_30px_rgba(245,158,11,0.45)] transition-all text-center font-montserrat"
+                      >
+                        🎁 Obtener mi cupón de descuento en Gloint Place
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -345,6 +398,10 @@ export const DashboardEventWidget: React.FC = () => {
                       ✓ Tu lugar VIP está reservado en el sistema
                     </span>
                   </>
+                ) : registrationsClosed ? (
+                  <span className="px-6 py-4 bg-white/10 border border-white/25 text-white/90 font-bold text-xs sm:text-sm rounded-2xl text-center font-montserrat" role="status">
+                    Las inscripciones para este evento están cerradas
+                  </span>
                 ) : (
                   <>
                     <button

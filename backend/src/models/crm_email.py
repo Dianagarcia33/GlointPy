@@ -43,6 +43,12 @@ class CRMEmail(Base):
         default="sent"
     )
     is_read = Column(Boolean, default=False)
+    is_starred = Column(Boolean, default=False, nullable=False)
+    is_archived = Column(Boolean, default=False, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    calendar_event = Column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
+    cc_emails = Column(String(500), nullable=True)
+    bcc_emails = Column(String(500), nullable=True)
     attachments = Column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow, index=True)

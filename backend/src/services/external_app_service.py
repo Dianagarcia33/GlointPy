@@ -1,7 +1,10 @@
+from src.services.audit_trail_service import audit_in_tx
 import secrets
 import hashlib
 import json
 import hmac
+import re
+from urllib.parse import urlsplit
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +21,23 @@ from src.schemas.external_app import (
     ExternalAppUpdate,
     CreatePaymentIntentRequest
 )
+from src.core.webhook_security import verify_webhook_destination_safety, is_transient_verification_error
+
+
+def _app_view(app) -> dict:
+    """Vista de una app externa para auditoría. NUNCA incluye la API Key ni el secreto del webhook;
+    del webhook solo el dominio (la URL completa podría llevar credenciales)."""
+    from urllib.parse import urlparse
+    host = None
+    try:
+        host = urlparse(app.webhook_url).hostname if app.webhook_url else None
+    except Exception:
+        host = None
+    return {
+        "nombre": app.name, "client_id": app.client_id, "activa": bool(app.is_active),
+        "webhook_dominio": host, "redirecciones": len(app.redirect_urls or []) if isinstance(app.redirect_urls, (list, tuple)) else (1 if app.redirect_urls else 0),
+    }
+
 
 class ExternalAppService:
     
@@ -38,7 +58,12 @@ class ExternalAppService:
         return hashlib.sha256(api_key.strip().encode()).hexdigest()
 
     @staticmethod
-    async def create_app(db: AsyncSession, app_in: ExternalAppCreate, creator_id: int) -> Tuple[ExternalApp, str]:
+    async def create_app(db: AsyncSession, app_in: ExternalAppCreate, creator_id: int, actor=None) -> Tuple[ExternalApp, str]:
+        if app_in.webhook_url:
+            is_safe, sec_err = await verify_webhook_destination_safety(app_in.webhook_url)
+            if not is_safe and ("IP interna" in sec_err or "bloqueado" in sec_err or "Esquema" in sec_err):
+                raise HTTPException(status_code=400, detail=f"URL de Webhook inválida por seguridad: {sec_err}")
+
         client_id, api_key, api_key_hash, webhook_secret = ExternalAppService._generate_api_key()
         
         new_app = ExternalApp(
@@ -53,6 +78,12 @@ class ExternalAppService:
             created_by=creator_id
         )
         db.add(new_app)
+        await db.flush()
+        await audit_in_tx(
+            db, "EXTERNAL_APP_CREATE", "external-apps", actor, "ExternalApp", new_app.id,
+            f"Creación de la app externa '{new_app.name}'",
+            {"app_id": new_app.id, "despues": _app_view(new_app)},
+        )
         await db.commit()
         await db.refresh(new_app)
         return new_app, api_key
@@ -84,7 +115,6 @@ class ExternalAppService:
                 "description": app.description,
                 "client_id": app.client_id,
                 "webhook_url": app.webhook_url,
-                "webhook_secret": app.webhook_secret,
                 "redirect_urls": app.redirect_urls,
                 "is_active": app.is_active,
                 "created_by": app.created_by,
@@ -104,36 +134,56 @@ class ExternalAppService:
         return app
 
     @staticmethod
-    async def update_app(db: AsyncSession, app_id: int, app_in: ExternalAppUpdate) -> ExternalApp:
+    async def update_app(db: AsyncSession, app_id: int, app_in: ExternalAppUpdate, actor=None) -> ExternalApp:
         app = await ExternalAppService.get_app_by_id(db, app_id)
+        before_view = _app_view(app)
         if app_in.name is not None:
             app.name = app_in.name
         if app_in.description is not None:
             app.description = app_in.description
         if app_in.webhook_url is not None:
+            if app_in.webhook_url:
+                is_safe, sec_err = await verify_webhook_destination_safety(app_in.webhook_url)
+                if not is_safe and ("IP interna" in sec_err or "bloqueado" in sec_err or "Esquema" in sec_err):
+                    raise HTTPException(status_code=400, detail=f"URL de Webhook inválida por seguridad: {sec_err}")
             app.webhook_url = app_in.webhook_url
         if app_in.redirect_urls is not None:
             app.redirect_urls = app_in.redirect_urls
         if app_in.is_active is not None:
             app.is_active = app_in.is_active
-            
+
+        await audit_in_tx(
+            db, "EXTERNAL_APP_UPDATE", "external-apps", actor, "ExternalApp", app.id,
+            f"Edición de la app externa '{app.name}'",
+            {"app_id": app.id, "antes": before_view, "despues": _app_view(app)},
+        )
         await db.commit()
         await db.refresh(app)
         return app
 
     @staticmethod
-    async def regenerate_api_key(db: AsyncSession, app_id: int) -> Tuple[ExternalApp, str]:
+    async def regenerate_api_key(db: AsyncSession, app_id: int, actor=None) -> Tuple[ExternalApp, str]:
         app = await ExternalAppService.get_app_by_id(db, app_id)
         _, api_key, api_key_hash, webhook_secret = ExternalAppService._generate_api_key()
         app.api_key_hash = api_key_hash
         app.webhook_secret = webhook_secret
+        await audit_in_tx(
+            db, "EXTERNAL_APP_KEY_REGENERATE", "external-apps", actor, "ExternalApp", app.id,
+            f"Regeneración de la API Key de la app externa '{app.name}'",
+            {"app_id": app.id, "client_id": app.client_id, "api_key_regenerada": True, "webhook_secret_regenerado": True},
+        )
         await db.commit()
         await db.refresh(app)
         return app, api_key
 
     @staticmethod
-    async def delete_app(db: AsyncSession, app_id: int) -> dict:
+    async def delete_app(db: AsyncSession, app_id: int, actor=None) -> dict:
         app = await ExternalAppService.get_app_by_id(db, app_id)
+        await audit_in_tx(
+            db, "EXTERNAL_APP_DELETE", "external-apps", actor, "ExternalApp", app.id,
+            f"Eliminación de la app externa '{app.name}'",
+            {"app_id": app.id, "antes": _app_view(app)},
+        )
         await db.delete(app)
         await db.commit()
         return {"message": "Aplicación externa eliminada exitosamente"}
@@ -160,6 +210,37 @@ class ExternalAppService:
     # ==========================
 
     @staticmethod
+    def _checkout_url(base_checkout_url: str, token: str) -> str:
+        return f"{base_checkout_url}/pay/checkout?token={token}" if base_checkout_url else f"/pay/checkout?token={token}"
+
+    @staticmethod
+    def _redirect_allowed(redirect_url: str, allowed_raw: Optional[str]) -> bool:
+        """
+        H-172: la redirect_url de una orden debe pertenecer a las URLs/dominios permitidos de la app.
+        Cada entrada puede ser un dominio ("tienda.com") o una URL ("https://tienda.com/pagos"):
+        coinciden el esquema (si se indicó), el host exacto, el puerto y el inicio de la ruta.
+        """
+        target = urlsplit(redirect_url.strip())
+        if target.scheme not in ("http", "https") or not target.hostname:
+            return False
+        for entry in re.split(r"[,\n\s]+", allowed_raw or ""):
+            entry = entry.strip()
+            if not entry:
+                continue
+            allowed = urlsplit(entry if "://" in entry else f"//{entry}")
+            if not allowed.hostname or allowed.hostname != target.hostname:
+                continue
+            if allowed.scheme and allowed.scheme != target.scheme:
+                continue
+            if allowed.port and allowed.port != target.port:
+                continue
+            base_path = allowed.path.rstrip("/")
+            if base_path and not (target.path == base_path or target.path.startswith(base_path + "/")):
+                continue
+            return True
+        return False
+
+    @staticmethod
     async def create_payment_intent(
         db: AsyncSession, 
         app: ExternalApp, 
@@ -168,6 +249,43 @@ class ExternalAppService:
     ) -> dict:
         if req.amount <= 0:
             raise HTTPException(status_code=400, detail="El monto de pago debe ser mayor a cero")
+
+        if req.redirect_url and not ExternalAppService._redirect_allowed(req.redirect_url, app.redirect_urls):
+            raise HTTPException(
+                status_code=400,
+                detail="La redirect_url no pertenece a las URLs / dominios permitidos de redirección configurados para esta app"
+            )
+
+        # H-172: una referencia ya usada por la app no genera un segundo cobro
+        existing_res = await db.execute(
+            select(ExternalPaymentOrder)
+            .where(
+                ExternalPaymentOrder.app_id == app.id,
+                ExternalPaymentOrder.order_reference == req.order_reference,
+                ExternalPaymentOrder.status.in_([ExternalPaymentStatus.PENDING, ExternalPaymentStatus.COMPLETED]),
+            )
+            .order_by(desc(ExternalPaymentOrder.created_at))
+        )
+        for existing in existing_res.scalars().all():
+            if existing.status == ExternalPaymentStatus.COMPLETED:
+                raise HTTPException(status_code=409, detail=f"La orden {req.order_reference} ya fue pagada")
+            if existing.expires_at and existing.expires_at < datetime.utcnow():
+                existing.status = ExternalPaymentStatus.EXPIRED
+                continue
+            if float(existing.amount) != float(req.amount):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Ya existe una orden pendiente con la referencia {req.order_reference} por otro monto"
+                )
+            # Reintento del comercio: se devuelve la misma orden pendiente (idempotencia)
+            return {
+                "payment_token": existing.payment_token,
+                "checkout_url": ExternalAppService._checkout_url(base_checkout_url, existing.payment_token),
+                "order_reference": existing.order_reference,
+                "amount": float(existing.amount),
+                "currency": existing.currency,
+                "expires_at": existing.expires_at
+            }
 
         token = f"glt_pay_{secrets.token_urlsafe(24)}"
         expires_at = datetime.utcnow() + timedelta(minutes=req.expires_in_minutes or 60)
@@ -190,7 +308,7 @@ class ExternalAppService:
         await db.commit()
         await db.refresh(order)
 
-        checkout_url = f"{base_checkout_url}/pay/checkout?token={token}" if base_checkout_url else f"/pay/checkout?token={token}"
+        checkout_url = ExternalAppService._checkout_url(base_checkout_url, token)
 
         return {
             "payment_token": token,
@@ -202,12 +320,15 @@ class ExternalAppService:
         }
 
     @staticmethod
-    async def get_order_by_token(db: AsyncSession, token: str) -> ExternalPaymentOrder:
-        res = await db.execute(
+    async def get_order_by_token(db: AsyncSession, token: str, for_update: bool = False) -> ExternalPaymentOrder:
+        query = (
             select(ExternalPaymentOrder)
             .options(selectinload(ExternalPaymentOrder.app), selectinload(ExternalPaymentOrder.user))
             .where(ExternalPaymentOrder.payment_token == token)
         )
+        if for_update:
+            query = query.with_for_update()  # dos confirmaciones simultáneas no pueden cobrar dos veces
+        res = await db.execute(query)
         order = res.scalars().first()
         if not order:
             raise HTTPException(status_code=404, detail="Orden de pago no encontrada o token inválido")
@@ -220,18 +341,32 @@ class ExternalAppService:
         return order
 
     @staticmethod
+    def ensure_order_payable(order: ExternalPaymentOrder) -> None:
+        """
+        H-171: una orden solo se puede mostrar para pago o cobrar si sigue pendiente, no ha vencido
+        y la app del comercio existe y está activa.
+        """
+        if order.status == ExternalPaymentStatus.EXPIRED:
+            raise HTTPException(status_code=410, detail="La orden de pago no existe o ha expirado")
+        if not order.app or not order.app.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="Este comercio está desactivado en Gloint Pay y no puede recibir pagos en este momento"
+            )
+        if order.status != ExternalPaymentStatus.PENDING:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Esta orden de pago ya no está pendiente (Estado: {order.status.value})"
+            )
+
+    @staticmethod
     async def confirm_payment_with_wallet(
         db: AsyncSession, 
         token: str, 
         user_id: int
     ) -> dict:
-        order = await ExternalAppService.get_order_by_token(db, token)
-        
-        if order.status != ExternalPaymentStatus.PENDING:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Esta orden de pago ya no está pendiente (Estado: {order.status.value})"
-            )
+        order = await ExternalAppService.get_order_by_token(db, token, for_update=True)
+        ExternalAppService.ensure_order_payable(order)
             
         # 1. Fetch User and Wallet
         user_res = await db.execute(
@@ -292,57 +427,141 @@ class ExternalAppService:
         }
 
     @staticmethod
+    async def _execute_webhook_attempt(order: ExternalPaymentOrder) -> Tuple[bool, bool]:
+        """
+        Ejecuta un intento de entrega de webhook HTTP POST.
+        Retorna (success: bool, is_permanent_block: bool).
+        """
+        payload = {
+            "event": "payment.completed",
+            "payment_token": order.payment_token,
+            "order_reference": order.order_reference,
+            "amount": float(order.amount),
+            "currency": order.currency,
+            "status": order.status.value,
+            "description": order.description,
+            "user_id": order.user_id,
+            "user_name": order.user.name if order.user else None,
+            "metadata": json.loads(order.metadata_json) if order.metadata_json else {},
+            "completed_at": order.completed_at.isoformat() if order.completed_at else None
+        }
+
+        payload_bytes = json.dumps(payload, sort_keys=True).encode()
+        secret = order.app.webhook_secret or "gloint_secret"
+        signature = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-Gloint-Signature": signature,
+            "User-Agent": "Gloint-Webhook/1.0",
+            # H-206: permiten al comercio identificar el evento y descartar entregas repetidas
+            "X-Gloint-Event": "payment.completed",
+            "X-Gloint-Delivery": f"{order.payment_token}:{(order.webhook_attempts or 0) + 1}",
+            "X-Gloint-Timestamp": str(int(datetime.utcnow().timestamp())),
+        }
+
+        # Verificación de seguridad SSRF antes de despachar el webhook
+        is_safe, sec_err = await verify_webhook_destination_safety(order.app.webhook_url)
+        if not is_safe:
+            order.webhook_status = "failed"
+            order.webhook_attempts = (order.webhook_attempts or 0) + 1
+            if is_transient_verification_error(sec_err):
+                # Un DNS lento o caído no es un destino prohibido: se reintenta con el backoff normal
+                order.webhook_response = f"No se pudo verificar el destino (se reintentará): {sec_err}"
+                return False, False
+            order.webhook_response = f"Bloqueado por seguridad SSRF: {sec_err}"
+            return False, True  # Falló y es bloqueo permanente (no reintentar)
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+                resp = await client.post(order.app.webhook_url, content=payload_bytes, headers=headers)
+                order.webhook_attempts = (order.webhook_attempts or 0) + 1
+                # follow_redirects=False: un 3xx significa que el comercio no procesó el evento en esa URL
+                if resp.status_code < 300:
+                    order.webhook_status = "sent"
+                    order.webhook_response = f"HTTP {resp.status_code}: {resp.text[:300]}"
+                    return True, False
+                else:
+                    order.webhook_status = "failed"
+                    order.webhook_response = f"HTTP {resp.status_code}: {resp.text[:300]}"
+                    return False, False
+        except httpx.TimeoutException:
+            order.webhook_status = "failed"
+            order.webhook_attempts = (order.webhook_attempts or 0) + 1
+            order.webhook_response = "Error: Timeout (el servidor destino no respondió en 10s)"
+            return False, False
+        except httpx.ConnectError as e:
+            order.webhook_status = "failed"
+            order.webhook_attempts = (order.webhook_attempts or 0) + 1
+            order.webhook_response = f"Error de conexión: {str(e)[:300]}"
+            return False, False
+        except Exception as e:
+            order.webhook_status = "failed"
+            order.webhook_attempts = (order.webhook_attempts or 0) + 1
+            order.webhook_response = f"Error: {str(e)[:300]}"
+            return False, False
+
+    @staticmethod
     async def _dispatch_webhook(order_id: int):
         """
-        Envía notificación HTTP POST a la URL de webhook configurada por el comercio.
+        Envía notificación HTTP POST a la URL de webhook con reintentos y backoff exponencial (3s, 10s, 30s).
         """
+        import asyncio
         from src.core.database import async_session_maker
-        async with async_session_maker() as db:
-            res = await db.execute(
-                select(ExternalPaymentOrder)
-                .options(selectinload(ExternalPaymentOrder.app), selectinload(ExternalPaymentOrder.user))
-                .where(ExternalPaymentOrder.id == order_id)
-            )
-            order = res.scalars().first()
-            if not order or not order.app.webhook_url:
-                return
+        backoff_delays = [3, 10, 30]
 
-            payload = {
-                "event": "payment.completed",
-                "payment_token": order.payment_token,
-                "order_reference": order.order_reference,
-                "amount": float(order.amount),
-                "currency": order.currency,
-                "status": order.status.value,
-                "description": order.description,
-                "user_id": order.user_id,
-                "user_name": order.user.name if order.user else None,
-                "metadata": json.loads(order.metadata_json) if order.metadata_json else {},
-                "completed_at": order.completed_at.isoformat() if order.completed_at else None
-            }
+        for attempt in range(len(backoff_delays)):
+            async with async_session_maker() as db:
+                res = await db.execute(
+                    select(ExternalPaymentOrder)
+                    .options(selectinload(ExternalPaymentOrder.app), selectinload(ExternalPaymentOrder.user))
+                    .where(ExternalPaymentOrder.id == order_id)
+                )
+                order = res.scalars().first()
+                if not order or not order.app or not order.app.webhook_url:
+                    return
 
-            payload_bytes = json.dumps(payload, sort_keys=True).encode()
-            secret = order.app.webhook_secret or "gloint_secret"
-            signature = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+                success, is_permanent_block = await ExternalAppService._execute_webhook_attempt(order)
+                await db.commit()
 
-            headers = {
-                "Content-Type": "application/json",
-                "X-Gloint-Signature": signature,
-                "User-Agent": "Gloint-Webhook/1.0"
-            }
+                if success or is_permanent_block:
+                    return
 
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    resp = await client.post(order.app.webhook_url, content=payload_bytes, headers=headers)
-                    order.webhook_status = "sent" if resp.status_code < 400 else "failed"
-                    order.webhook_attempts += 1
-                    order.webhook_response = f"HTTP {resp.status_code}: {resp.text[:500]}"
-            except Exception as e:
-                order.webhook_status = "failed"
-                order.webhook_attempts += 1
-                order.webhook_response = f"Error: {str(e)[:500]}"
+            if attempt < len(backoff_delays) - 1:
+                await asyncio.sleep(backoff_delays[attempt])
 
-            await db.commit()
+    @staticmethod
+    async def resend_webhook(db: AsyncSession, order_id: int) -> dict:
+        """
+        Reintenta manualmente el webhook de una orden completada y retorna el resultado inmediato.
+        """
+        query = (
+            select(ExternalPaymentOrder)
+            .options(selectinload(ExternalPaymentOrder.app), selectinload(ExternalPaymentOrder.user))
+            .where(ExternalPaymentOrder.id == order_id)
+        )
+        res = await db.execute(query)
+        order = res.scalars().first()
+        if not order:
+            raise HTTPException(status_code=404, detail="Orden de pago no encontrada")
+        
+        if not order.app or not order.app.webhook_url:
+            raise HTTPException(status_code=400, detail="La aplicación externa no tiene una URL de webhook configurada")
+
+        if order.status != ExternalPaymentStatus.COMPLETED:
+            raise HTTPException(status_code=400, detail="Solo se pueden reenviar webhooks de órdenes completadas")
+
+        success, _ = await ExternalAppService._execute_webhook_attempt(order)
+        await db.commit()
+        await db.refresh(order)
+
+        return {
+            "status": "success" if success else "failed",
+            "webhook_status": order.webhook_status,
+            "webhook_attempts": order.webhook_attempts,
+            "webhook_response": order.webhook_response,
+            "message": "Webhook entregado exitosamente al comercio" if success else f"Fallo al entregar webhook ({order.webhook_response})"
+        }
 
     @staticmethod
     async def get_all_orders(db: AsyncSession, limit: int = 100) -> List[dict]:
@@ -361,6 +580,7 @@ class ExternalAppService:
                 "payment_token": o.payment_token,
                 "app_id": o.app_id,
                 "app_name": o.app.name if o.app else "N/A",
+                "webhook_url": o.app.webhook_url if o.app else None,
                 "user_id": o.user_id,
                 "user_name": o.user.name if o.user else "Anónimo / No logueado",
                 "order_reference": o.order_reference,
@@ -370,6 +590,8 @@ class ExternalAppService:
                 "status": o.status.value,
                 "redirect_url": o.redirect_url,
                 "webhook_status": o.webhook_status,
+                "webhook_attempts": o.webhook_attempts or 0,
+                "webhook_response": o.webhook_response,
                 "created_at": o.created_at,
                 "completed_at": o.completed_at
             }

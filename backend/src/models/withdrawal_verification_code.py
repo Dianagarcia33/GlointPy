@@ -11,6 +11,8 @@ class WithdrawalVerificationCode(Base):
     code = Column(String(255), nullable=False)
     expires_at = Column(DateTime, nullable=False)
     attempts = Column(String(255), nullable=True)
+    # Propósito del código (None = flujos de retiros/cuentas). Evita usar un código de un flujo en otro.
+    purpose = Column(String(40), nullable=True)
     used_at = Column(DateTime, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)

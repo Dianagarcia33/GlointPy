@@ -27,6 +27,8 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
   const [periodId, setPeriodId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [originalStartDate, setOriginalStartDate] = useState('');
+  const [startDateReason, setStartDateReason] = useState('');
   
   const [userSearch, setUserSearch] = useState('');
 
@@ -50,10 +52,14 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
         // Format start_date for input type="date"
         if (investor.start_date) {
             const dateObj = new Date(investor.start_date);
-            setStartDate(dateObj.toISOString().split('T')[0]);
+            const iso = dateObj.toISOString().split('T')[0];
+            setStartDate(iso);
+            setOriginalStartDate(iso);
         } else {
             setStartDate('');
+            setOriginalStartDate('');
         }
+        setStartDateReason('');
       } else {
         setAssignedCode('');
         setReferredBy('');
@@ -61,7 +67,10 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
         setPackageId('');
         setPeriodId('');
         setObservations('');
-        setStartDate(new Date().toISOString().split('T')[0]);
+        // Hoy en Colombia (no el día UTC): de noche el día UTC ya sería «futuro»
+        setStartDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }));
+        setOriginalStartDate('');
+        setStartDateReason('');
       }
       setError(null);
       
@@ -101,6 +110,17 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     return () => clearTimeout(handler);
   }, [userSearch, isOpen]);
 
+  // Al corregir el formulario desaparece el aviso del intento anterior (H-142)
+  useEffect(() => {
+    setError(null);
+  }, [userId, packageId, periodId, assignedCode, startDate]);
+
+  // Hoy en Colombia (AAAA-MM-DD): la fecha de ingreso no puede ser futura (H-142)
+  const todayColombia = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+
+  // H-142: una fecha anterior a hoy (distinta de la actual del contrato) exige un motivo que queda registrado
+  const isRetroactive = !!startDate && startDate < todayColombia && startDate !== originalStartDate;
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,18 +129,28 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       setError('Por favor completa los campos requeridos');
       return;
     }
+    if (startDate && startDate > todayColombia) {
+      setError('La fecha de ingreso no puede ser posterior a hoy.');
+      return;
+    }
+
+    if (isRetroactive && startDateReason.trim().length < 5) {
+      setError('La fecha de ingreso es anterior a hoy: indica el motivo (mínimo 5 caracteres) para que quede registrado.');
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
 
+    // El código de referido es de solo consulta (H-140): no se envía para no crear ni borrar bonos
     const payload = {
         assigned_code: assignedCode || undefined,
-        referred_by: referredBy || undefined,
         user_id: Number(userId),
         package_id: Number(packageId),
         period_id: Number(periodId),
         observations: observations || undefined,
-        start_date: startDate ? new Date(startDate).toISOString() : undefined
+        start_date: startDate ? new Date(startDate).toISOString() : undefined,
+        start_date_reason: isRetroactive ? startDateReason.trim() : undefined
     };
 
     try {
@@ -132,7 +162,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       onSaved();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error al guardar el inversionista');
+      setError(err.message || 'Error al guardar la inversión');
     } finally {
       setIsLoading(false);
     }
@@ -143,7 +173,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800">
-            {investor ? 'Editar Inversionista' : 'Nuevo Inversionista'}
+            {investor ? 'Editar Inversión' : 'Nueva Inversión'}
           </h3>
           <button
             onClick={onClose}
@@ -176,14 +206,16 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
 
                 <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Referido (Código de otra inversión)</label>
+                {/* Solo lectura: los bonos por referido están desactivados; se muestra para revisar los bonos antiguos (H-140) */}
                 <input
                     type="text"
                     value={referredBy}
-                    onChange={(e) => setReferredBy(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 25))}
-                    maxLength={25}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors uppercase font-mono text-sm"
-                    placeholder="Ej: IG1974 (Opcional)"
+                    readOnly
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 cursor-not-allowed uppercase font-mono text-sm"
+                    placeholder="Sin referido"
+                    title="Los bonos por referido están desactivados. Este código se conserva solo para consulta."
                 />
+                <p className="text-[11px] text-slate-400">Solo consulta: los bonos por referido están desactivados.</p>
                 </div>
             </div>
 
@@ -309,6 +341,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
               <input
                 type="date"
                 value={startDate}
+                max={todayColombia}
                 onChange={(e) => setStartDate(e.target.value)}
                 disabled={investor ? !isAdmin : false}
                 readOnly={investor ? !isAdmin : false}
@@ -319,6 +352,21 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
                 }`}
                 required
               />
+              {isRetroactive && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-amber-700">Motivo de la fecha retroactiva *</label>
+                  <textarea
+                    value={startDateReason}
+                    onChange={(e) => setStartDateReason(e.target.value)}
+                    maxLength={500}
+                    rows={2}
+                    placeholder="Ej. Contrato firmado el 10/10 y registrado con retraso"
+                    className="w-full px-3 py-2 border border-amber-200 bg-amber-50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    required
+                  />
+                  <p className="text-[11px] text-amber-700">Quedará registrado en el Audit Trail.</p>
+                </div>
+              )}
               {investor ? (
                 isAdmin ? (
                   <p className="text-xs text-emerald-600 font-medium">
@@ -360,7 +408,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
               className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {investor ? 'Guardar Cambios' : 'Crear Inversionista'}
+              {investor ? 'Guardar Cambios' : 'Crear Inversión'}
             </button>
           </div>
         </form>

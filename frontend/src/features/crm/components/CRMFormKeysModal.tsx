@@ -18,6 +18,7 @@ import {
   Power
 } from 'lucide-react';
 import { crmService, CRMFormKey, CRMProject } from '../../../services/crmService';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 interface CRMFormKeysModalProps {
   isOpen: boolean;
@@ -39,6 +40,8 @@ export const CRMFormKeysModal: React.FC<CRMFormKeysModalProps> = ({
   const [formName, setFormName] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
   const [formError, setFormError] = useState<string | null>(null);
+  // Clave pendiente de confirmar su eliminación (H-139: antes usaba window.confirm, que bloquea la página)
+  const [keyToDelete, setKeyToDelete] = useState<CRMFormKey | null>(null);
 
   // Fetch Form Keys
   const { data: formKeys = [], isLoading } = useQuery<CRMFormKey[]>({
@@ -76,6 +79,7 @@ export const CRMFormKeysModal: React.FC<CRMFormKeysModalProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crm_form_keys'] });
       if (selectedKeyForSnippet) setSelectedKeyForSnippet(null);
+      setKeyToDelete(null);
     }
   });
 
@@ -190,7 +194,7 @@ async function enviarFormulario(datos) {
                 setShowCreateForm(!showCreateForm);
                 setFormError(null);
               }}
-              className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all font-montserrat cursor-pointer shrink-0"
+              className="px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-2 transition-all font-montserrat cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>{showCreateForm ? 'Cancelar' : 'Generar Nueva Clave'}</span>
@@ -222,8 +226,8 @@ async function enviarFormulario(datos) {
                     required
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder="Ej. Landing Logy Pay Principal"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500"
+                    placeholder="Ej. Landing Fondo Gloint Investment"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500 font-sans"
                   />
                 </div>
 
@@ -235,7 +239,7 @@ async function enviarFormulario(datos) {
                     required
                     value={selectedProjectId}
                     onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer font-sans"
                   >
                     <option value="">Selecciona un proyecto...</option>
                     {projects.map((p) => (
@@ -250,14 +254,14 @@ async function enviarFormulario(datos) {
                   <button
                     type="button"
                     onClick={() => setShowCreateForm(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={createMutation.isPending}
-                    className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 font-montserrat shadow-xs"
                   >
                     {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
                     <span>Generar Clave API</span>
@@ -322,6 +326,13 @@ async function enviarFormulario(datos) {
                         </span>
                       </div>
 
+                      {/* Uso de la clave en el formulario público (H-138) */}
+                      <div className="text-[11px] text-slate-500">
+                        {keyItem.usage_count
+                          ? `${keyItem.usage_count} envío${keyItem.usage_count === 1 ? '' : 's'} · Último uso: ${keyItem.last_used_at ? new Date(keyItem.last_used_at).toLocaleString('es-CO') : 'N/A'}`
+                          : 'Sin envíos registrados'}
+                      </div>
+
                       {/* API Key Box */}
                       <div className="flex items-center gap-2 pt-0.5">
                         <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-700 font-bold max-w-sm truncate select-all">
@@ -373,11 +384,7 @@ async function enviarFormulario(datos) {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm(`¿Seguro que deseas eliminar la clave para "${keyItem.name}"? Los formularios que la usen ya no podrán registrar leads.`)) {
-                            deleteMutation.mutate(keyItem.id);
-                          }
-                        }}
+                        onClick={() => setKeyToDelete(keyItem)}
                         disabled={deleteMutation.isPending}
                         className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
                         title="Eliminar clave"
@@ -442,6 +449,18 @@ async function enviarFormulario(datos) {
         </div>
 
       </div>
+
+      <ConfirmationModal
+        isOpen={!!keyToDelete}
+        onClose={() => setKeyToDelete(null)}
+        onConfirm={() => keyToDelete && deleteMutation.mutate(keyToDelete.id)}
+        title={`¿Eliminar la clave "${keyToDelete?.name || ''}"?`}
+        description={`Proyecto: ${keyToDelete?.project_name || ''} (${keyToDelete?.project_code || ''}). Los formularios que usen esta clave dejarán de registrar leads. Esta acción no se puede deshacer.`}
+        confirmText="Sí, Eliminar Clave"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 };

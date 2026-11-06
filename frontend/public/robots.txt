@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /dashboard
+Disallow: /pay/
+Disallow: /reset-password
+Disallow: /force-change-password
+Disallow: /evaluacion-tecnica
+Disallow: /evaluaciones-tecnicas
+Disallow: /prueba-tecnica
+Disallow: /pruebas-tecnicas
+Allow: /

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Beneficiary, BeneficiaryCreate, BeneficiaryUpdate, beneficiariesService } from '../../../services/beneficiaries';
-import { X, Loader2, HeartHandshake, Percent } from 'lucide-react';
+import { Beneficiary, BeneficiaryDistributionItem, beneficiariesService } from '../../../services/beneficiaries';
+import { X, Loader2, HeartHandshake, Percent, AlertCircle } from 'lucide-react';
 
 interface BeneficiaryModalProps {
     isOpen: boolean;
@@ -9,6 +9,8 @@ interface BeneficiaryModalProps {
     onSaved: () => void;
     beneficiary?: Beneficiary | null;
     availablePercentage?: number;
+    // Demás beneficiarios del usuario (se pueden reajustar para que el total sea 100 %)
+    otherBeneficiaries?: Beneficiary[];
 }
 
 export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({ 
@@ -16,7 +18,8 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
     onClose, 
     onSaved, 
     beneficiary,
-    availablePercentage = 100 
+    availablePercentage = 100,
+    otherBeneficiaries = []
 }) => {
     const [name, setName] = useState('');
     const [documentNumber, setDocumentNumber] = useState('');
@@ -25,6 +28,8 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
     
+    const [othersPct, setOthersPct] = useState<Record<number, number | ''>>({});
+
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -44,8 +49,15 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
             setPhone('');
             setEmail('');
         }
+        setOthersPct(Object.fromEntries(otherBeneficiaries.map(o => [o.id, Number(o.percentage)])));
         setError(null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [beneficiary, isOpen, availablePercentage]);
+
+    // H-91: total resultante (este beneficiario + los demás, con los ajustes) en centésimas de punto
+    const toCents = (v: number | '' | undefined) => Math.round(Number(v || 0) * 100);
+    const totalCents = toCents(percentage) + otherBeneficiaries.reduce((acc, o) => acc + toCents(othersPct[o.id]), 0);
+    const isComplete = totalCents === 10000;
 
     if (!isOpen) return null;
 
@@ -63,8 +75,9 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
             return;
         }
 
-        if (valPct > availablePercentage + 0.001) {
-            setError(`El porcentaje (${valPct}%) supera el porcentaje disponible (${availablePercentage.toFixed(2)}%)`);
+        if (!isComplete) {
+            const diff = (10000 - totalCents) / 100;
+            setError(`La distribución debe sumar exactamente 100 %. Con estos valores suma ${(totalCents / 100).toFixed(2)} % (${diff > 0 ? `faltan ${diff.toFixed(2)} %` : `sobran ${Math.abs(diff).toFixed(2)} %`}). Ajusta los porcentajes.`);
             return;
         }
 
@@ -81,15 +94,16 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                 email: email.trim() || null,
             };
 
-            if (beneficiary) {
-                await beneficiariesService.updateMyBeneficiary(beneficiary.id, payload as BeneficiaryUpdate);
-            } else {
-                await beneficiariesService.createMyBeneficiary(payload as BeneficiaryCreate);
-            }
+            // H-91: un solo guardado atómico; el servidor valida que el total sea exactamente 100 %
+            const items: BeneficiaryDistributionItem[] = otherBeneficiaries
+                .filter(o => toCents(othersPct[o.id]) !== toCents(o.percentage))
+                .map(o => ({ id: o.id, percentage: Number(othersPct[o.id] || 0) }));
+            items.push(beneficiary ? { id: beneficiary.id, ...payload } : payload);
+            await beneficiariesService.saveMyDistribution(items);
             onSaved();
             onClose();
         } catch (err: any) {
-            setError(err.response?.data?.detail || err.message || 'Error al guardar beneficiario');
+            setError(err.message || 'Error al guardar beneficiario');
         } finally {
             setIsSaving(false);
         }
@@ -166,7 +180,18 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                     <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
                             <label className="text-xs font-bold text-slate-700">Porcentaje Asignado (%) <span className="text-red-500">*</span></label>
-                            <span className="text-[11px] font-bold text-brand-600">Disponible: {availablePercentage}%</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-brand-600">Disponible: {availablePercentage.toFixed(2)}%</span>
+                                {availablePercentage > 0 && Number(percentage) !== availablePercentage && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setPercentage(availablePercentage)}
+                                        className="text-[10px] font-bold px-2 py-0.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-md border border-brand-200 transition-colors cursor-pointer"
+                                    >
+                                        Asignar restante ({availablePercentage.toFixed(2)}%)
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div className="relative">
                             <input
@@ -181,6 +206,32 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                                 required
                             />
                             <Percent className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                        </div>
+                        {otherBeneficiaries.length > 0 && (
+                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                                <p className="text-[11px] font-bold text-slate-700">Otros beneficiarios (puedes reajustar su porcentaje)</p>
+                                {otherBeneficiaries.map(o => (
+                                    <div key={o.id} className="flex items-center justify-between gap-3">
+                                        <span className="text-[11px] font-semibold text-slate-600 truncate">{o.name}</span>
+                                        <input
+                                            type="number"
+                                            min="0.01"
+                                            max="100"
+                                            step="0.01"
+                                            value={othersPct[o.id] ?? ''}
+                                            onChange={(e) => setOthersPct(prev => ({ ...prev, [o.id]: e.target.value ? Number(e.target.value) : '' }))}
+                                            className="w-24 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-900"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className={`p-2.5 border rounded-xl text-[11px] flex items-start gap-2 ${isComplete ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+                            <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${isComplete ? 'text-emerald-600' : 'text-amber-600'}`} />
+                            <div>
+                                <span className="font-bold">Total de la distribución: {(totalCents / 100).toFixed(2)}%.</span>{' '}
+                                {isComplete ? 'Listo para guardar.' : 'Debe sumar exactamente 100 % para poder guardar.'}
+                            </div>
                         </div>
                     </div>
 
@@ -221,7 +272,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                     <button
                         type="submit"
                         form="beneficiary-form"
-                        disabled={isSaving}
+                        disabled={isSaving || !isComplete}
                         className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 cursor-pointer"
                     >
                         {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}

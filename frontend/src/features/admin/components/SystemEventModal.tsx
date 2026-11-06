@@ -11,30 +11,39 @@ interface SystemEventModalProps {
 export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClose }) => {
   const queryClient = useQueryClient();
   const isEditing = !!event;
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<SystemEventCreate>({
-    type: 'retiro',
-    is_recurring: 0,
-    recurrence_start_day: null,
-    recurrence_end_day: null,
-    start_date: null,
-    end_date: null,
-    description: '',
-    is_active: 1
+  // H-195: el formulario nace con los valores REALES del evento (nunca con el default 'Activo' de un evento nuevo)
+  const toFormData = (ev: SystemEvent): SystemEventCreate => ({
+    type: ev.type,
+    // La API devuelve booleanos y los selects trabajan con 1/0 (H-134)
+    is_recurring: ev.is_recurring ? 1 : 0,
+    recurrence_start_day: ev.recurrence_start_day,
+    recurrence_end_day: ev.recurrence_end_day,
+    start_date: ev.start_date ? ev.start_date.slice(0, 16) : null, // format for input type="datetime-local"
+    end_date: ev.end_date ? ev.end_date.slice(0, 16) : null,
+    description: ev.description || '',
+    is_active: ev.is_active ? 1 : 0
   });
+
+  const [formData, setFormData] = useState<SystemEventCreate>(() =>
+    event
+      ? toFormData(event)
+      : {
+          type: 'retiro',
+          is_recurring: 0,
+          recurrence_start_day: null,
+          recurrence_end_day: null,
+          start_date: null,
+          end_date: null,
+          description: '',
+          is_active: 1
+        }
+  );
 
   useEffect(() => {
     if (event) {
-      setFormData({
-        type: event.type,
-        is_recurring: event.is_recurring,
-        recurrence_start_day: event.recurrence_start_day,
-        recurrence_end_day: event.recurrence_end_day,
-        start_date: event.start_date ? event.start_date.slice(0, 16) : null, // format for input type="datetime-local"
-        end_date: event.end_date ? event.end_date.slice(0, 16) : null,
-        description: event.description || '',
-        is_active: event.is_active
-      });
+      setFormData(toFormData(event));
     }
   }, [event]);
 
@@ -48,15 +57,38 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
 
   const updateMutation = useMutation({
     mutationFn: (data: SystemEventCreate) => systemEventsService.updateEvent(event!.id, data),
-    onSuccess: () => {
+    onSuccess: (saved, sent) => {
       queryClient.invalidateQueries({ queryKey: ['systemEvents'] });
+      // H-195: nunca confirmar un guardado cuyo estado no coincide con el que se eligió en pantalla
+      if (saved && typeof saved.is_active !== 'undefined' && Boolean(saved.is_active) !== Boolean(sent.is_active)) {
+        setFormError('El estado del evento no se aplicó. Recarga la lista y vuelve a intentarlo.');
+        return;
+      }
       onClose();
     }
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setFormError(null);
+
+    // Mismas reglas que el backend (H-133): un evento incompleto o invertido nunca abriría la ventana
+    if (formData.is_recurring) {
+      if (!formData.recurrence_start_day && formData.recurrence_start_day !== 0 || !formData.recurrence_end_day && formData.recurrence_end_day !== 0) {
+        setFormError('Indica el día de inicio y el día de fin de la recurrencia (entre 1 y 31, o «último día del mes»).');
+        return;
+      }
+    } else {
+      if (!formData.start_date || !formData.end_date) {
+        setFormError('Indica la fecha y hora de inicio y de fin del evento.');
+        return;
+      }
+      if (formData.end_date <= formData.start_date) {
+        setFormError('La fecha de fin debe ser posterior a la fecha de inicio.');
+        return;
+      }
+    }
+
     // Cleanup data based on type
     const submitData = { ...formData };
     if (submitData.is_recurring) {
@@ -75,6 +107,8 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const mutationError = (createMutation.error || updateMutation.error) as Error | null;
+  const errorMessage = formError || mutationError?.message || null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
@@ -92,6 +126,11 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {errorMessage && (
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-600">
+              {errorMessage}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5 col-span-2 sm:col-span-1">
               <label className="text-sm font-medium text-slate-700">Tipo de Evento</label>
@@ -167,11 +206,20 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
                     type="number"
                     min="1"
                     max="31"
-                    required
+                    required={formData.recurrence_start_day !== 0}
+                    disabled={formData.recurrence_start_day === 0}
                     value={formData.recurrence_start_day || ''}
                     onChange={(e) => setFormData({ ...formData, recurrence_start_day: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none disabled:opacity-50"
                   />
+                  <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.recurrence_start_day === 0}
+                      onChange={(e) => setFormData({ ...formData, recurrence_start_day: e.target.checked ? 0 : null })}
+                    />
+                    Último día del mes
+                  </label>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Día de Fin (1-31)</label>
@@ -179,12 +227,24 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
                     type="number"
                     min="1"
                     max="31"
-                    required
+                    required={formData.recurrence_end_day !== 0}
+                    disabled={formData.recurrence_end_day === 0}
                     value={formData.recurrence_end_day || ''}
                     onChange={(e) => setFormData({ ...formData, recurrence_end_day: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none disabled:opacity-50"
                   />
+                  <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.recurrence_end_day === 0}
+                      onChange={(e) => setFormData({ ...formData, recurrence_end_day: e.target.checked ? 0 : null })}
+                    />
+                    Último día del mes
+                  </label>
                 </div>
+                <p className="col-span-2 text-xs text-slate-500">
+                  Si el mes no tiene ese día (p. ej. 30 o 31 en febrero), la ventana se abre el último día del mes. Para que una ventana sea siempre «fin de mes», marca «Último día del mes».
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
@@ -205,6 +265,7 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
                     required
                     value={formData.end_date || ''}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    min={formData.start_date || undefined}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
                   />
                 </div>

@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Any
 
 from src.core.database import get_db
 from src.api.deps import RequirePermission, get_current_user
+from src.core.pbac import PBACEngine
 from src.models.user import User
 from src.services.investment_rank_service import InvestmentRankService
 
@@ -24,6 +27,12 @@ class RankCreateRequest(BaseModel):
     order: int = Field(1, ge=1)
     is_active: bool = True
 
+    @model_validator(mode="after")
+    def validate_min_max(self):
+        if self.max_investment is not None and self.min_investment > self.max_investment:
+            raise ValueError("La inversión mínima no puede ser superior a la inversión máxima.")
+        return self
+
 class RankUpdateRequest(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None
@@ -37,19 +46,58 @@ class RankUpdateRequest(BaseModel):
     order: Optional[int] = None
     is_active: Optional[bool] = None
 
+    @model_validator(mode="after")
+    def validate_min_max(self):
+        if self.min_investment is not None and self.max_investment is not None:
+            if self.min_investment > self.max_investment:
+                raise ValueError("La inversión mínima no puede ser superior a la inversión máxima.")
+        return self
+
 class AssignUserRankRequest(BaseModel):
     user_id: int
     rank_id: Optional[int] = None # None means auto-calculate
 
+# Quién ve el detalle interno de los rangos (users_count, is_active, fechas): los mismos permisos que
+# ya gobiernan /rankings/user/{id}
+RANKINGS_ADMIN_PERMISSIONS = ["admin.rankings.manage", "admin.users.manage", "admin.investors.manage", "admin.roles.manage"]
+PUBLIC_RANK_FIELDS = (
+    "id", "name", "slug", "min_investment", "max_investment", "bonus_percentage",
+    "color", "icon", "priority_withdrawal", "benefits", "order",
+)
+_optional_oauth2 = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+
+async def get_optional_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    token: Optional[str] = Depends(_optional_oauth2),
+) -> Optional[User]:
+    """Usuario autenticado o None (el catálogo de rangos es público, pero con menos campos)."""
+    try:
+        return await get_current_user(request, db, token)
+    except HTTPException:
+        return None
+
+
+def public_rank_view(rank: dict) -> dict:
+    """Catálogo público (H-234): sin users_count (dato de negocio) ni campos internos."""
+    return {k: rank[k] for k in PUBLIC_RANK_FIELDS if k in rank}
+
+
 @router.get("/rankings")
 async def list_rankings(
     only_active: bool = Query(False),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    viewer: Optional[User] = Depends(get_optional_user),
 ):
     """
-    Lista todos los rangos configurados en el sistema con beneficios y número de usuarios.
+    Lista los rangos configurados. Sin sesión (o sin permisos de gestión) solo devuelve los rangos
+    activos con los campos del catálogo; users_count, is_active y fechas son solo para gestión.
     """
-    return await InvestmentRankService.get_all_ranks(db, only_active=only_active)
+    if viewer is not None and PBACEngine.has_permission(viewer, RANKINGS_ADMIN_PERMISSIONS):
+        return await InvestmentRankService.get_all_ranks(db, only_active=only_active)
+    ranks = await InvestmentRankService.get_all_ranks(db, only_active=True)
+    return [public_rank_view(r) for r in ranks]
 
 @router.get("/rankings/me")
 async def get_my_rank_details(
@@ -79,7 +127,11 @@ async def create_ranking(
     """
     Crea un nuevo rango de inversión.
     """
-    return await InvestmentRankService.create_rank(db, rank_in.model_dump())
+    rank = await InvestmentRankService.create_rank(db, rank_in.model_dump())
+    # H-114: avisos (no bloquean) de huecos de capital entre tramos
+    data = jsonable_encoder(rank)
+    data["warnings"] = await InvestmentRankService.gap_warnings_for(db, rank.name)
+    return data
 
 @router.put("/rankings/{rank_id}", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def update_ranking(
@@ -91,7 +143,10 @@ async def update_ranking(
     Actualiza un rango existente.
     """
     update_data = {k: v for k, v in rank_in.model_dump().items() if v is not None}
-    return await InvestmentRankService.update_rank(db, rank_id, update_data)
+    rank = await InvestmentRankService.update_rank(db, rank_id, update_data)
+    data = jsonable_encoder(rank)
+    data["warnings"] = await InvestmentRankService.gap_warnings_for(db, rank.name)
+    return data
 
 @router.delete("/rankings/{rank_id}", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def delete_ranking(

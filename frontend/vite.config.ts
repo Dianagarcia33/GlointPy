@@ -29,4 +29,17 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(buildTimestamp),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Librerías en archivos aparte: casi no cambian entre despliegues, así el navegador
+        // las conserva en caché y solo vuelve a descargar el código propio de la app.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'zustand'],
+          'vendor-charts': ['recharts'],
+          'vendor-motion': ['motion'],
+        },
+      },
+    },
+  },
 });

@@ -22,8 +22,12 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     env_file:
       - ./backend/.env
+    environment:
+      # Cuenta de servicio de Firebase (avisos push). El archivo vive solo en el servidor, nunca en git.
+      - FIREBASE_CREDENTIALS_PATH=/app/secrets/firebase-service-account.json
     volumes:
       - uploads_data:/app/uploads
+      - ./backend/secrets:/app/secrets:ro
     restart: unless-stopped
 
     networks:

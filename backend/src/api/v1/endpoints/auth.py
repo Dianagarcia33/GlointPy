@@ -1,14 +1,19 @@
+from src.services.audit_trail_service import audit_in_tx
+from src.core.errors import public_error_detail
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from src.core.database import get_db
 from src.core.config import settings
 from src.core.security import create_access_token
-from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
+from src.core.session_revocation import revoke_user_sessions, close_live_connections
+from src.core.rate_limiter import IPRateLimiter, password_recovery_rate_limiter, password_reset_failure_limiter, refresh_failure_limiter
+from src.services.device_session_service import DeviceSessionService
+from src.schemas.auth import Token, RefreshRequest, DeviceSessionOut, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, SendForcePasswordOtpRequest
 from src.schemas.user import UserResponse
 from src.services.auth_service import AuthService
-from src.api.deps import get_current_user
+from src.api.deps import get_current_user, get_auth_payload, RequirePermission
 from src.models.user import User
 
 router = APIRouter()
@@ -22,6 +27,14 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
     elif getattr(settings, 'ENVIRONMENT', 'development') == 'production':
         is_secure = True
 
+    # H-33: la web y la API comparten dominio, así que SameSite=Lax basta (antes "none" por un front en Vercel
+    # que ya no existe). Lax sigue enviando la cookie en navegaciones GET (checkout, enlaces de correo) pero
+    # no en POST ni WebSockets desde otros sitios. COOKIE_SAMESITE=none queda solo como reversa de emergencia
+    # (los navegadores exigen Secure con None; sin HTTPS se usa lax).
+    configured = str(getattr(settings, "COOKIE_SAMESITE", "lax") or "lax").lower()
+    if configured not in ("lax", "strict", "none"):
+        configured = "lax"
+    samesite = "lax" if (configured == "none" and not is_secure) else configured
     max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 1440)) * 60
 
     response.set_cookie(
@@ -29,7 +42,7 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
         value=access_token,
         httponly=True,
         secure=is_secure,
-        samesite="lax",
+        samesite=samesite,
         max_age=max_age,
         path="/"
     )
@@ -37,7 +50,9 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
 def clear_auth_cookie(response: Response):
     response.delete_cookie(
         key="access_token",
-        path="/"
+        path="/",
+        httponly=True,
+        samesite="lax",
     )
 
 @router.post("/login", response_model=Token)
@@ -48,8 +63,17 @@ async def login(login_data: LoginRequest, request: Request, response: Response, 
     """
     user = await AuthService.authenticate_user(db, login_data, request=request)
 
+    # App móvil: si envía los datos del dispositivo se abre una sesión con token de refresco (sin cookie).
+    # Quien no los envía (web, app de inversionistas) sigue exactamente igual que antes.
+    if login_data.client:
+        session, refresh_token = await DeviceSessionService.create_session(
+            db, user, login_data.client, ip=IPRateLimiter.get_client_ip(request)
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return DeviceSessionService.token_response(user, session, refresh_token)
+
     # Generar token
-    access_token = create_access_token(subject=user.id)
+    access_token = create_access_token(subject=user.id, token_version=user.token_version)
     set_auth_cookie(response, access_token, request=request)
     
     return {
@@ -66,6 +90,91 @@ async def logout(response: Response) -> Any:
     clear_auth_cookie(response)
     return {"message": "Sesión cerrada correctamente"}
 
+@router.post("/refresh", response_model=Token)
+async def refresh_session(
+    data: RefreshRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    App móvil: renueva la sesión del dispositivo. Recibe el refresh_token y devuelve un access_token nuevo y un
+    refresh_token nuevo (el anterior deja de servir). Cualquier fallo responde 401 genérico: hay que iniciar sesión.
+    Límite: 20 fallos por IP cada 10 minutos (HTTP 429).
+    """
+    refresh_failure_limiter.check_rate_limit(request)
+    try:
+        session, new_refresh, user = await DeviceSessionService.refresh(
+            db, data.refresh_token, ip=IPRateLimiter.get_client_ip(request)
+        )
+    except HTTPException:
+        refresh_failure_limiter.record_failed_attempt(request)
+        raise
+    response.headers["Cache-Control"] = "no-store"
+    return DeviceSessionService.token_response(user, session, new_refresh)
+
+
+@router.post("/session/revoke")
+async def revoke_device_session(data: RefreshRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    App móvil: cierra la sesión de ESTE dispositivo con su refresh_token (funciona aunque el access_token ya venció).
+    Responde 200 aunque el token no coincida, para no dar pistas.
+    """
+    await DeviceSessionService.revoke_by_refresh_token(db, data.refresh_token)
+    return {"message": "Sesión del dispositivo cerrada."}
+
+
+@router.get("/sessions", response_model=List[DeviceSessionOut])
+async def list_device_sessions(
+    current_user: User = Depends(get_current_user),
+    auth_payload: dict = Depends(get_auth_payload),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Sesiones de dispositivo vigentes del usuario; marca cuál es la actual (la del access_token usado)."""
+    sessions = await DeviceSessionService.list_sessions(db, current_user)
+    current_sid = auth_payload.get("sid")
+    return [
+        {
+            "id": s.id,
+            "device_name": s.device_name,
+            "platform": s.platform,
+            "app_version": s.app_version,
+            "created_at": s.created_at,
+            "last_used_at": s.last_used_at,
+            "current": current_sid is not None and s.id == current_sid,
+        }
+        for s in sessions
+    ]
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_own_device_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Cierra una de las sesiones de dispositivo del propio usuario (por ejemplo, un teléfono perdido)."""
+    if not await DeviceSessionService.revoke_user_session(db, current_user, session_id):
+        raise HTTPException(status_code=404, detail="Sesión no encontrada.")
+    return {"message": "Sesión cerrada."}
+
+
+@router.post("/logout-all")
+async def logout_all_sessions(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Cierra TODAS las sesiones del usuario en todos sus dispositivos (web, móvil y chat en vivo), incluida esta.
+    Los tokens emitidos hasta ahora dejan de valer de inmediato; para volver a entrar hay que iniciar sesión.
+    """
+    await revoke_user_sessions(db, current_user)
+    await db.commit()
+    await close_live_connections(current_user.id)
+    clear_auth_cookie(response)
+    return {"message": "Se cerraron todas tus sesiones en todos los dispositivos."}
+
 from src.schemas.auth import InvestorRegisterRequest
 @router.post("/register-investor", response_model=Token)
 async def register_investor(register_data: InvestorRegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
@@ -73,7 +182,7 @@ async def register_investor(register_data: InvestorRegisterRequest, request: Req
     Registra un inversionista con sus datos personales, bancarios, KYC y la solicitud de inversión.
     """
     user = await AuthService.register_investor(db, register_data)
-    access_token = create_access_token(subject=user.id)
+    access_token = create_access_token(subject=user.id, token_version=user.token_version)
     set_auth_cookie(response, access_token, request=request)
     
     return {
@@ -82,16 +191,57 @@ async def register_investor(register_data: InvestorRegisterRequest, request: Req
         "user": user
     }
 
+@router.get("/validate-referral/{code}")
+async def validate_referral_code(code: str, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Valida si un código de referido existe en la plataforma (H-70).
+    No expone datos sensibles del referente para resguardar la privacidad.
+    """
+    clean_code = code.strip().upper()
+    from src.models.investor import Investor
+    from sqlalchemy.future import select
+    
+    res = await db.execute(select(Investor.id).where(Investor.assigned_code == clean_code))
+    if not res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"El código de referido '{clean_code}' no existe en la plataforma."
+        )
+    return {"valid": True, "code": clean_code}
+
+@router.post("/send-force-password-otp")
+async def send_force_password_otp(data: SendForcePasswordOtpRequest, request: Request, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Envía un código OTP de 6 dígitos al correo del usuario para autorizar el cambio de contraseña obligatorio (H-76).
+    Límite: 5 solicitudes por IP cada 10 minutos (HTTP 429).
+    """
+    password_recovery_rate_limiter.check_rate_limit(request)
+    password_recovery_rate_limiter.record_failed_attempt(request)
+    return await AuthService.send_force_password_otp(db, data.email, data.current_password)
+
 @router.post("/force-change-password", response_model=Token)
 async def force_change_password(data: ForceChangePasswordRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Cambia la contraseña de forma obligatoria cuando must_change_password = True.
     Retorna el Token de acceso tras cambiarla exitosamente y renueva la cookie.
     """
-    user = await AuthService.force_change_password(db, data)
+    # Límite de intentos fallidos (código o clave incorrectos): 10 por IP cada 10 minutos
+    password_reset_failure_limiter.check_rate_limit(request)
+    try:
+        user = await AuthService.force_change_password(db, data)
+    except HTTPException:
+        password_reset_failure_limiter.record_failed_attempt(request)
+        raise
     
+    if data.client:
+        session, refresh_token = await DeviceSessionService.create_session(
+            db, user, data.client, ip=IPRateLimiter.get_client_ip(request)
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return DeviceSessionService.token_response(user, session, refresh_token)
+
     # Generar token
-    access_token = create_access_token(subject=user.id)
+    access_token = create_access_token(subject=user.id, token_version=user.token_version)
     set_auth_cookie(response, access_token, request=request)
     
     return {
@@ -105,22 +255,32 @@ from fastapi import BackgroundTasks
 @router.post("/forgot-password")
 async def forgot_password(
     data: ForgotPasswordRequest, 
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
     Envía un correo de recuperación de contraseña si el correo existe en la base de datos.
+    Límites: 5 solicitudes por IP cada 10 minutos (HTTP 429) y 3 correos por dirección cada hora (sin avisar).
     """
+    password_recovery_rate_limiter.check_rate_limit(request)
+    password_recovery_rate_limiter.record_failed_attempt(request)
     await AuthService.request_password_reset(db, data.email, background_tasks)
     return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
 
 
 @router.post("/reset-password")
-async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def reset_password(data: ResetPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     """
-    Valida el token de recuperación y establece una nueva contraseña.
+    Valida el token de recuperación y establece una nueva contraseña (debe cumplir la política de contraseña).
+    Límite: 10 intentos fallidos por IP cada 10 minutos (HTTP 429).
     """
-    await AuthService.reset_password(db, data.token, data.new_password)
+    password_reset_failure_limiter.check_rate_limit(request)
+    try:
+        await AuthService.reset_password(db, data.token, data.new_password)
+    except HTTPException:
+        password_reset_failure_limiter.record_failed_attempt(request)
+        raise
     return {"message": "Tu contraseña ha sido actualizada exitosamente."}
 
 @router.get("/me", response_model=UserResponse)
@@ -166,7 +326,20 @@ async def switch_to_child_account(
     if not child.is_active:
         raise HTTPException(status_code=400, detail="La cuenta del menor se encuentra inactiva.")
 
-    access_token = create_access_token(subject=child.id)
+    # H-65: la suplantación deja rastro ANTES de entregar el token (si no se puede auditar, no se emite la sesión)
+    await audit_in_tx(
+        db, "ACCOUNT_SWITCH", "security", current_user, "User", child.id,
+        f"El tutor #{current_user.id} cambió a la cuenta del menor #{child.id}",
+        {"tutor_id": current_user.id, "menor_id": child.id},
+    )
+    await db.commit()
+
+    # H-182: el token del menor lleva firmado quién lo suplantó; solo con ese claim se puede volver al tutor
+    access_token = create_access_token(
+        subject=child.id,
+        token_version=child.token_version,
+        extra_claims={"imp_by": current_user.id, "imp_tv": current_user.token_version},
+    )
     set_auth_cookie(response, access_token, request=request)
 
     return {
@@ -180,15 +353,25 @@ async def switch_back_to_parent(
     request: Request,
     response: Response,
     current_user: User = Depends(get_current_user),
+    auth_payload: dict = Depends(get_auth_payload),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Permite volver a la cuenta del tutor/padre si el usuario actual es un hijo vinculado.
+    Permite volver a la cuenta del tutor/padre solo si esta sesión nació de un switch-account legítimo.
     """
     if not current_user.parent_user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Esta cuenta no tiene un tutor o padre vinculado."
+        )
+
+    # H-182: tener tutor asignado no basta; el token debe haber sido emitido por el propio tutor
+    # al cambiar a esta cuenta (claim firmado imp_by). Un menor con sesión normal no puede obtener
+    # credenciales de su tutor.
+    if str(auth_payload.get("imp_by")) != str(current_user.parent_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta sesión no proviene de un cambio de cuenta de tutor; no se puede volver a la cuenta del tutor."
         )
 
     result = await db.execute(
@@ -202,7 +385,14 @@ async def switch_back_to_parent(
     if not parent or not parent.is_active:
         raise HTTPException(status_code=404, detail="La cuenta del tutor no se encuentra disponible o activa.")
 
-    access_token = create_access_token(subject=parent.id)
+    await audit_in_tx(
+        db, "ACCOUNT_SWITCH_BACK", "security", current_user, "User", parent.id,
+        f"Regreso a la cuenta del tutor #{parent.id} desde la cuenta del menor #{current_user.id}",
+        {"tutor_id": parent.id, "menor_id": current_user.id, "suplantado_por": str(auth_payload.get("imp_by"))},
+    )
+    await db.commit()
+
+    access_token = create_access_token(subject=parent.id, token_version=parent.token_version)
     set_auth_cookie(response, access_token, request=request)
 
     return {
@@ -225,18 +415,10 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         os.makedirs("uploads/comprobantes", exist_ok=True)
         os.makedirs("uploads", exist_ok=True)
-        ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".jpg"
-        
-        # Lista estricta de extensiones permitidas
-        allowed_extensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp']
-        if ext not in allowed_extensions:
-            raise HTTPException(status_code=400, detail="Extensión de archivo no permitida. Solo se permiten imágenes (JPG, PNG, WEBP) o documentos PDF.")
-            
-        # Verificar tamaño del archivo (máximo 10MB)
-        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+        # H-190: extensión, tamaño (10 MB) y contenido real del archivo (imagen o PDF)
         file_bytes = await file.read()
-        if len(file_bytes) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el tamaño máximo permitido de 10MB.")
+        from src.core.uploads import validate_receipt_upload
+        ext = validate_receipt_upload(file.filename or "archivo.jpg", file_bytes)
 
         # Guardar usando UUID v4 aleatorio de alta entropía
         filename = f"{uuid.uuid4()}{ext}"
@@ -249,7 +431,7 @@ async def upload_file(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al procesar y guardar el archivo: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al procesar y guardar el archivo", e))
 
 
 from sqlalchemy import select
@@ -319,3 +501,255 @@ async def extract_ocr_data(file: UploadFile = File(...)):
         print(f"Error procesando OCR: {e}")
         # Retornamos vacío si falla, el frontend hace fallback manual
         return {"document_number": "", "full_name": ""}
+
+@router.post("/public/compare-faces")
+async def compare_faces_endpoint(
+    document: UploadFile = File(...),
+    selfie: UploadFile = File(...)
+):
+    """
+    Compara biométricamente el rostro en la foto de la cédula contra la selfie tomada por el usuario.
+    Retorna si coinciden (matched: True/False), porcentaje de similitud y mensaje descriptivo.
+    """
+    allowed_exts = ['.jpg', '.jpeg', '.png', '.webp']
+    for f in [document, selfie]:
+        ext = os.path.splitext(f.filename)[1].lower() if f.filename else ""
+        if ext not in allowed_exts:
+            raise HTTPException(status_code=400, detail="Solo se permiten imágenes (JPG, PNG, WEBP) para la validación biométrica.")
+
+    try:
+        from src.services.ocr_service import ocr_service
+        document_bytes = await document.read()
+        selfie_bytes = await selfie.read()
+
+        if len(document_bytes) == 0 or len(selfie_bytes) == 0:
+            raise HTTPException(status_code=400, detail="Los archivos de imagen no pueden estar vacíos.")
+
+        result = ocr_service.compare_faces(document_bytes, selfie_bytes)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error procesando compare-faces: {e}")
+        return {
+            "matched": False,
+            "similarity": 0.0,
+            "message": f"No se pudo completar la validación biométrica: {str(e)}"
+        }
+
+
+from pydantic import BaseModel
+
+class TestEmailRequest(BaseModel):
+    email_type: str  # "welcome" | "sarlaft_approved" | "sarlaft_findings"
+    target_email: Optional[str] = None
+
+
+@router.post("/test-email", dependencies=[Depends(RequirePermission("admin.roles.manage"))])  # H-183: antes lo podía usar cualquier usuario
+async def send_test_email(
+    payload: TestEmailRequest,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Endpoint temporal para probar los nuevos correos corporativos:
+    - welcome: Bienvenida y notificación de revisión SARLAFT
+    - sarlaft_approved: Validación SARLAFT aprobada y cuenta habilitada
+    - sarlaft_findings: Validación SARLAFT con alertas/hallazgos
+    """
+    from src.services.email_service import EmailService
+
+    recipient = payload.target_email.strip() if payload.target_email else current_user.email
+    if not recipient:
+        raise HTTPException(status_code=400, detail="No se encontró una dirección de correo válida para enviar la prueba.")
+
+    user_name = current_user.name or "Inversionista Gloint"
+    doc_id = current_user.document_id or "1234567890"
+
+    email_type = payload.email_type.lower().strip()
+    sent = False
+    template_label = ""
+
+    if email_type == "welcome":
+        template_label = "Bienvenida y Revisión Preventiva"
+        sent = await EmailService.send_welcome_and_review_email(
+            to_email=recipient,
+            user_name=user_name,
+            document_id=doc_id,
+            document_type="CC"
+        )
+    elif email_type == "sarlaft_approved":
+        template_label = "Validación SARLAFT Aprobada"
+        sent = await EmailService.send_sarlaft_result_email(
+            to_email=recipient,
+            user_name=user_name,
+            document_id=doc_id,
+            document_type="CC",
+            has_findings=False,
+            risk_level="CLEAN"
+        )
+    elif email_type == "sarlaft_findings":
+        template_label = "Validación SARLAFT con Alertas / Hallazgos"
+        sent = await EmailService.send_sarlaft_result_email(
+            to_email=recipient,
+            user_name=user_name,
+            document_id=doc_id,
+            document_type="CC",
+            has_findings=True,
+            risk_level="MEDIUM",
+            hallazgos_summary="Se detectaron alertas normativas preliminares en listas de control que requieren validación documental."
+        )
+    elif email_type == "password_reset":
+        template_label = "Recuperación de Contraseña"
+        sent = EmailService.send_password_reset_email(to_email=recipient, reset_token="test-token-demo-999")
+    elif email_type == "otp":
+        template_label = "Código de Seguridad (OTP)"
+        sent = EmailService.send_withdrawal_verification_code(to_email=recipient, code="749201")
+    elif email_type == "withdrawal_approved":
+        template_label = "Retiro Aprobado y Transferido"
+        sent = EmailService.send_withdrawal_approval_email(
+            to_email=recipient,
+            user_name=user_name,
+            amount=2500000.0,
+            method="Transferencia Bancaria",
+            bank="Bancolombia",
+            account_number="•••• 7890"
+        )
+    elif email_type == "chatbot_investor":
+        template_label = "Confirmación Asesoría Lead"
+        sent = EmailService.send_chatbot_lead_investor_confirmation(
+            to_email=recipient,
+            investor_name=user_name,
+            director_name="Carlos Méndez (Directivo Asignado)",
+            package_name="Paquete Empresarial $10,000,000 COP",
+            preferred_time="Tarde (2:00 PM - 5:00 PM)"
+        )
+    elif email_type == "chatbot_director":
+        template_label = "Notificación Lead a Directivo"
+        sent = EmailService.send_chatbot_lead_director_notification(
+            to_email=recipient,
+            director_name=user_name,
+            lead_data={
+                "name": "Andrea Morales",
+                "phone": "+57 312 345 6789",
+                "email": recipient,
+                "city": "Medellín",
+                "department": "Antioquia",
+                "package_name": "Paquete Titan $50,000,000 COP",
+                "investment_goal": "Crecimiento patrimonial a 12 meses",
+                "preferred_contact_time": "Mañana (9:00 AM - 12:00 PM)"
+            }
+        )
+    elif email_type == "investment_request_created":
+        template_label = "Solicitud de Inversión Radicada"
+        sent = EmailService.send_investment_request_created_email(
+            to_email=recipient,
+            user_name=user_name,
+            request_id=1042,
+            amount=10000000.0,
+            package_name="Paquete Empresarial $10,000,000 COP",
+            period_months="12 meses (2.5% mensual)",
+            is_upgrade=False,
+            payment_method="Pasarela Yoint (PSE / Bancolombia / Nequi)"
+        )
+    elif email_type == "investment_activated":
+        template_label = "Inversión Activada y Confirmada"
+        sent = EmailService.send_investment_activated_email(
+            to_email=recipient,
+            user_name=user_name,
+            contract_code="GLO-00892",
+            amount=10000000.0,
+            package_name="Paquete Empresarial $10,000,000 COP",
+            period_info="12 meses (2.5% mensual)",
+            is_upgrade=False,
+            granted_shares=150,
+            payment_method="Pasarela Yoint (PSE Bancolombia)"
+        )
+    elif email_type == "capital_upgrade_activated":
+        template_label = "Aumento de Capital Activado"
+        sent = EmailService.send_investment_activated_email(
+            to_email=recipient,
+            user_name=user_name,
+            contract_code="GLO-00892",
+            amount=25000000.0,
+            package_name="Paquete Titan $25,000,000 COP",
+            period_info="12 meses (2.8% mensual)",
+            is_upgrade=True,
+            granted_shares=200,
+            accrued_yield_paid=1250000.0,
+            payment_method="Pasarela Yoint (PSE)"
+        )
+    elif email_type == "wallet_recharge_confirmed":
+        template_label = "Recarga de Billetera Confirmada"
+        sent = EmailService.send_wallet_recharge_confirmed_email(
+            to_email=recipient,
+            user_name=user_name,
+            amount=2000000.0,
+            new_balance=3500000.0,
+            payment_method="Yoint (PSE Bancolombia)",
+            reference_id="ORD-YOINT-994821"
+        )
+    elif email_type == "event_registration_in_person":
+        template_label = "Inscripción Evento Presencial"
+        from datetime import datetime, timezone, timedelta
+        event_dt = datetime.now(timezone.utc) + timedelta(days=20)
+        sent = EmailService.send_event_registration_confirmation_email(
+            to_email=recipient,
+            user_name=user_name,
+            event_title="Gloint Power Tech",
+            event_date=event_dt,
+            attendance_mode="in_person",
+            location="Auditorio Principal Gloint • Bogotá, Colombia",
+            seats_reserved=2,
+            has_companion=True,
+            companion_name="María Fernanda Restrepo",
+            is_company=True,
+            company_name="Soluciones Energéticas SAS",
+            company_nit="901.458.912-3",
+            job_title="Directora de Operaciones",
+            document_id="1020304050",
+            phone="+57 310 123 4567",
+            city="Bogotá",
+            interests=["Inversión de Capital", "Tecnología & IA", "Logística y Comercio"],
+            attendee_type="investor"
+        )
+    elif email_type == "event_registration_virtual":
+        template_label = "Inscripción Evento Virtual"
+        from datetime import datetime, timezone, timedelta
+        event_dt = datetime.now(timezone.utc) + timedelta(days=20)
+        sent = EmailService.send_event_registration_confirmation_email(
+            to_email=recipient,
+            user_name=user_name,
+            event_title="Gloint Power Tech",
+            event_date=event_dt,
+            attendance_mode="virtual",
+            virtual_url="https://meet.gloint.com.co/power-tech",
+            seats_reserved=1,
+            has_companion=False,
+            is_company=False,
+            document_id="1098765432",
+            phone="+57 320 987 6543",
+            city="Medellín",
+            interests=["Tecnología & IA", "Fintech & Crowdfunding"],
+            attendee_type="external"
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de correo no válido ('{payload.email_type}'). Opciones: 'welcome', 'sarlaft_approved', 'sarlaft_findings', 'password_reset', 'otp', 'withdrawal_approved', 'chatbot_investor', 'chatbot_director', 'investment_request_created', 'investment_activated', 'capital_upgrade_activated', 'wallet_recharge_confirmed', 'event_registration_in_person', 'event_registration_virtual'"
+        )
+
+    if not sent:
+        return {
+            "success": False,
+            "message": f"El servicio intentó despachar '{template_label}' a {recipient}, pero el envío no se completó. Verifica los logs o las credenciales de RESEND_API_KEY.",
+            "recipient": recipient,
+            "template": template_label
+        }
+
+    return {
+        "success": True,
+        "message": f"¡Correo '{template_label}' enviado exitosamente a {recipient}!",
+        "recipient": recipient,
+        "template": template_label
+    }
+

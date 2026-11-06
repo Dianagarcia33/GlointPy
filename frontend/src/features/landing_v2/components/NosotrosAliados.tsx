@@ -96,7 +96,7 @@ export function NosotrosAliados() {
             {/* Núcleo */}
             <motion.div
               className="w-32 h-32 rounded-full flex items-center justify-center relative shadow-2xl pointer-events-auto"
-              style={{ background: "#0b1120", border: `2px solid ${GOLD}`, boxShadow: `0 0 40px ${GOLD}25` }}
+              style={{ background: "#0C0B0A", border: `2px solid ${GOLD}`, boxShadow: `0 0 40px ${GOLD}25` }}
               animate={{ boxShadow: [`0 0 25px ${GOLD}15`, `0 0 55px ${GOLD}35`, `0 0 25px ${GOLD}15`] }}
               transition={{ duration: 3, repeat: Infinity }}
             >
@@ -125,7 +125,7 @@ export function NosotrosAliados() {
             >
               <motion.div
                 className="relative w-36 h-16 rounded-xl flex items-center justify-center font-bold text-sm cursor-pointer select-none"
-                style={{ background: "#0f172a", border: `1px solid ${GOLD}40`, color: "#e2e8f0", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}
+                style={{ background: "#14130F", border: `1px solid ${GOLD}40`, color: "#e2e8f0", boxShadow: "0 10px 25px rgba(0,0,0,0.5)" }}
                 whileHover={{ scale: 1.08, y: -4, color: "#fff", borderColor: GOLD, boxShadow: `0 10px 30px ${GOLD}35` }}
                 transition={{ duration: 0.2 }}
               >
@@ -145,7 +145,7 @@ export function NosotrosAliados() {
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.06 }}
               className="h-16 rounded-xl flex items-center justify-center font-bold text-sm"
-              style={{ background: "#0f172a", border: `1px solid ${GOLD}20`, color: "#94a3b8" }}
+              style={{ background: "#14130F", border: `1px solid ${GOLD}20`, color: "#94a3b8" }}
             >
               {item.name}
             </motion.div>

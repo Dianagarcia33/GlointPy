@@ -1,3 +1,4 @@
+import { preferenceStorage } from '../../../utils/cookieConsent';
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { usePermissions } from '../../../hooks/usePermissions';
@@ -7,12 +8,20 @@ import { ConversationList } from '../components/ConversationList';
 import { ChatWindow } from '../components/ChatWindow';
 import { NewChatModal } from '../components/NewChatModal';
 
+// H-209: sin alert() nativo ni nombres internos de permisos en los mensajes al usuario
+const friendlyChatError = (err: any, fallback: string): string => {
+  const msg = String(err?.message || '');
+  if (/permiso/i.test(msg)) return 'Tu rol solo permite leer conversaciones. Pide a un administrador que habilite el envío de mensajes.';
+  return msg || fallback;
+};
+
 export const ChatPage: React.FC = () => {
   const { hasPermission } = usePermissions();
   const user = useAuthStore((state) => state.user);
 
   const canViewChat = hasPermission('chat:view') || !!user?.is_superuser;
-  const canSendChat = hasPermission('chat:send') || hasPermission('chat:view') || !!user?.is_superuser;
+  // El backend exige chat:send para iniciar chats, enviar y subir archivos; chat:view solo permite leer
+  const canSendChat = hasPermission('chat:send') || !!user?.is_superuser;
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
@@ -25,6 +34,7 @@ export const ChatPage: React.FC = () => {
   const hasConsumedUrlRoomRef = useRef(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Cargar salas al entrar o refrescar en tiempo real
@@ -53,13 +63,13 @@ export const ChatPage: React.FC = () => {
         if (!isNaN(roomId) && data.some((r) => Number(r.id) === Number(roomId))) {
           selectedRoomIdRef.current = roomId;
           setSelectedRoomId(roomId);
-          localStorage.setItem('gloint_active_chat_room_id', String(roomId));
+          preferenceStorage.setItem('gloint_active_chat_room_id', String(roomId));
           return;
         }
       }
 
       // Prioridad 2: Última sala guardada en localStorage
-      const savedRoomIdStr = localStorage.getItem('gloint_active_chat_room_id');
+      const savedRoomIdStr = preferenceStorage.getItem('gloint_active_chat_room_id');
       if (savedRoomIdStr) {
         const savedRoomId = parseInt(savedRoomIdStr, 10);
         if (!isNaN(savedRoomId) && data.some((r) => Number(r.id) === Number(savedRoomId))) {
@@ -73,7 +83,7 @@ export const ChatPage: React.FC = () => {
       if (data.length > 0 && !selectedRoomIdRef.current) {
         selectedRoomIdRef.current = data[0].id;
         setSelectedRoomId(data[0].id);
-        localStorage.setItem('gloint_active_chat_room_id', String(data[0].id));
+        preferenceStorage.setItem('gloint_active_chat_room_id', String(data[0].id));
       }
     } catch (err) {
       console.error('Error al cargar salas de chat:', err);
@@ -85,7 +95,7 @@ export const ChatPage: React.FC = () => {
   const handleSelectRoom = (roomId: number) => {
     selectedRoomIdRef.current = roomId;
     setSelectedRoomId(roomId);
-    localStorage.setItem('gloint_active_chat_room_id', String(roomId));
+    preferenceStorage.setItem('gloint_active_chat_room_id', String(roomId));
 
     // Mantener la URL sincronizada con el ID del chat actual sin recargar la página
     const url = new URL(window.location.href);
@@ -125,7 +135,7 @@ export const ChatPage: React.FC = () => {
       setSelectedRoomId(res.room_id);
       await fetchRooms(true);
     } catch (err: any) {
-      alert(err.message || 'Error al iniciar conversación');
+      setActionError(friendlyChatError(err, 'No se pudo iniciar la conversación.'));
     }
   };
 
@@ -136,7 +146,7 @@ export const ChatPage: React.FC = () => {
       setSelectedRoomId(newRoom.room_id);
       await fetchRooms(true);
     } catch (err: any) {
-      alert(err.message || 'Error al crear grupo');
+      setActionError(friendlyChatError(err, 'No se pudo crear el grupo.'));
       throw err;
     }
   };
@@ -168,8 +178,10 @@ export const ChatPage: React.FC = () => {
           rooms={rooms}
           selectedRoomId={selectedRoomId}
           onSelectRoom={(id) => handleSelectRoom(id)}
-          onStartNewChat={() => setIsModalOpen(true)}
+          onStartNewChat={() => { setActionError(null); setIsModalOpen(true); }}
+          canStartNewChat={canSendChat}
           currentUserId={user?.id}
+          loading={loading}
         />
       </div>
 
@@ -182,13 +194,20 @@ export const ChatPage: React.FC = () => {
           onBack={() => {
             selectedRoomIdRef.current = null;
             setSelectedRoomId(null);
-            localStorage.removeItem('gloint_active_chat_room_id');
+            preferenceStorage.removeItem('gloint_active_chat_room_id');
             const url = new URL(window.location.href);
             url.searchParams.delete('room');
             window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
           }}
         />
       </div>
+
+      {actionError && (
+        <div role="alert" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] max-w-sm flex items-start gap-3 bg-white border border-rose-200 text-rose-700 text-sm rounded-2xl shadow-lg px-4 py-3">
+          <span className="flex-1">{actionError}</span>
+          <button onClick={() => setActionError(null)} className="text-rose-400 hover:text-rose-600 font-bold" aria-label="Cerrar aviso">×</button>
+        </div>
+      )}
 
       {/* Modal para iniciar chat o grupo */}
       <NewChatModal

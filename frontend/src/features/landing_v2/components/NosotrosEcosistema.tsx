@@ -39,7 +39,7 @@ export function NosotrosEcosistema() {
     },
     {
       icon: <Cpu size={26} />,
-      color: "#60a5fa",
+      color: "#C9CDD3",
       name: "GLOINT Tech",
       role: "Tecnología empresarial",
       desc: "Herramientas tecnológicas para digitalizar y optimizar operaciones logísticas en PyMEs, reduciendo costos y aumentando la productividad.",
@@ -122,7 +122,7 @@ export function NosotrosEcosistema() {
               <div
                 className="p-6 relative overflow-hidden"
                 style={{
-                  background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)`,
+                  background: `linear-gradient(135deg, ${DARK} 0%, #1A1814 100%)`,
                 }}
               >
                 {/* Decoración */}

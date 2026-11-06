@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Query
+from src.core.errors import public_error_detail
+from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
@@ -7,13 +8,34 @@ from src.schemas.investor import InvestorCreate, InvestorUpdate, InvestorRespons
 from src.services.investor_service import InvestorService
 from src.api.deps import RequirePermission, get_current_user
 from src.models.user import User
+from src.services.audit_trail_service import audit_in_tx
 
 router = APIRouter()
+
+
+async def _log_retroactive_start_date(db, request, actor, investor, before, after, reason: str):
+    """Audit Trail (H-142): fecha de ingreso retroactiva con su motivo. No cambia ningún dato del contrato."""
+    from src.services.audit_trail_service import log_audit_trail
+    await log_audit_trail(
+        db=db,
+        action="INVESTOR_RETROACTIVE_START_DATE",
+        module="investments",
+        user=actor,
+        request=request,
+        entity_type="Investor",
+        entity_id=investor.id,
+        description=f"Fecha de ingreso retroactiva en el contrato {investor.assigned_code or investor.id}",
+        details={
+            "before": before.date().isoformat() if before else None,
+            "after": after.date().isoformat() if after else None,
+            "reason": reason,
+        },
+    )
 
 @router.get("/", response_model=InvestorPaginatedResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investors(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=50000),
     search: Optional[str] = None,
     has_history: Optional[bool] = Query(None, description="Filtrar por inversiones que tienen historial de contratos"),
     current_user: User = Depends(get_current_user),
@@ -45,60 +67,60 @@ async def get_my_investments_endpoint(
 @router.get("/{investor_id}", response_model=InvestorResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investor(
     investor_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get a specific investor by ID.
     """
-    return await InvestorService.get_investor(db, investor_id=investor_id)
+    return await InvestorService.get_investor(db, investor_id=investor_id, current_user=current_user)
 
 @router.post("/", response_model=InvestorResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("admin.investors.create"))])
 async def create_investor(
     investor: InvestorCreate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new investor.
     """
-    return await InvestorService.create_investor(db, investor=investor)
+    created = await InvestorService.create_investor(db, investor=investor, actor=current_user)
+    reason = InvestorService.check_retroactive_start_date(investor.start_date, None, investor.start_date_reason)
+    if reason:
+        await _log_retroactive_start_date(db, request, current_user, created, None, created.start_date, reason)
+    return created
 
 @router.put("/{investor_id}", response_model=InvestorResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def update_investor(
     investor_id: int,
     investor: InvestorUpdate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Update an existing investor.
     """
-    return await InvestorService.update_investor(db, investor_id=investor_id, investor=investor)
+    current = await InvestorService.get_investor(db, investor_id=investor_id, current_user=current_user)  # H-187: alcance
+    previous_start = current.start_date
+    updated = await InvestorService.update_investor(db, investor_id=investor_id, investor=investor, actor=current_user)
+    # H-142: la fecha de ingreso retroactiva queda registrada con su motivo en el Audit Trail
+    reason = InvestorService.check_retroactive_start_date(investor.start_date, previous_start, investor.start_date_reason)
+    if reason:
+        await _log_retroactive_start_date(db, request, current_user, updated, previous_start, updated.start_date, reason)
+    return updated
 
 @router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission("admin.investors.delete"))])
 async def delete_investor(
     investor_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Delete an investor.
     """
-    await InvestorService.delete_investor(db, investor_id=investor_id)
-
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
-async def bulk_upload_investors(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and create multiple investors in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    try:
-        csv_text = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8.")
-        
-    result = await InvestorService.bulk_create_investors(db, csv_text)
-    return result
+    await InvestorService.delete_investor(db, investor_id=investor_id, actor=current_user)
 
 from decimal import Decimal
 from datetime import datetime, date
@@ -129,13 +151,25 @@ async def admin_withdraw_capital(
             selectinload(Investor.package),
             selectinload(Investor.period),
             selectinload(Investor.user),
-            selectinload(Investor.withdrawals)
+            selectinload(Investor.withdrawals),
+            selectinload(Investor.accelerations)
         )
         .where(Investor.id == investor_id)
     )
     investor = res.scalars().first()
     if not investor:
         raise HTTPException(status_code=404, detail="Inversión no encontrada")
+    await InvestorService.ensure_investor_in_scope(db, investor, current_user)  # H-187
+
+    # Regla estricta (Módulo 12, Acción 6): solo se liquida el capital de contratos que cumplieron todos
+    # sus días, con la fecha de Colombia. Antes el servidor no lo comprobaba (H-156)
+    from src.services.contract_terms import contract_end, is_contract_finished
+    if not is_contract_finished(investor):
+        fin = contract_end(investor)
+        raise HTTPException(
+            status_code=400,
+            detail=f"El contrato aún no ha finalizado (vence el {fin.strftime('%d/%m/%Y') if fin else 'N/A'}). Solo se puede liquidar el capital de contratos finalizados."
+        )
 
     # 2. Calculate remaining capital
     total_package_value = float(investor.package.value) if investor.package else 0.0
@@ -265,11 +299,22 @@ async def admin_withdraw_capital(
     except Exception as notif_err:
         print(f"Error creating notification for capital withdrawal: {notif_err}")
 
+    await audit_in_tx(
+        db, "INVESTOR_ADMIN_CAPITAL_WITHDRAW", "investments", current_user, "Investor", investor.id,
+        f"Liquidación de capital del contrato {assigned_code} por {formatted_amount}",
+        {"investor_id": investor.id, "withdrawal_id": withdrawal.id, "usuario_id": investor.user_id,
+         "monto": amount_to_withdraw, "capital_disponible_antes": available_capital,
+         "capital_pendiente_despues": max(0.0, available_capital - amount_to_withdraw),
+         "acredita_billetera": bool(credit_wallet),
+         "saldo_billetera_despues": float(wallet.balance) if wallet else None,
+         "notas": (req.notes or "")[:300] or None},
+    )
+
     try:
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al procesar el retiro de capital: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al procesar el retiro de capital", e))
 
     return {
         "message": "Retiro de capital procesado y acreditado a la Billetera con éxito" if credit_wallet else "Liquidación de capital procesada exitosamente (sin abono a billetera)",

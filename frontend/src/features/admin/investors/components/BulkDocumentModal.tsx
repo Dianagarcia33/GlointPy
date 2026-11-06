@@ -367,10 +367,10 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                         />
                                         <div className="flex-1">
                                             <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                                <Users className="w-3.5 h-3.5 text-brand-500" /> Todos los Inversionistas
+                                                <Users className="w-3.5 h-3.5 text-brand-500" /> Todos los Contratos
                                             </div>
                                             <div className="text-[11px] text-slate-400">
-                                                Generar para todas las inversiones activas del sistema {totalInvestorsCount > 0 && `(aprox. ${totalInvestorsCount})`}
+                                                Generar para todos los contratos del sistema {totalInvestorsCount > 0 && `(${totalInvestorsCount} contratos)`}
                                             </div>
                                         </div>
                                     </label>
