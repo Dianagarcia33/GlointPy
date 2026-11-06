@@ -197,6 +197,7 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
         investment_request_id: req.id
       });
       setSarlaftData(prev => ({ ...prev, [req.id]: result.check || result }));
+      await refreshSarlaftBadges();
     } catch (err: any) {
       alert(err.message || "Error consultando antecedentes SARLAFT");
     } finally {
@@ -210,6 +211,21 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
   const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+
+  // Tras una reconsulta SARLAFT: actualiza solo la etiqueta SARLAFT de las filas con lo que dice el servidor,
+  // sin recargar la tabla (no parpadea ni cierra las filas abiertas)
+  const refreshSarlaftBadges = async () => {
+    try {
+      const response = await getInvestmentRequests({ page, limit, search: search || undefined });
+      const fresh = new Map(response.data.map(r => [r.id, r]));
+      setRequests(prev => prev.map(r => {
+        const f = fresh.get(r.id);
+        return f ? { ...r, sarlaft_status: f.sarlaft_status, sarlaft_risk_level: f.sarlaft_risk_level } : r;
+      }));
+    } catch {
+      // la etiqueta se corrige en la próxima recarga
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
