@@ -58,6 +58,9 @@ class InvestmentRequestResponse(InvestmentRequestBase):
     package: Optional[SimplePackageResponse] = None
     investor: Optional[SimpleInvestorResponse] = None
     reviewer: Optional[SimpleUserResponse] = None
+    # Verificación SARLAFT del solicitante: none | pending | rejected | approved
+    sarlaft_status: Optional[str] = None
+    sarlaft_risk_level: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

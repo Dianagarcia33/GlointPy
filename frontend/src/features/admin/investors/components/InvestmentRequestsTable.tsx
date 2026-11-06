@@ -11,6 +11,26 @@ import { AdminSolicitudInversionModal } from './AdminSolicitudInversionModal';
 
 const FALLBACK_DOC_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
 
+/** Verificación SARLAFT del solicitante, tal como la calcula el servidor (none | pending | rejected | approved). */
+const SARLAFT_BADGES: Record<string, { label: string; cls: string; title: string }> = {
+  approved: { label: 'Validado', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200', title: 'Verificación SARLAFT aprobada' },
+  pending: { label: 'En verificación', cls: 'bg-amber-100 text-amber-800 border-amber-200', title: 'La verificación SARLAFT sigue en proceso' },
+  rejected: { label: 'Con alertas', cls: 'bg-red-100 text-red-800 border-red-200', title: 'SARLAFT con alertas de riesgo o fallida: requiere revisión del oficial de cumplimiento' },
+  none: { label: 'Sin verificar', cls: 'bg-slate-100 text-slate-600 border-slate-200', title: 'Aún no se ha ejecutado la verificación SARLAFT de este usuario' },
+};
+
+const SarlaftBadge = ({ status, risk }: { status?: string; risk?: string | null }) => {
+  const badge = SARLAFT_BADGES[status || 'none'] || SARLAFT_BADGES.none;
+  return (
+    <span
+      title={risk ? `${badge.title} (riesgo: ${risk})` : badge.title}
+      className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold whitespace-nowrap ${badge.cls}`}
+    >
+      {badge.label}
+    </span>
+  );
+};
+
 const InvestmentRequestsTableSkeleton = () => {
   return (
     <>
@@ -30,6 +50,9 @@ const InvestmentRequestsTableSkeleton = () => {
           </td>
           <td className="px-6 py-4">
             <div className="h-4 w-24 bg-slate-200 rounded"></div>
+          </td>
+          <td className="px-6 py-4">
+            <div className="h-5 w-24 bg-slate-200 rounded-md"></div>
           </td>
           <td className="px-6 py-4">
             <div className="h-5 w-24 bg-slate-200 rounded-md"></div>
@@ -296,6 +319,7 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
                 <th className="px-6 py-4">Usuario</th>
                 <th className="px-6 py-4">Paquete</th>
                 <th className="px-6 py-4">Monto</th>
+                <th className="px-6 py-4">SARLAFT</th>
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Fecha Solicitud</th>
                 <th className="px-6 py-4 text-center">Acciones</th>
@@ -306,7 +330,7 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
                 <InvestmentRequestsTableSkeleton />
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay solicitudes de inversión registradas.</p>
@@ -361,6 +385,9 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
                         ${request.monto.toLocaleString('es-CO')} COP
                       </td>
                       <td className="px-6 py-4">
+                        <SarlaftBadge status={request.sarlaft_status} risk={request.sarlaft_risk_level} />
+                      </td>
+                      <td className="px-6 py-4">
                         {getStatusBadge(request.status)}
                       </td>
                       <td className="px-6 py-4 text-xs text-slate-500">
@@ -399,7 +426,7 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
                     {/* Expanded Details Row */}
                     {expandedRows[request.id] && (
                       <tr className="bg-slate-50/70">
-                        <td colSpan={8} className="px-6 py-5 border-t border-slate-200">
+                        <td colSpan={9} className="px-6 py-5 border-t border-slate-200">
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
                             
                             {/* Columna 1: Información Adicional y Parámetros */}

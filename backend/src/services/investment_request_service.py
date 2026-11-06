@@ -123,6 +123,22 @@ class InvestmentRequestService:
                             extra["directivo_nombre"] = u_name
                 req.extra_data = extra
         
+        # Estado SARLAFT de cada solicitante (el último chequeo de cada usuario), en una sola consulta
+        from src.models.sarlaft_check import SarlaftCheck
+        from src.services.sarlaft_status import sarlaft_state
+        request_user_ids = {r.user_id for r in requests if r.user_id}
+        latest_check = {}
+        if request_user_ids:
+            checks = await db.execute(
+                select(SarlaftCheck).where(SarlaftCheck.user_id.in_(request_user_ids)).order_by(SarlaftCheck.id)
+            )
+            for check in checks.scalars().all():
+                latest_check[check.user_id] = check  # el id más alto queda al final
+        for req in requests:
+            state = sarlaft_state(latest_check.get(req.user_id))
+            req.sarlaft_status = state["status"]
+            req.sarlaft_risk_level = state["risk_level"]
+
         return {
             "data": requests,
             "total": total
