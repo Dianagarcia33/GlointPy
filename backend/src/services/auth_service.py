@@ -185,6 +185,7 @@ class AuthService:
             password_hash=await aget_password_hash(data.password),
             document_id=data.documento,
             phone_number=data.numero_celular,
+            city=(data.ciudad or "").strip() or None,
             date_of_birth=dob,
             commercial_id=data.commercial_id
         )

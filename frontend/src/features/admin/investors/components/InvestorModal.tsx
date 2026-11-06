@@ -26,6 +26,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
   const [packageId, setPackageId] = useState<number | ''>('');
   const [periodId, setPeriodId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
+  const [city, setCity] = useState('');
   const [startDate, setStartDate] = useState('');
   const [originalStartDate, setOriginalStartDate] = useState('');
   const [startDateReason, setStartDateReason] = useState('');
@@ -48,6 +49,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
         setPackageId(investor.package_id);
         setPeriodId(investor.period_id);
         setObservations(investor.observations || '');
+        setCity(investor.user?.city || '');
         
         // Format start_date for input type="date"
         if (investor.start_date) {
@@ -67,6 +69,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
         setPackageId('');
         setPeriodId('');
         setObservations('');
+        setCity('');
         // Hoy en Colombia (no el día UTC): de noche el día UTC ya sería «futuro»
         setStartDate(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }));
         setOriginalStartDate('');
@@ -149,6 +152,8 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
         package_id: Number(packageId),
         period_id: Number(periodId),
         observations: observations || undefined,
+        // Solo al editar: la ciudad es del titular y es la que sale en el contrato ({ciudad})
+        ...(investor ? { city: city.trim() } : {}),
         start_date: startDate ? new Date(startDate).toISOString() : undefined,
         start_date_reason: isRetroactive ? startDateReason.trim() : undefined
     };
@@ -381,6 +386,22 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
                 <p className="text-xs text-slate-500">La fecha de fin se calculará automáticamente en el sistema basándose en el periodo.</p>
               )}
             </div>
+
+            {investor && (
+              <div className="space-y-1.5">
+                <label htmlFor="investor-city" className="text-sm font-medium text-slate-700">Ciudad de domicilio</label>
+                <input
+                  id="investor-city"
+                  type="text"
+                  maxLength={100}
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
+                  placeholder="Ej. Medellín"
+                />
+                <p className="text-xs text-slate-500">Es la ciudad que aparece en los contratos y documentos de este titular. Los documentos ya generados no cambian.</p>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Observaciones</label>

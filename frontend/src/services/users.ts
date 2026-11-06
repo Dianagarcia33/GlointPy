@@ -36,6 +36,7 @@ export interface User {
   email: string;
   document_id?: string | null;
   phone_number?: string | null;
+  city?: string | null;
   date_of_birth?: string | null;
   must_update_profile?: boolean;
   is_active: boolean;

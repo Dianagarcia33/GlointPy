@@ -178,6 +178,34 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Ciudad de domicilio del usuario (la usan los contratos). Antes solo quedaba dentro de la solicitud de inversión.
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN city VARCHAR(100) NULL"))
+            except Exception:
+                pass
+            try:
+                # Relleno único para los que ya existen: la ciudad de su solicitud más reciente que la traiga
+                import json as _json
+                found = (await conn.execute(text("SELECT user_id, extra_data FROM investment_requests ORDER BY id"))).all()
+                latest_city = {}
+                for uid, raw in found:
+                    data = raw
+                    if isinstance(raw, (str, bytes)):
+                        try:
+                            data = _json.loads(raw)
+                        except Exception:
+                            data = None
+                    city = (data.get("ciudad") if isinstance(data, dict) else None)
+                    if city and str(city).strip():
+                        latest_city[uid] = str(city).strip()[:100]
+                for uid, city in latest_city.items():
+                    await conn.execute(
+                        text("UPDATE users SET city = :city WHERE id = :uid AND (city IS NULL OR city = '')"),
+                        {"city": city, "uid": uid},
+                    )
+            except Exception as e:
+                logging.getLogger("src.main").warning(f"[Migración] No se pudo rellenar la ciudad de los usuarios: {e}")
+
             try:
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN reply_to_id BIGINT NULL"))
             except Exception:

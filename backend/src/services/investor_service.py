@@ -370,6 +370,8 @@ class InvestorService:
         old_referred_by = (db_investor.referred_by or "").strip()
         update_data = investor.model_dump(exclude_unset=True)
         start_date_reason = update_data.pop("start_date_reason", None)  # no es una columna del contrato
+        new_city = update_data.pop("city", None) if "city" in update_data else None  # la ciudad es del usuario, no del contrato
+        city_given = "city" in investor.model_fields_set
         if update_data.get("start_date"):
             InvestorService._ensure_start_date_not_future(update_data["start_date"])
             InvestorService.check_retroactive_start_date(update_data["start_date"], db_investor.start_date, start_date_reason)
@@ -408,6 +410,12 @@ class InvestorService:
 
         for field, value in update_data.items():
             setattr(db_investor, field, value)
+
+        if city_given and db_investor.user is not None:
+            clean_city = (new_city or "").strip()[:100]
+            audit_before["city"] = db_investor.user.city
+            db_investor.user.city = clean_city or None
+            update_data["city"] = db_investor.user.city
 
         if new_package_id and new_package_id != old_package_id:
             from src.models.package import Package

@@ -170,6 +170,14 @@ class InvestmentRequestService:
         if hasattr(contract_start_date, 'tzinfo') and contract_start_date.tzinfo is not None:
             contract_start_date = contract_start_date.replace(tzinfo=None)
 
+        # La ciudad capturada al registrarse es la del contrato ({ciudad}): se guarda en el usuario si aún no la tiene
+        extra_city = ((req.extra_data or {}).get("ciudad") if isinstance(req.extra_data, dict) else None)
+        extra_city = str(extra_city).strip() if extra_city else ""
+        if extra_city and req.user_id:
+            target_user = (await db.execute(select(User).where(User.id == req.user_id))).scalars().first()
+            if target_user and not (target_user.city or "").strip():
+                target_user.city = extra_city[:100]
+
         # Extraer código de referido si viene en extra_data
         referred_code = None
         if req.extra_data and isinstance(req.extra_data, dict):

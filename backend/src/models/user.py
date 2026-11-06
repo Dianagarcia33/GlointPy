@@ -16,6 +16,8 @@ class User(Base):
     # Identificación
     document_id = Column(String(50), nullable=True, index=True)
     phone_number = Column(String(50), nullable=True)
+    # Ciudad de domicilio: la usan los contratos ({ciudad}). Se captura en el registro y el equipo puede corregirla.
+    city = Column(String(100), nullable=True)
     
     # Directivo de Inversión Asignado
     commercial_id = Column(BigInteger, ForeignKey('users.id'), nullable=True)
