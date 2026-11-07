@@ -12,6 +12,7 @@ from src.schemas.event import (
     InvestorRsvpRequest,
     PublicRsvpRequest,
     AttendeeResponse,
+    AttendeeEmailUpdate,
     AdminEventSummaryResponse,
     EventAuthorizedDomainCreate,
     EventAuthorizedDomainUpdate,
@@ -96,6 +97,17 @@ async def update_event_configuration(
     Ruta protegida para que administradores actualicen el aforo, fechas, ubicación y estado del banner.
     """
     return await EventService.update_event_config(db, config)
+
+@router.put("/admin/attendees/{attendee_id}/email", dependencies=event_admin)
+async def update_attendee_email(
+    attendee_id: int,
+    body: AttendeeEmailUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Corrige el correo de un inscrito (virtual o presencial). Queda en la bitácora de auditoría."""
+    attendee = await EventService.update_attendee_email(db, attendee_id, body.email, actor=current_user)
+    return {"id": attendee.id, "email": attendee.email}
 
 @router.delete("/admin/attendees/{attendee_id}", dependencies=event_admin)
 async def cancel_attendee_registration(

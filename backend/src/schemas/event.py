@@ -40,6 +40,9 @@ class EventConfigUpdate(BaseModel):
     promo_banner_title: Optional[str] = None
     promo_banner_text: Optional[str] = None
 
+class AttendeeEmailUpdate(BaseModel):
+    email: EmailStr
+
 class InvestorRsvpRequest(BaseModel):
     attendance_mode: str = "in_person"  # "in_person" | "virtual"
     has_companion: bool = False

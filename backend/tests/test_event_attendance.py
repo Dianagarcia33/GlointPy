@@ -289,3 +289,61 @@ def test_correo_del_qr_es_corto_lleva_el_qr_y_no_pide_confirmar_ni_cambiar_a_vir
     assert "Luis" in html and "Auditorio Gloint" in html
     assert "Confirmo mi asistencia" not in html and "Cambiar a virtual" not in html
     assert "meet" not in html.lower()
+
+
+def test_el_equipo_corrige_el_correo_de_un_inscrito_y_queda_auditado(monkeypatch):
+    from src.services import event_service as es
+    auditados = []
+
+    async def fake_audit(db, action, module, user, entity_type=None, entity_id=None, description=None, details=None, **kw):
+        auditados.append((action, details))
+
+    monkeypatch.setattr(es, "audit_in_tx", fake_audit)
+
+    async def scenario(db, event):
+        ana = _attendee(event, "Ana", mode="virtual")
+        db.add(ana)
+        await db.commit()
+        token = ana.access_token
+
+        res = await EventService.update_attendee_email(db, ana.id, "  ANA.Correcta@Gmail.com ", actor=None)
+        assert res.email == "ana.correcta@gmail.com"                                  # se normaliza
+        assert res.access_token == token                                              # el enlace personal no cambia
+        assert auditados == [("EVENT_ATTENDEE_EMAIL_UPDATE",
+                              {"attendee_id": ana.id, "antes": "ana@x.co", "despues": "ana.correcta@gmail.com", "modalidad": "virtual"})]
+
+        await EventService.update_attendee_email(db, ana.id, "ana.correcta@gmail.com")   # mismo correo: no hace nada ni audita
+        assert len(auditados) == 1
+    _run(scenario)
+
+
+def test_no_se_puede_poner_el_correo_de_otra_inscripcion_vigente_pero_si_el_de_una_cancelada(monkeypatch):
+    from src.services import event_service as es
+
+    async def fake_audit(*a, **k):
+        return None
+
+    monkeypatch.setattr(es, "audit_in_tx", fake_audit)
+
+    async def scenario(db, event):
+        ana, luis, vieja = _attendee(event, "Ana"), _attendee(event, "Luis"), _attendee(event, "Vieja", status="cancelled")
+        db.add_all([ana, luis, vieja])
+        await db.commit()
+
+        with pytest.raises(HTTPException) as exc:                                     # el de Luis ya está en uso
+            await EventService.update_attendee_email(db, ana.id, "LUIS@x.co")
+        assert exc.value.status_code == 409
+        await db.refresh(ana)
+        assert ana.email == "ana@x.co"
+
+        ok = await EventService.update_attendee_email(db, ana.id, "vieja@x.co")       # el de una cancelada sí se puede reutilizar
+        assert ok.email == "vieja@x.co"
+
+        for bad in ("", "sin-arroba"):
+            with pytest.raises(HTTPException) as exc:
+                await EventService.update_attendee_email(db, ana.id, bad)
+            assert exc.value.status_code == 422
+        with pytest.raises(HTTPException) as exc:
+            await EventService.update_attendee_email(db, 9999, "otro@x.co")
+        assert exc.value.status_code == 404
+    _run(scenario)
