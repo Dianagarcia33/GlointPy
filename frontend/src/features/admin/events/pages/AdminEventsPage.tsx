@@ -117,7 +117,11 @@ export const AdminEventsPage: React.FC = () => {
     virtual_url: '',
     capacity_in_person: 100,
     is_active: true,
-    banner_active: true
+    banner_active: true,
+    promo_banner_active: false,
+    promo_banner_url: 'https://www.glointplace.com.co',
+    promo_banner_title: 'Descubre Gloint Place',
+    promo_banner_text: 'Conoce la tienda de Gloint y encuentra lo que necesitas.'
   });
 
   useEffect(() => {
@@ -143,7 +147,11 @@ export const AdminEventsPage: React.FC = () => {
       virtual_url: event.virtual_url || '',
       capacity_in_person: event.capacity_in_person || 100,
       is_active: event.is_active,
-      banner_active: event.banner_active
+      banner_active: event.banner_active,
+      promo_banner_active: !!event.promo_banner_active,
+      promo_banner_url: event.promo_banner_url || 'https://www.glointplace.com.co',
+      promo_banner_title: event.promo_banner_title || '',
+      promo_banner_text: event.promo_banner_text || ''
     });
   };
 
@@ -1187,6 +1195,64 @@ export const AdminEventsPage: React.FC = () => {
                       className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer shrink-0"
                     />
                   </label>
+                </div>
+
+                {/* Banner alterno: Gloint Place */}
+                <div className="pt-4 space-y-3 border-t border-slate-100">
+                  <label className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
+                    <div>
+                      <span className="font-bold text-slate-800 block">Banner de Gloint Place</span>
+                      <span className="text-[10px] text-slate-500 block">
+                        Se muestra en el dashboard y en el login cuando el «Banner Visible» del evento está apagado.
+                        {formData.banner_active && ' Ahora no se ve porque el banner del evento sigue visible.'}
+                      </span>
+                    </div>
+                    <input
+                      id="event-config-promo-active"
+                      type="checkbox"
+                      checked={!!formData.promo_banner_active}
+                      onChange={(e) => setFormData({ ...formData, promo_banner_active: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer shrink-0"
+                    />
+                  </label>
+
+                  {formData.promo_banner_active && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="sm:col-span-2">
+                        <label htmlFor="event-config-promo-url" className="font-bold text-slate-700 block mb-1">Enlace del banner</label>
+                        <input
+                          id="event-config-promo-url"
+                          type="url"
+                          value={formData.promo_banner_url}
+                          onChange={(e) => setFormData({ ...formData, promo_banner_url: e.target.value })}
+                          placeholder="https://www.glointplace.com.co"
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="event-config-promo-title" className="font-bold text-slate-700 block mb-1">Título</label>
+                        <input
+                          id="event-config-promo-title"
+                          type="text"
+                          maxLength={120}
+                          value={formData.promo_banner_title}
+                          onChange={(e) => setFormData({ ...formData, promo_banner_title: e.target.value })}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="event-config-promo-text" className="font-bold text-slate-700 block mb-1">Texto</label>
+                        <input
+                          id="event-config-promo-text"
+                          type="text"
+                          maxLength={255}
+                          value={formData.promo_banner_text}
+                          onChange={(e) => setFormData({ ...formData, promo_banner_text: e.target.value })}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

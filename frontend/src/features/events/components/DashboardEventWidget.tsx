@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { getActiveEvent, getMyEventRegistration, EventData, MyEventRegistration } from '../../../services/events';
 import { InvestorEventRsvpModal } from './InvestorEventRsvpModal';
+import { GlointPlaceBanner, shouldShowGlointPlaceBanner } from './GlointPlaceBanner';
 import { useAuthStore } from '../../../store/authStore';
 
 interface TimeLeft {
@@ -135,6 +136,12 @@ export const DashboardEventWidget: React.FC = () => {
       return;
     }
 
+    // Llegó la hora del evento: ya no se muestran los modales de recordatorio
+    const startMs = eventData.event_date ? new Date(eventData.event_date).getTime() : NaN;
+    if (!isNaN(startMs) && startMs <= Date.now()) {
+      return;
+    }
+
     // Con la transmisión abierta el evento ya está ocurriendo: no se pide "actualizar asistencia",
     // el banner del dashboard lleva directo a la transmisión. Se espera a conocer la inscripción para decidir.
     if (!registrationFetched || myRegistration?.live_open) {
@@ -162,6 +169,9 @@ export const DashboardEventWidget: React.FC = () => {
   }, [isInvestor, eventData?.id, eventData?.is_active, eventData?.banner_active, user?.id, registrationFetched, myRegistration?.live_open]);
 
   // H-194: 'Banner Visible' controla solo el banner; 'Inscripciones Abiertas' (is_active) solo la acción de confirmar
+  if (isInvestor && eventData && shouldShowGlointPlaceBanner(eventData)) {
+    return <GlointPlaceBanner event={eventData} className="mb-8" />;
+  }
   if (!isInvestor || !eventData || !eventData.banner_active) {
     return null;
   }

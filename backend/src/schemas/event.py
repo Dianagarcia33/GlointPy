@@ -18,6 +18,10 @@ class EventPublicResponse(BaseModel):
     is_full_in_person: bool
     is_active: bool
     banner_active: bool
+    promo_banner_active: bool = False
+    promo_banner_url: Optional[str] = None
+    promo_banner_title: Optional[str] = None
+    promo_banner_text: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -31,6 +35,10 @@ class EventConfigUpdate(BaseModel):
     capacity_in_person: Optional[int] = None
     is_active: Optional[bool] = None
     banner_active: Optional[bool] = None
+    promo_banner_active: Optional[bool] = None
+    promo_banner_url: Optional[str] = None
+    promo_banner_title: Optional[str] = None
+    promo_banner_text: Optional[str] = None
 
 class InvestorRsvpRequest(BaseModel):
     attendance_mode: str = "in_person"  # "in_person" | "virtual"

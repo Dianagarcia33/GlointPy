@@ -91,7 +91,11 @@ class EventService:
             available_in_person=available,
             is_full_in_person=(available <= 0),
             is_active=event.is_active,
-            banner_active=event.banner_active
+            banner_active=event.banner_active,
+            promo_banner_active=bool(event.promo_banner_active),
+            promo_banner_url=event.promo_banner_url,
+            promo_banner_title=event.promo_banner_title,
+            promo_banner_text=event.promo_banner_text
         )
 
     @staticmethod
@@ -527,6 +531,20 @@ class EventService:
             event.is_active = config.is_active
         if config.banner_active is not None:
             event.banner_active = config.banner_active
+        if config.promo_banner_url is not None:
+            promo_url = config.promo_banner_url.strip()
+            if promo_url and not re.match(r"^https?://[^\s]+$", promo_url, re.IGNORECASE):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El enlace del banner debe empezar por http:// o https://"
+                )
+            event.promo_banner_url = promo_url or "https://www.glointplace.com.co"
+        if config.promo_banner_title is not None:
+            event.promo_banner_title = config.promo_banner_title.strip()[:120] or None
+        if config.promo_banner_text is not None:
+            event.promo_banner_text = config.promo_banner_text.strip()[:255] or None
+        if config.promo_banner_active is not None:
+            event.promo_banner_active = config.promo_banner_active
 
         await db.commit()
         await db.refresh(event)

@@ -14,6 +14,10 @@ export interface EventData {
   is_full_in_person: boolean;
   is_active: boolean;
   banner_active: boolean;
+  promo_banner_active?: boolean;
+  promo_banner_url?: string;
+  promo_banner_title?: string;
+  promo_banner_text?: string;
 }
 
 export interface AttendeeData {
@@ -86,6 +90,10 @@ export interface EventConfigPayload {
   capacity_in_person?: number;
   is_active?: boolean;
   banner_active?: boolean;
+  promo_banner_active?: boolean;
+  promo_banner_url?: string;
+  promo_banner_title?: string;
+  promo_banner_text?: string;
 }
 
 export const getActiveEvent = async (): Promise<EventData> => {

@@ -17,6 +17,11 @@ class Event(Base):
     capacity_in_person = Column(Integer, nullable=False, default=100)
     is_active = Column(Boolean, nullable=False, default=True)
     banner_active = Column(Boolean, nullable=False, default=True)
+    # Banner alterno (Gloint Place): se muestra cuando el banner del evento está oculto
+    promo_banner_active = Column(Boolean, nullable=False, default=False)
+    promo_banner_url = Column(String(500), nullable=True, default="https://www.glointplace.com.co")
+    promo_banner_title = Column(String(120), nullable=True, default="Descubre Gloint Place")
+    promo_banner_text = Column(String(255), nullable=True, default="Conoce la tienda de Gloint y encuentra lo que necesitas.")
     # Transmisión en vivo (Mux): id de reproducción y si la sala está abierta a los asistentes virtuales
     live_playback_id = Column(String(100), nullable=True)
     live_open = Column(Boolean, nullable=False, default=False)

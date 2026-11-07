@@ -47,7 +47,11 @@ export function EventCountdownModal() {
         if (data && data.is_active) {
           setEventData(data);
           
-          if (!isDismissed) {
+          // Si la hora del evento ya llegó, el popup con el contador no se muestra
+          const startMs = data.event_date ? new Date(data.event_date).getTime() : NaN;
+          const alreadyStarted = !isNaN(startMs) && startMs <= Date.now();
+
+          if (!isDismissed && !alreadyStarted) {
             // Breve delay de 1.2s para que la página cargue primero con elegancia
             const timer = setTimeout(() => {
               setIsOpen(true);
@@ -87,6 +91,8 @@ export function EventCountdownModal() {
           seconds: 0,
           isExpired: true
         });
+        // Llegó la hora: el popup con el contador se cierra solo
+        setIsOpen(false);
         return;
       }
 

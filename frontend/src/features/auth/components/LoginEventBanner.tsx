@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { getActiveEvent, EventData } from '../../../services/events';
 import { PublicEventRsvpModal } from '../../events/components/PublicEventRsvpModal';
+import { GlointPlaceBanner, shouldShowGlointPlaceBanner } from '../../events/components/GlointPlaceBanner';
 
 interface LoginEventBannerProps {
   onInvestorClick?: () => void;
@@ -70,6 +71,11 @@ export const LoginEventBanner: React.FC<LoginEventBannerProps> = ({ onInvestorCl
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
   }, [eventData?.event_date]);
+
+  // Con el banner del evento apagado, el equipo puede dejar en su lugar el de Gloint Place
+  if (eventData && shouldShowGlointPlaceBanner(eventData)) {
+    return <GlointPlaceBanner event={eventData} className="mb-3" />;
+  }
 
   if (!eventData || !eventData.banner_active || !eventData.is_active) {
     return null;
