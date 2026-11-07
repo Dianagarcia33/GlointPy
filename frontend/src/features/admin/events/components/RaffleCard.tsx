@@ -37,7 +37,7 @@ function RandomEliminate({ remaining, disabled, onEliminate }: { remaining: numb
         {quick.map((n) => (
           <button key={n} onClick={() => go(n)} disabled={disabled}
             className="rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50">
-            {n === half && n > 10 ? `La mitad (${n})` : `Sacar ${n}`}
+            {n === 1 ? '🎡 Ruleta: sacar a 1' : n === half && n > 10 ? `La mitad (${n})` : `Sacar ${n}`}
           </button>
         ))}
         <input type="number" min={1} max={remaining - 1} value={custom} onChange={(e) => setCustom(e.target.value)}
@@ -45,7 +45,7 @@ function RandomEliminate({ remaining, disabled, onEliminate }: { remaining: numb
         <button onClick={() => go(customN)} disabled={disabled || !Number.isInteger(customN) || customN < 1}
           className="rounded-lg border border-orange-400 text-orange-800 hover:bg-orange-100 text-xs font-bold px-3 py-1.5 disabled:opacity-50">Sacar</button>
       </div>
-      <p className="text-[11px] text-orange-800">Siempre queda al menos uno; cuando queda uno solo, es el ganador.</p>
+      <p className="text-[11px] text-orange-800">La ruleta gira en la pantalla del presentador cuando sale 1 persona o se elige al ganador. Siempre queda al menos uno; cuando queda uno solo, es el ganador.</p>
     </div>
   );
 }
@@ -143,10 +143,10 @@ export function RaffleCard() {
                     </button>
                   )}
                   {r.status === 'running' && (
-                    <button onClick={() => { if (window.confirm(`¿Sortear al ganador al azar entre los ${r.remaining} que siguen en juego?`)) run(() => drawRaffle(r.id), 'Ganador sorteado.'); }}
+                    <button onClick={() => { if (window.confirm(`¿Girar la ruleta para elegir al ganador entre los ${r.remaining} que siguen en juego?`)) run(() => drawRaffle(r.id), 'Ganador sorteado.'); }}
                       disabled={busy || r.remaining < 1}
                       className="rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50">
-                      Sortear entre los que siguen
+                      Girar ruleta: elegir ganador
                     </button>
                   )}
                   {r.status !== 'draft' && (

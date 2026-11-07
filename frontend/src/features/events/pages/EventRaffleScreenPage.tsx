@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RafflePublic, getEventsWebSocketUrl, getRaffleState } from '../../../services/events';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
+import { RaffleWheel } from '../components/RaffleWheel';
 import { formatCountdown, useRoundCountdown } from '../hooks/useRoundCountdown';
 
 /**
@@ -9,19 +10,58 @@ import { formatCountdown, useRoundCountdown } from '../hooks/useRoundCountdown';
  * ni la respuesta correcta (eso va solo a los celulares). Se actualiza en vivo por WebSocket.
  */
 export function EventRaffleScreenPage() {
+  // `raffle` es lo que se ve; `latest` lo último que llegó del servidor. Si alguien sale o gana, primero gira la ruleta.
   const [raffle, setRaffle] = useState<RafflePublic | null>(null);
+  const [spin, setSpin] = useState<{ names: string[]; index: number; target: string; kind: 'out' | 'winner' } | null>(null);
+  const [revealed, setRevealed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const latest = useRef<RafflePublic | null>(null);
+  const shownRef = useRef<RafflePublic | null>(null);
+  const spinning = useRef(false);
+
+  const apply = useCallback((next: RafflePublic | null) => {
+    const prev = shownRef.current;
+    if (spinning.current) return;                       // se aplica al terminar la ruleta
+    let target: string | undefined;
+    let kind: 'out' | 'winner' = 'out';
+    if (prev && prev.status === 'running' && prev.names && next && next.id === prev.id) {
+      const lr = next.last_round;
+      if (lr && lr.count === 1 && lr.names?.[0] && (!prev.last_round || lr.number > prev.last_round.number)) target = lr.names[0];
+      else if (next.status === 'finished' && next.winner) { target = next.winner; kind = 'winner'; }
+    }
+    const index = target !== undefined && prev?.names ? prev.names.indexOf(target) : -1;
+    if (target !== undefined && prev?.names && index >= 0) {
+      spinning.current = true;
+      setRevealed(false);
+      setSpin({ names: prev.names, index, target, kind });
+      return;
+    }
+    shownRef.current = next;
+    setRaffle(next);
+  }, []);
+
+  const finishSpin = useCallback(() => {
+    setRevealed(true);
+    window.setTimeout(() => {
+      spinning.current = false;
+      setSpin(null);
+      shownRef.current = latest.current;
+      setRaffle(latest.current);
+    }, 3500);
+  }, []);
 
   const load = useCallback(async () => {
     try {
-      setRaffle((await getRaffleState()).raffle);
+      const next = (await getRaffleState()).raffle;
+      latest.current = next;
+      apply(next);
       setLoaded(true);
       setError(null);
     } catch (e: any) {
       setError(e?.message || 'Sin conexión con el servidor.');
     }
-  }, []);
+  }, [apply]);
 
   useEffect(() => { load(); }, [load]);
   useLiveRefresh(getEventsWebSocketUrl('/raffle/ws'), load, 3000);
@@ -40,14 +80,24 @@ export function EventRaffleScreenPage() {
       {error && <p role="status" className="mt-2 text-sm text-amber-300">Sin conexión: se muestran los últimos datos. {error}</p>}
 
       <div className="flex-1 flex items-center justify-center py-6">
-        {loaded && !raffle && (
+        {spin && (
+          <div className="w-full text-center space-y-4">
+            <p className="text-2xl sm:text-4xl font-extrabold text-orange-300">
+              {revealed ? (spin.kind === 'winner' ? '🏆 ¡Tenemos ganador!' : 'Sale de la rifa…') : spin.kind === 'winner' ? '¡Girando para elegir al ganador!' : '¡Girando para ver quién sale!'}
+            </p>
+            <RaffleWheel names={spin.names} targetIndex={spin.index} onDone={finishSpin} />
+            <p className={`text-4xl sm:text-7xl font-extrabold min-h-[1.2em] ${spin.kind === 'winner' ? 'text-orange-400' : 'text-red-400'}`}>{revealed ? spin.target : ''}</p>
+          </div>
+        )}
+
+        {!spin && loaded && !raffle && (
           <div className="text-center">
             <h1 className="text-5xl sm:text-7xl font-extrabold">Rifa en preparación</h1>
             <p className="mt-4 text-xl sm:text-2xl text-slate-300">Muy pronto empezamos.</p>
           </div>
         )}
 
-        {raffle && raffle.status === 'finished' && (
+        {!spin && raffle && raffle.status === 'finished' && (
           <div className="text-center max-w-5xl">
             <p className="text-3xl sm:text-5xl text-slate-300">🏆 ¡Tenemos ganador!</p>
             <h1 className="mt-6 text-6xl sm:text-9xl font-extrabold text-orange-400 break-words animate-pulse" data-testid="raffle-winner">{raffle.winner}</h1>
@@ -55,7 +105,7 @@ export function EventRaffleScreenPage() {
           </div>
         )}
 
-        {raffle && running && (
+        {!spin && raffle && running && (
           <div className="w-full max-w-7xl space-y-8">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
