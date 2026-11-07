@@ -101,7 +101,9 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
 
   if (!isOpen) return null;
 
-  const finalBanco = banco === 'Otro' ? customBanco.trim() : banco;
+  const isBreb = tipoCuenta === 'Bre-B';
+  // Bre-B no depende del banco: la llave viaja a la entidad 9999 (BRE-B) de Yoint
+  const finalBanco = isBreb ? 'BRE-B' : (banco === 'Otro' ? customBanco.trim() : banco);
 
   const handleSendOtp = async () => {
     if (mode !== 'delete') {
@@ -113,7 +115,12 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
         setError('Por favor ingresa el número de cuenta');
         return;
       }
-      if (!/^\d{6,20}$/.test(numeroCuenta.trim())) {
+      if (isBreb) {
+        if (!/^[A-Za-z0-9@._+\-]{3,50}$/.test(numeroCuenta.trim())) {
+          setError('La llave Bre-B solo puede tener letras, números y los símbolos @ . _ + - (entre 3 y 50 caracteres)');
+          return;
+        }
+      } else if (!/^\d{6,20}$/.test(numeroCuenta.trim())) {
         setError('El número de cuenta debe contener solo dígitos (entre 6 y 20 números)');
         return;
       }
@@ -224,6 +231,7 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
           {/* Step 1: Input Bank Fields */}
           {mode !== 'delete' && step === 1 && (
             <>
+              {!isBreb && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Banco o Entidad Financiera *
@@ -241,8 +249,9 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
                   <option value="Otro">Otro / Otra Entidad</option>
                 </select>
               </div>
+              )}
 
-              {banco === 'Otro' && (
+              {!isBreb && banco === 'Otro' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Escribe el nombre de tu Entidad *
@@ -269,21 +278,21 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
                 >
                   <option value="Ahorros">Cuenta de Ahorros</option>
                   <option value="Corriente">Cuenta Corriente</option>
+                  <option value="Bre-B">Llave Bre-B</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Número de Cuenta *
+                  {isBreb ? 'Llave Bre-B *' : 'Número de Cuenta *'}
                 </label>
                 <input
                   type="text"
-                  inputMode="numeric"
-                  maxLength={20}
-                  pattern="^[0-9]{6,20}$"
+                  inputMode={isBreb ? 'text' : 'numeric'}
+                  maxLength={isBreb ? 50 : 20}
                   value={numeroCuenta}
-                  onChange={(e) => setNumeroCuenta(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Ej. 1234567890"
+                  onChange={(e) => setNumeroCuenta(isBreb ? e.target.value.replace(/\s/g, '') : e.target.value.replace(/\D/g, ''))}
+                  placeholder={isBreb ? 'Ej. celular, correo, documento o alias' : 'Ej. 1234567890'}
                   className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-mono"
                   required
                 />

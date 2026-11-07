@@ -25,6 +25,10 @@ from src.services.company_wallet_service import CompanyWalletService
 
 logger = logging.getLogger(__name__)
 
+BREB_ENTITY_ID = "9999"
+BREB_BANK_PROVIDER_ID = 4
+
+
 class YointService:
     """
     Servicio de integración con la API v2 de Pagos y Dispersiones de Yoint.
@@ -125,6 +129,16 @@ class YointService:
         return "SAVINGS"
 
     @staticmethod
+    def _apply_breb(account_type: str, bank_code: str, bank_name: str) -> Tuple[str, str]:
+        """
+        Bre-B (doc Yoint, dispersiones): bankAccount.type = BREB, financialEntity.id = "9999"
+        y bankProviderId = 4. Ignora el banco guardado: la llave Bre-B no depende de la entidad.
+        """
+        if account_type == "BREB":
+            return BREB_ENTITY_ID, "BRE-B"
+        return bank_code, bank_name
+
+    @staticmethod
     def _clean_phone(raw_phone: Optional[str]) -> str:
         """
         Limpia el teléfono asegurando formato colombiano de 10 dígitos (inicia con 3).
@@ -213,6 +227,7 @@ class YointService:
         """
         bank_code, bank_name = await cls.resolve_bank_entity(db, withdrawal.banco)
         account_type = cls._normalize_account_type(withdrawal.tipo_cuenta)
+        bank_code, bank_name = cls._apply_breb(account_type, bank_code, bank_name)
         doc_type, doc_num = cls._clean_document(user.document_id)
         phone = cls._clean_phone(user.phone_number)
         
@@ -239,6 +254,8 @@ class YointService:
             "phoneNumber": phone,
             "email": str(user.email or "notificaciones@gloint.com.co")
         }
+        if account_type == "BREB":
+            item["bankProviderId"] = BREB_BANK_PROVIDER_ID
 
         return {
             "dispersions": [item]
@@ -299,6 +316,7 @@ class YointService:
 
         bank_code, bank_name = await cls.resolve_bank_entity(db, withdrawal.banco)
         account_type = cls._normalize_account_type(withdrawal.tipo_cuenta)
+        bank_code, bank_name = cls._apply_breb(account_type, bank_code, bank_name)
         doc_type, doc_num = cls._clean_document(user.document_id)
         phone = cls._clean_phone(user.phone_number)
 
@@ -392,6 +410,7 @@ class YointService:
 
         bank_code, bank_name = await cls.resolve_bank_entity(db, credit.banco)
         account_type = cls._normalize_account_type(credit.tipo_cuenta)
+        bank_code, bank_name = cls._apply_breb(account_type, bank_code, bank_name)
         doc_type, doc_num = cls._clean_document(user.document_id)
         phone = cls._clean_phone(user.phone_number)
 
@@ -415,6 +434,8 @@ class YointService:
                 }
             ]
         }
+        if account_type == "BREB":
+            payload["dispersions"][0]["bankProviderId"] = BREB_BANK_PROVIDER_ID
 
         # Crear registro de dispersión
         dispersion = YointDispersion(
