@@ -580,6 +580,7 @@ async def on_startup():
                     "ALTER TABLE event_attendees ADD COLUMN attendance_email_sent_at DATETIME NULL",
                     "CREATE UNIQUE INDEX uq_ea_access_token ON event_attendees (access_token)",
                     "ALTER TABLE event_attendees ADD COLUMN live_invite_sent_at DATETIME NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN access_qr_sent_at DATETIME NULL",
                     "ALTER TABLE event_attendees ADD COLUMN checked_in_at DATETIME NULL",
                     "ALTER TABLE event_attendees ADD COLUMN checked_in_by BIGINT NULL",
                     "ALTER TABLE event_attendees ADD COLUMN chat_muted TINYINT(1) NOT NULL DEFAULT 0",

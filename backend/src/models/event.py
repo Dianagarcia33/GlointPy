@@ -77,6 +77,7 @@ class EventAttendee(Base):
     attendance_confirmed_at = Column(DateTime(timezone=True), nullable=True)   # confirmó asistencia presencial
     attendance_email_sent_at = Column(DateTime(timezone=True), nullable=True)  # último correo de confirmación enviado
     live_invite_sent_at = Column(DateTime(timezone=True), nullable=True)       # última invitación a la sala en vivo enviada
+    access_qr_sent_at = Column(DateTime(timezone=True), nullable=True)         # último reenvío del correo «Tu QR de acceso»
     checked_in_at = Column(DateTime(timezone=True), nullable=True)             # entrada presencial registrada (QR escaneado)
     checked_in_by = Column(BigInteger, nullable=True)                          # usuario del equipo que registró la entrada
     chat_muted = Column(Boolean, nullable=False, default=False)                # silenciado en el chat en vivo por el equipo

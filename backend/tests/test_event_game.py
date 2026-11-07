@@ -195,3 +195,43 @@ def test_los_avisos_en_vivo_llegan_a_pantalla_y_celulares():
         finally:
             game_hub.disconnect(ws)
     _run(scenario)
+
+
+def test_reiniciar_una_ronda_borra_sus_respuestas_y_se_puede_volver_a_jugar():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db)
+        a, b = await Svc.join(db), await Svc.join(db)
+        await Svc.answer(db, a["token"], rid, 0)
+        await Svc.answer(db, b["token"], rid, 1)
+        await Svc.close_round(db, rid)
+        assert (await Svc.get_state(db))["round"]["distribution"] == [1, 1, 0]
+
+        listado = await Svc.reset_round(db, rid)
+        ronda = next(r for r in listado["rounds"] if r["id"] == rid)
+        assert ronda["status"] == "draft" and ronda["answers"] == 0 and ronda["distribution"] is None
+        assert (await Svc.get_state(db))["round"] is None                          # la pantalla vuelve a «prepárate»
+
+        await Svc.open_round(db, rid)                                              # se abre otra vez con su minuto completo
+        estado = await Svc.get_state(db, a["token"])
+        assert estado["round"]["status"] == "open" and estado["round"]["seconds_left"] > 55
+        assert estado["me"] == {"answered": False, "option_index": None}           # quien ya había respondido puede hacerlo de nuevo
+        assert await Svc.answer(db, a["token"], rid, 2) == {"accepted": True}
+    _run(scenario)
+
+
+def test_reiniciar_todo_borra_preguntas_respuestas_y_participantes_y_los_celulares_se_recuperan():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db)
+        ana = await Svc.join(db)
+        await Svc.answer(db, ana["token"], rid, 0)
+
+        vacio = await Svc.reset_all(db)
+        assert vacio == {"participants": 0, "rounds": []}
+        assert (await Svc.get_state(db, ana["token"])) == {"round": None, "me": None}   # el token viejo ya no existe
+        with pytest.raises(HTTPException) as exc:
+            await Svc.answer(db, ana["token"], rid, 0)
+        assert exc.value.status_code == 404
+
+        nueva = await Svc.join(db)                                                  # el celular pide un token nuevo y sigue
+        assert (await Svc.get_state(db, nueva["token"]))["me"] == {"answered": False, "option_index": None}
+    _run(scenario)

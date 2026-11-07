@@ -190,6 +190,20 @@ export const sendAttendanceConfirmationEmails = async (send: boolean): Promise<A
   });
 };
 
+// Admin: reenvío del QR de acceso («Tu QR de acceso») a todos los presenciales vigentes.
+// send=false solo devuelve la lista de destinatarios; send=true encola el envío real.
+export const sendAccessQrEmails = async (send: boolean): Promise<AttendanceEmailsResult> => {
+  return await fetchApi('/events/admin/access-qr-emails', {
+    method: 'POST',
+    body: JSON.stringify({ send }),
+  });
+};
+
+// Admin: reenvía el QR de acceso a un solo inscrito presencial.
+export const sendAccessQrEmailToAttendee = async (attendeeId: number): Promise<{ sent: boolean; email: string }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/access-qr-email`, { method: 'POST' });
+};
+
 // Admin: envía el correo de confirmación a un solo inscrito (pruebas o reenvíos).
 export const sendAttendanceEmailToAttendee = async (attendeeId: number): Promise<{ sent: boolean; email: string }> => {
   return await fetchApi(`/events/admin/attendees/${attendeeId}/attendance-email`, { method: 'POST' });
@@ -696,6 +710,14 @@ export const openGameRound = async (id: number): Promise<GameAdminData> => {
 
 export const closeGameRound = async (id: number): Promise<GameAdminData> => {
   return await fetchApi(`/events/admin/game/rounds/${id}/close`, { method: 'PUT' });
+};
+
+export const resetGameRound = async (id: number): Promise<GameAdminData> => {
+  return await fetchApi(`/events/admin/game/rounds/${id}/reset`, { method: 'PUT' });
+};
+
+export const resetGame = async (): Promise<GameAdminData> => {
+  return await fetchApi('/events/admin/game/reset', { method: 'POST' });
 };
 
 export const deleteGameRound = async (id: number): Promise<GameAdminData> => {

@@ -137,6 +137,19 @@ async def send_attendance_confirmation_email_to_attendee(
     """Envía el correo de confirmación de asistencia a un solo inscrito (pruebas o reenvíos)."""
     return await EventAttendanceService.send_confirmation_email_to_attendee(db, attendee_id)
 
+@router.post("/admin/access-qr-emails", dependencies=event_admin)
+async def send_access_qr_emails(body: AttendanceEmailsRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Reenvía el correo «Tu QR de acceso» a todos los inscritos presenciales vigentes (hayan confirmado o no).
+    Con send=false devuelve únicamente la lista de destinatarios.
+    """
+    return await EventAttendanceService.send_access_qr_emails(db, body.send)
+
+@router.post("/admin/attendees/{attendee_id}/access-qr-email", dependencies=event_admin)
+async def send_access_qr_email_to_attendee(attendee_id: int, db: AsyncSession = Depends(get_db)):
+    """Reenvía el QR de acceso a un solo inscrito presencial."""
+    return await EventAttendanceService.send_access_qr_to_attendee(db, attendee_id)
+
 @router.get("/attendance/{token}")
 async def get_attendance_status(token: str, db: AsyncSession = Depends(get_db)):
     """Estado de la inscripción identificada por el enlace personal del correo."""
@@ -534,6 +547,16 @@ async def admin_game_open(round_id: int, db: AsyncSession = Depends(get_db)):
 async def admin_game_close(round_id: int, db: AsyncSession = Depends(get_db)):
     """Cierra la ronda sin esperar ganador."""
     return await EventGameService.close_round(db, round_id)
+
+@router.put("/admin/game/rounds/{round_id}/reset", dependencies=event_admin)
+async def admin_game_reset_round(round_id: int, db: AsyncSession = Depends(get_db)):
+    """Reinicia la ronda: borra sus respuestas y queda lista para abrirla de nuevo."""
+    return await EventGameService.reset_round(db, round_id)
+
+@router.post("/admin/game/reset", dependencies=event_admin)
+async def admin_game_reset_all(db: AsyncSession = Depends(get_db)):
+    """Empieza de cero: borra preguntas, respuestas y participantes de la dinámica."""
+    return await EventGameService.reset_all(db)
 
 @router.delete("/admin/game/rounds/{round_id}", dependencies=event_admin)
 async def admin_game_delete(round_id: int, db: AsyncSession = Depends(get_db)):

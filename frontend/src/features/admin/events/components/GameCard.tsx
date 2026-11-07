@@ -9,6 +9,8 @@ import {
   getAdminGame,
   getEventsWebSocketUrl,
   openGameRound,
+  resetGame,
+  resetGameRound,
 } from '../../../../services/events';
 import { useLatestOnly } from '../hooks/useLatestOnly';
 import { GameStats } from '../../../events/components/GameStats';
@@ -107,6 +109,11 @@ export function GameCard() {
         <div className="flex flex-wrap gap-2">
           <a href={screenUrl} target="_blank" rel="noopener noreferrer"
             className="rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2">Abrir pantalla del presentador</a>
+          <button onClick={() => { if (window.confirm('¿Empezar de cero? Se borran todas las preguntas, las respuestas y los participantes de la dinámica.')) run(resetGame, 'Dinámica reiniciada: ya no hay preguntas ni respuestas.'); }}
+            disabled={busy || !data || (data.rounds.length === 0 && data.participants === 0)}
+            className="rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold px-3 py-2 disabled:opacity-50">
+            Reiniciar todo
+          </button>
           <button onClick={copyJoin} className="rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold px-3 py-2">
             {copied ? '¡Copiado!' : 'Copiar enlace público'}
           </button>
@@ -163,6 +170,10 @@ export function GameCard() {
                 {r.status === 'open' && (
                   <button onClick={() => run(() => closeGameRound(r.id))} disabled={busy}
                     className="rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50">Cerrar ahora</button>
+                )}
+                {r.status !== 'draft' && (
+                  <button onClick={() => { if (r.answers === 0 || window.confirm(`¿Reiniciar esta pregunta? Se borran sus ${r.answers} respuestas y queda lista para abrirla otra vez.`)) run(() => resetGameRound(r.id), 'Pregunta reiniciada: ábrela cuando quieras lanzarla de nuevo.'); }} disabled={busy}
+                    className="rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold px-3 py-1.5 disabled:opacity-50">Reiniciar</button>
                 )}
                 {r.status !== 'open' && (
                   <button onClick={() => { if (window.confirm('¿Eliminar esta pregunta y sus respuestas?')) run(() => deleteGameRound(r.id)); }} disabled={busy}

@@ -301,6 +301,31 @@ class EventGameService:
         return await cls.admin_list(db)
 
     @classmethod
+    async def reset_round(cls, db: AsyncSession, round_id: int) -> dict:
+        """Reinicia una ronda: borra sus respuestas y la deja lista para abrirla de nuevo (con su minuto completo)."""
+        rnd = await cls._get_round(db, round_id)
+        await db.execute(delete(EventGameAnswer).where(EventGameAnswer.round_id == rnd.id))
+        rnd.status, rnd.opened_at, rnd.closed_at = "draft", None, None
+        rnd.winner_participant_id, rnd.winner_alias, rnd.winner_ms = None, None, None
+        await db.commit()
+        await game_hub.notify()
+        return await cls.admin_list(db)
+
+    @classmethod
+    async def reset_all(cls, db: AsyncSession) -> dict:
+        """Empieza de cero: borra todas las preguntas, las respuestas y los participantes (por ejemplo, tras un ensayo).
+        Los celulares que sigan abiertos piden un token nuevo solos."""
+        event = await EventService.get_or_create_default_event(db)
+        round_ids = select(EventGameRound.id).where(EventGameRound.event_id == event.id)
+        await db.execute(delete(EventGameAnswer).where(EventGameAnswer.round_id.in_(round_ids)))
+        await db.execute(delete(EventGameRound).where(EventGameRound.event_id == event.id))
+        await db.execute(delete(EventGameAnswer))
+        await db.execute(delete(EventGameParticipant))
+        await db.commit()
+        await game_hub.notify()
+        return await cls.admin_list(db)
+
+    @classmethod
     async def delete_round(cls, db: AsyncSession, round_id: int) -> dict:
         rnd = await cls._get_round(db, round_id)
         if rnd.status == "open":

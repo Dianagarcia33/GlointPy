@@ -517,6 +517,44 @@ class EmailService:
         return cls.send_html_email(to_email, subject, html, attachments=attachments)
 
     @classmethod
+    def send_event_access_qr_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[object],
+        location: Optional[str],
+        seats_reserved: int,
+        companion_name: Optional[str],
+        access_token: str,
+        qr_png: Optional[bytes] = None,
+    ) -> bool:
+        """Reenvío del QR de acceso al evento (presencial): correo corto, con el QR embebido (CID)."""
+        import base64
+        from src.services.email_template_service import EmailTemplateService
+        access_url = f"{settings.FRONTEND_URL.rstrip('/')}/evento/asistencia/{access_token}"
+        qr_cid = "qr-acceso" if qr_png else None
+        subject, html = EmailTemplateService.get_event_access_qr_template(
+            user_name=user_name,
+            event_title=event_title,
+            event_date=event_date,
+            location=location,
+            seats_reserved=seats_reserved,
+            companion_name=companion_name,
+            access_url=access_url,
+            qr_cid=qr_cid,
+        )
+        attachments = None
+        if qr_png:
+            attachments = [{
+                "filename": "qr-acceso.png",
+                "content": base64.b64encode(qr_png).decode("ascii"),
+                "content_type": "image/png",
+                "content_id": qr_cid,
+            }]
+        return cls.send_html_email(to_email, subject, html, attachments=attachments)
+
+    @classmethod
     def send_event_live_invitation_email(
         cls,
         to_email: str,
