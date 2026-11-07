@@ -31,7 +31,8 @@ import {
   ClipboardCheck,
   MessagesSquare,
   Ticket,
-  QrCode
+  QrCode,
+  Pencil
 } from 'lucide-react';
 import { 
   getAdminEventSummary, 
@@ -39,6 +40,7 @@ import {
   cancelAttendeeRegistration, 
   sendAttendanceEmailToAttendee, 
   sendAccessQrEmailToAttendee,
+  updateAttendeeEmail,
   AdminEventSummary, 
   AttendeeData, 
   EventConfigPayload 
@@ -101,6 +103,10 @@ export const AdminEventsPage: React.FC = () => {
   const [modeFilter, setModeFilter] = useState<'all' | 'in_person' | 'virtual'>('all');
   const [profileFilter, setProfileFilter] = useState<'all' | 'company' | 'individual'>('all');
   const [selectedAttendee, setSelectedAttendee] = useState<AttendeeData | null>(null);
+  // Corrección del correo de un inscrito desde su ficha
+  const [editingEmail, setEditingEmail] = useState<string | null>(null);
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
@@ -127,6 +133,12 @@ export const AdminEventsPage: React.FC = () => {
     promo_banner_title: 'Descubre Gloint Place',
     promo_banner_text: 'Conoce la tienda de Gloint y encuentra lo que necesitas.'
   });
+
+  // Al cerrar la ficha o abrir la de otra persona se cancela cualquier edición de correo a medias
+  useEffect(() => {
+    setEditingEmail(null);
+    setEmailError(null);
+  }, [selectedAttendee?.id]);
 
   useEffect(() => {
     loadSummary();
@@ -241,6 +253,29 @@ export const AdminEventsPage: React.FC = () => {
       setFeedbackMsg({ type: 'error', text: err.message || 'No se pudo enviar el correo.' });
     } finally {
       setEmailingId(null);
+    }
+  };
+
+  const saveAttendeeEmail = async () => {
+    if (!selectedAttendee || editingEmail === null) return;
+    const next = editingEmail.trim();
+    if (!next || next.toLowerCase() === selectedAttendee.email.toLowerCase()) {
+      setEditingEmail(null);
+      setEmailError(null);
+      return;
+    }
+    setSavingEmail(true);
+    setEmailError(null);
+    try {
+      const res = await updateAttendeeEmail(selectedAttendee.id, next);
+      setSelectedAttendee({ ...selectedAttendee, email: res.email });
+      setEditingEmail(null);
+      setFeedbackMsg({ type: 'success', text: `Correo actualizado a ${res.email}.` });
+      loadSummary();
+    } catch (err: any) {
+      setEmailError(err?.message || 'No se pudo actualizar el correo.');
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -940,9 +975,34 @@ export const AdminEventsPage: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-[11px] text-slate-400 block">Correo Electrónico:</span>
-                  <a href={`mailto:${selectedAttendee.email}`} className="font-semibold text-brand-600 hover:underline">
-                    {selectedAttendee.email}
-                  </a>
+                  {editingEmail === null ? (
+                    <div className="flex items-center gap-2">
+                      <a href={`mailto:${selectedAttendee.email}`} className="font-semibold text-brand-600 hover:underline break-all">
+                        {selectedAttendee.email}
+                      </a>
+                      <button type="button" onClick={() => { setEditingEmail(selectedAttendee.email); setEmailError(null); }}
+                        className="p-1 rounded-lg text-slate-400 hover:text-brand-700 hover:bg-brand-50 cursor-pointer shrink-0"
+                        title="Corregir el correo de este inscrito" aria-label="Corregir el correo de este inscrito">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <input type="email" value={editingEmail} onChange={(e) => setEditingEmail(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveAttendeeEmail(); if (e.key === 'Escape') { setEditingEmail(null); setEmailError(null); } }}
+                        autoFocus aria-label="Nuevo correo del inscrito"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+                      <div className="flex gap-2">
+                        <button type="button" onClick={saveAttendeeEmail} disabled={savingEmail}
+                          className="px-3 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold disabled:opacity-50 cursor-pointer">
+                          {savingEmail ? 'Guardando…' : 'Guardar'}
+                        </button>
+                        <button type="button" onClick={() => { setEditingEmail(null); setEmailError(null); }} disabled={savingEmail}
+                          className="px-3 py-1 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-bold hover:bg-slate-50 cursor-pointer">Cancelar</button>
+                      </div>
+                      {emailError && <p role="alert" className="text-[11px] font-medium text-rose-700">{emailError}</p>}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="text-[11px] text-slate-400 block">Teléfono / WhatsApp:</span>

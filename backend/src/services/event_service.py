@@ -11,6 +11,7 @@ import json
 import logging
 import asyncio
 from src.models.event import Event, EventAttendee, EventAuthorizedDomain
+from src.services.audit_trail_service import audit_in_tx
 from src.models.user import User
 from src.models.investor import Investor
 from src.services.email_service import EmailService
@@ -549,6 +550,43 @@ class EventService:
         await db.commit()
         await db.refresh(event)
         return await cls.get_event_public_details(db)
+
+    @classmethod
+    async def update_attendee_email(cls, db: AsyncSession, attendee_id: int, new_email: str, actor=None) -> EventAttendee:
+        """
+        El equipo corrige el correo de un inscrito (por ejemplo, un error de digitación) para que le lleguen su enlace de la
+        transmisión, su QR y los demás correos. Solo cambia el correo de la INSCRIPCIÓN, no el de la cuenta de usuario.
+        Queda en la bitácora de auditoría: redirigir el enlace personal de alguien a otro correo es un cambio sensible.
+        """
+        clean = (new_email or "").strip().lower()
+        if not clean or "@" not in clean:
+            raise HTTPException(status_code=422, detail="Escribe un correo válido.")
+        attendee = (await db.execute(select(EventAttendee).where(EventAttendee.id == attendee_id))).scalar_one_or_none()
+        if not attendee:
+            raise HTTPException(status_code=404, detail="Asistente no encontrado.")
+        before = (attendee.email or "").strip().lower()
+        if clean == before:
+            return attendee
+
+        # Otra inscripción vigente con ese correo haría ambiguas las búsquedas por correo (inscripción, vínculo con la cuenta)
+        taken = (await db.execute(select(EventAttendee.id).where(
+            EventAttendee.event_id == attendee.event_id,
+            EventAttendee.id != attendee.id,
+            EventAttendee.status != "cancelled",
+            func.lower(func.trim(EventAttendee.email)) == clean,
+        ).limit(1))).first()
+        if taken:
+            raise HTTPException(status_code=409, detail="Ya existe otra inscripción vigente con ese correo.")
+
+        attendee.email = clean
+        await audit_in_tx(
+            db, "EVENT_ATTENDEE_EMAIL_UPDATE", "events", actor, "EventAttendee", attendee.id,
+            f"Corrección del correo de la inscripción #{attendee.id}",
+            {"attendee_id": attendee.id, "antes": before, "despues": clean, "modalidad": attendee.attendance_mode},
+        )
+        await db.commit()
+        await db.refresh(attendee)
+        return attendee
 
     @classmethod
     async def cancel_attendee(cls, db: AsyncSession, attendee_id: int) -> bool:

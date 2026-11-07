@@ -190,6 +190,14 @@ export const sendAttendanceConfirmationEmails = async (send: boolean): Promise<A
   });
 };
 
+// Admin: corrige el correo de un inscrito (virtual o presencial).
+export const updateAttendeeEmail = async (attendeeId: number, email: string): Promise<{ id: number; email: string }> => {
+  return await fetchApi(`/events/admin/attendees/${attendeeId}/email`, {
+    method: 'PUT',
+    body: JSON.stringify({ email }),
+  });
+};
+
 // Admin: reenvío del QR de acceso («Tu QR de acceso») a todos los presenciales vigentes.
 // send=false solo devuelve la lista de destinatarios; send=true encola el envío real.
 export const sendAccessQrEmails = async (send: boolean): Promise<AttendanceEmailsResult> => {
