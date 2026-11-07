@@ -628,3 +628,69 @@ export const assignCoupons = async (attendeeIds: number[]): Promise<AdminCoupons
 export const revokeCoupons = async (attendeeIds: number[]): Promise<AdminCoupons> => {
   return await fetchApi('/events/admin/coupons/revoke', { method: 'POST', body: JSON.stringify({ attendee_ids: attendeeIds }) });
 };
+
+// ---------------------------------------------------------------------------
+// Dinámica en vivo «¿quién respondió primero?» (URL pública con QR, sin sesión)
+// ---------------------------------------------------------------------------
+
+export interface GameRound {
+  id: number;
+  question: string;
+  options: string[];
+  status: 'draft' | 'open' | 'closed';
+  answers: number;
+  winner_alias: string | null;
+  winner_ms: number | null;
+  /** Solo viene cuando la ronda cerró (en el panel del equipo siempre viene) */
+  correct_index: number | null;
+}
+
+export interface GameState {
+  round: GameRound | null;
+  me: { alias: string; answered: boolean; option_index: number | null; is_winner: boolean } | null;
+}
+
+export interface GameAdminData {
+  participants: number;
+  rounds: GameRound[];
+}
+
+export const gameJoin = async (): Promise<{ token: string; alias: string }> => {
+  return await fetchApi('/events/game/join', { method: 'POST' });
+};
+
+export const getGameState = async (token?: string | null): Promise<GameState> => {
+  return await fetchApi(`/events/game/state${token ? `?token=${encodeURIComponent(token)}` : ''}`);
+};
+
+export const gameAnswer = async (token: string, roundId: number, optionIndex: number): Promise<{ accepted: boolean; correct: boolean; winner: boolean }> => {
+  return await fetchApi('/events/game/answer', {
+    method: 'POST',
+    body: JSON.stringify({ token, round_id: roundId, option_index: optionIndex }),
+  });
+};
+
+export const getGameQrUrl = (): string => `${API_URL}/events/game/qr.png`;
+
+export const getAdminGame = async (): Promise<GameAdminData> => {
+  return await fetchApi('/events/admin/game');
+};
+
+export const createGameRound = async (question: string, options: string[], correctIndex: number): Promise<GameAdminData> => {
+  return await fetchApi('/events/admin/game/rounds', {
+    method: 'POST',
+    body: JSON.stringify({ question, options, correct_index: correctIndex }),
+  });
+};
+
+export const openGameRound = async (id: number): Promise<GameAdminData> => {
+  return await fetchApi(`/events/admin/game/rounds/${id}/open`, { method: 'PUT' });
+};
+
+export const closeGameRound = async (id: number): Promise<GameAdminData> => {
+  return await fetchApi(`/events/admin/game/rounds/${id}/close`, { method: 'PUT' });
+};
+
+export const deleteGameRound = async (id: number): Promise<GameAdminData> => {
+  return await fetchApi(`/events/admin/game/rounds/${id}`, { method: 'DELETE' });
+};

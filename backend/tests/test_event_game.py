@@ -1,0 +1,151 @@
+"""Dinámica en vivo «¿quién respondió primero?»: participantes anónimos, ganador único y correcta oculta hasta cerrar."""
+import asyncio
+import os
+from datetime import datetime, timezone
+
+import pytest
+from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+
+for _k, _v in {"DB_HOST": "x", "DB_USER": "x", "DB_PASSWORD": "x", "DB_NAME": "x", "SECRET_KEY": "x"}.items():
+    os.environ.setdefault(_k, _v)
+
+from src.core.database import Base  # noqa: E402
+from src.models.event import Event  # noqa: E402
+from src.models.event_game import EventGameAnswer, EventGameParticipant, EventGameRound  # noqa: E402
+from src.services.event_game_service import EventGameService as Svc, game_hub  # noqa: E402
+
+
+def _run(coro_factory):
+    async def runner():
+        engine = create_async_engine("sqlite+aiosqlite://")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all, tables=[
+                Event.__table__, EventGameParticipant.__table__, EventGameRound.__table__, EventGameAnswer.__table__])
+        maker = async_sessionmaker(engine, expire_on_commit=False)
+        async with maker() as db:
+            event = Event(id=1, title="Gloint Power Tech", slug="gloint-power-tech", capacity_in_person=10,
+                          event_date=datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc))
+            db.add(event)
+            await db.commit()
+            result = await coro_factory(db, event)
+        await engine.dispose()
+        return result
+    return asyncio.run(runner())
+
+
+async def _ronda_abierta(db, correct=1):
+    await Svc.create_round(db, "¿Cuál es la capital de Colombia?", ["Cali", "Bogotá", "Medellín"], correct)
+    rid = (await Svc.admin_list(db))["rounds"][0]["id"]
+    await Svc.open_round(db, rid)
+    return rid
+
+
+def test_cada_persona_recibe_un_codigo_corto_unico_sin_datos_personales():
+    async def scenario(db, event):
+        a, b = await Svc.join(db), await Svc.join(db)
+        assert a["token"] != b["token"] and a["alias"] != b["alias"]
+        assert len(a["alias"].split(" ")) == 2 and a["alias"].split(" ")[1].isdigit()
+    _run(scenario)
+
+
+def test_gana_la_primera_respuesta_correcta_y_la_ronda_se_cierra_sola():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db)
+        ana, beto, caro = await Svc.join(db), await Svc.join(db), await Svc.join(db)
+
+        mal = await Svc.answer(db, ana["token"], rid, 0)                      # incorrecta: no gana
+        assert mal == {"accepted": True, "correct": False, "winner": False}
+        assert (await Svc.get_state(db))["round"]["status"] == "open"
+
+        primero = await Svc.answer(db, beto["token"], rid, 1)                 # primera correcta
+        assert primero["winner"] is True
+        estado = await Svc.get_state(db, beto["token"])
+        assert estado["round"]["status"] == "closed" and estado["round"]["winner_alias"] == beto["alias"]
+        assert estado["me"]["is_winner"] is True
+
+        with pytest.raises(HTTPException) as exc:                             # la ronda ya cerró: nadie más puede ganar
+            await Svc.answer(db, caro["token"], rid, 1)
+        assert exc.value.status_code == 409
+        assert (await Svc.get_state(db, caro["token"]))["me"]["is_winner"] is False
+    _run(scenario)
+
+
+def test_una_sola_respuesta_por_persona_y_ronda():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db)
+        ana = await Svc.join(db)
+        await Svc.answer(db, ana["token"], rid, 0)
+        with pytest.raises(HTTPException) as exc:                             # no puede probar otra opción
+            await Svc.answer(db, ana["token"], rid, 1)
+        assert exc.value.status_code == 409
+    _run(scenario)
+
+
+def test_la_respuesta_correcta_no_se_publica_hasta_que_la_ronda_cierra():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db, correct=2)
+        abierta = (await Svc.get_state(db))["round"]
+        assert abierta["status"] == "open" and abierta["correct_index"] is None
+        assert "correct" not in str(abierta["options"]).lower()
+        await Svc.close_round(db, rid)
+        assert (await Svc.get_state(db))["round"]["correct_index"] == 2
+    _run(scenario)
+
+
+def test_validaciones_de_la_pregunta_y_de_la_respuesta():
+    async def scenario(db, event):
+        for question, options, correct in [("", ["a", "b"], 0), ("¿?", ["solo una"], 0), ("¿?", ["a", "a"], 0),
+                                           ("¿?", ["a", "b"], 5), ("¿?", ["a", "b", "c", "d", "e"], 0), ("¿?", ["a", " "], 0)]:
+            with pytest.raises(HTTPException) as exc:
+                await Svc.create_round(db, question, options, correct)
+            assert exc.value.status_code == 422
+        rid = await _ronda_abierta(db)
+        ana = await Svc.join(db)
+        for bad in (-1, 3, True):
+            with pytest.raises(HTTPException) as exc:
+                await Svc.answer(db, ana["token"], rid, bad)
+            assert exc.value.status_code == 422
+        with pytest.raises(HTTPException) as exc:                             # código inventado
+            await Svc.answer(db, "inventado", rid, 0)
+        assert exc.value.status_code == 404
+    _run(scenario)
+
+
+def test_solo_hay_una_ronda_abierta_y_una_ya_jugada_no_se_reabre():
+    async def scenario(db, event):
+        primera = await _ronda_abierta(db)
+        await Svc.create_round(db, "Otra", ["x", "y"], 0)
+        segunda = (await Svc.admin_list(db))["rounds"][0]["id"]
+        await Svc.open_round(db, segunda)
+        estados = {r["id"]: r["status"] for r in (await Svc.admin_list(db))["rounds"]}
+        assert estados == {primera: "closed", segunda: "open"}
+        with pytest.raises(HTTPException) as exc:
+            await Svc.open_round(db, primera)
+        assert exc.value.status_code == 409
+        with pytest.raises(HTTPException) as exc:                             # una abierta no se elimina
+            await Svc.delete_round(db, segunda)
+        assert exc.value.status_code == 409
+        await Svc.close_round(db, segunda)
+        assert len((await Svc.delete_round(db, segunda))["rounds"]) == 1
+    _run(scenario)
+
+
+def test_los_avisos_en_vivo_llegan_a_pantalla_y_celulares():
+    class FakeWs:
+        def __init__(self):
+            self.sent = []
+
+        async def send_json(self, data):
+            self.sent.append(data)
+
+    async def scenario(db, event):
+        ws = FakeWs()
+        game_hub.connect(ws)
+        try:
+            await _ronda_abierta(db)
+            await game_hub.flush_now()
+            assert ws.sent and ws.sent[0]["type"] == "changed"
+        finally:
+            game_hub.disconnect(ws)
+    _run(scenario)

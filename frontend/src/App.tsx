@@ -14,6 +14,8 @@ import { EventLivePage } from "./features/events/pages/EventLivePage";
 import { EventQuestionsPage } from "./features/events/pages/EventQuestionsPage";
 import { EventSurveyPage } from "./features/events/pages/EventSurveyPage";
 import { EventSurveyViewerPage } from "./features/events/pages/EventSurveyViewerPage";
+import { EventGamePage } from "./features/events/pages/EventGamePage";
+import { EventGameScreenPage } from "./features/events/pages/EventGameScreenPage";
 import { EventCouponPage } from "./features/events/pages/EventCouponPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
@@ -162,6 +164,10 @@ function App() {
 
       {/* Resultados de la encuesta para quien presenta (enlace secreto, pantalla completa, sin sesión) */}
       <Route path="/evento/presentador/:token" element={<EventSurveyViewerPage />} />
+
+      {/* Dinámica «¿quién respondió primero?»: celular (QR público) y pantalla del presentador, sin sesión */}
+      <Route path="/dinamica" element={<EventGamePage />} />
+      <Route path="/dinamica/pantalla" element={<EventGameScreenPage />} />
 
       {/* Pasarela Pública Gloint Pay Checkout */}
       <Route path="/pay/checkout" element={<GlointPayCheckoutPage />} />

@@ -24,6 +24,7 @@ from src.services.event_live_service import EventLiveService
 from src.services.event_coupon_service import EventCouponService
 from src.services.event_chat_service import EventChatService, chat_hub
 from src.services.event_survey_service import EventSurveyService
+from src.services.event_game_service import EventGameService, game_hub
 from src.services.event_checkin_service import EventCheckinService
 from src.services.event_question_service import EventQuestionService, questions_hub
 from pydantic import BaseModel
@@ -446,6 +447,88 @@ async def revoke_survey_viewer_link(db: AsyncSession = Depends(get_db)):
 async def set_survey_open(body: SurveyOpenRequest, db: AsyncSession = Depends(get_db)):
     """Abre o cierra la encuesta durante el evento."""
     return await EventSurveyService.set_open(db, body.is_open)
+
+# ==========================================
+# DINÁMICA EN VIVO: «¿quién respondió primero?» (URL pública con QR, sin sesión)
+# ==========================================
+
+class GameAnswerRequest(BaseModel):
+    token: str
+    round_id: int
+    option_index: int
+
+class GameRoundCreateRequest(BaseModel):
+    question: str
+    options: List[str]
+    correct_index: int
+
+@router.post("/game/join")
+async def game_join(db: AsyncSession = Depends(get_db)):
+    """Entrega un código corto anónimo (ej. «Colibrí 47») a quien escanea el QR. El navegador guarda el token."""
+    return await EventGameService.join(db)
+
+@router.get("/game/state")
+async def game_state(response: Response, token: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    """Estado público de la dinámica (pantalla del presentador y celulares). La respuesta correcta solo sale al cerrar la ronda."""
+    response.headers["Cache-Control"] = "no-store"
+    return await EventGameService.get_state(db, token)
+
+@router.post("/game/answer")
+async def game_answer(body: GameAnswerRequest, db: AsyncSession = Depends(get_db)):
+    """Responde la ronda abierta (una vez por persona). La primera respuesta correcta gana y cierra la ronda."""
+    return await EventGameService.answer(db, body.token, body.round_id, body.option_index)
+
+@router.get("/game/qr.png")
+async def game_qr():
+    """QR que lleva a la página pública de la dinámica (PNG)."""
+    import io
+    import segno
+    from src.core.config import settings
+    buffer = io.BytesIO()
+    segno.make(f"{settings.FRONTEND_URL.rstrip('/')}/dinamica", error="m").save(buffer, kind="png", scale=10, border=2)
+    return Response(content=buffer.getvalue(), media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+
+@router.websocket("/game/ws")
+async def game_ws(websocket: WebSocket):
+    """Aviso en vivo (pública) para que la pantalla y los celulares vuelvan a pedir el estado."""
+    from src.api.v1.endpoints.chat import ws_origin_ok
+
+    await websocket.accept()
+    if not ws_origin_ok(websocket):
+        return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+    game_hub.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # mantiene la conexión; el cliente puede enviar pings
+    except WebSocketDisconnect:
+        pass
+    finally:
+        game_hub.disconnect(websocket)
+
+@router.get("/admin/game", dependencies=event_admin)
+async def admin_game_list(db: AsyncSession = Depends(get_db)):
+    """Rondas de la dinámica (con la respuesta correcta y el ganador de cada una)."""
+    return await EventGameService.admin_list(db)
+
+@router.post("/admin/game/rounds", dependencies=event_admin)
+async def admin_game_create(body: GameRoundCreateRequest, db: AsyncSession = Depends(get_db)):
+    """Crea una pregunta (opción múltiple, una correcta)."""
+    return await EventGameService.create_round(db, body.question, body.options, body.correct_index)
+
+@router.put("/admin/game/rounds/{round_id}/open", dependencies=event_admin)
+async def admin_game_open(round_id: int, db: AsyncSession = Depends(get_db)):
+    """Abre la ronda (cierra la que estuviera abierta)."""
+    return await EventGameService.open_round(db, round_id)
+
+@router.put("/admin/game/rounds/{round_id}/close", dependencies=event_admin)
+async def admin_game_close(round_id: int, db: AsyncSession = Depends(get_db)):
+    """Cierra la ronda sin esperar ganador."""
+    return await EventGameService.close_round(db, round_id)
+
+@router.delete("/admin/game/rounds/{round_id}", dependencies=event_admin)
+async def admin_game_delete(round_id: int, db: AsyncSession = Depends(get_db)):
+    """Elimina una ronda (no puede estar abierta)."""
+    return await EventGameService.delete_round(db, round_id)
 
 # ==========================================
 # CHAT EN VIVO (solo inscritos virtuales; moderación posterior)
