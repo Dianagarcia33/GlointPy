@@ -16,6 +16,7 @@ import {
   resetRaffle,
   startRaffle,
 } from '../../../../services/events';
+import { DECK_QUESTIONS } from './raffleDeckQuestions';
 import { useLatestOnly } from '../hooks/useLatestOnly';
 import { useLiveRefresh } from '../../../events/hooks/useLiveRefresh';
 
@@ -242,6 +243,22 @@ export function RaffleCard() {
                 ))}
                 {r.questions.length === 0 && <li className="text-sm text-slate-500">Aún no hay preguntas. Agrega la primera abajo.</li>}
               </ul>
+
+              {r.status === 'draft' && r.questions.length === 0 && (
+                <button
+                  onClick={() => {
+                    if (!window.confirm(`¿Cargar las ${DECK_QUESTIONS.length} preguntas de la presentación del evento? Podrás quitar o agregar las que quieras.`)) return;
+                    run(async () => {
+                      let d: RaffleAdminData | undefined;
+                      for (const q of DECK_QUESTIONS) d = await addRaffleQuestion(r.id, q.question, q.options, q.correct, q.seconds);
+                      return d;
+                    }, `Se cargaron ${DECK_QUESTIONS.length} preguntas de la presentación.`);
+                  }}
+                  disabled={busy}
+                  className="rounded-lg border border-orange-300 bg-orange-50 hover:bg-orange-100 text-orange-800 text-xs font-bold px-3 py-2 disabled:opacity-50">
+                  Cargar las {DECK_QUESTIONS.length} preguntas de la presentación
+                </button>
+              )}
 
               {r.status !== 'finished' && (
                 <QuestionForm disabled={busy} onAdd={async (q, opts, ok, sec) => { await run(() => addRaffleQuestion(r.id, q, opts, ok, sec), 'Pregunta agregada.'); }} />
