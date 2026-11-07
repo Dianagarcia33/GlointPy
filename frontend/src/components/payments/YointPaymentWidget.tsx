@@ -169,7 +169,14 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
 
       // Si es Botón Bancolombia o PSE y devuelve URL de redirección, abrirla
       if (res.redirect_url) {
-        window.open(res.redirect_url, '_blank', 'noopener,noreferrer');
+        // Sin 'noopener' en las features: con él window.open siempre devuelve null y no se podría detectar el bloqueo
+        const win = window.open(res.redirect_url, '_blank');
+        if (win) {
+          win.opener = null;
+        } else {
+          // El navegador bloqueó la ventana emergente: ir al banco en esta misma pestaña
+          window.location.href = res.redirect_url;
+        }
       }
     } catch (err: any) {
       console.error("Error iniciando pago:", err);

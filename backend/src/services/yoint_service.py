@@ -1257,9 +1257,21 @@ class YointService:
                     logger.info(f"[YointService] Respuesta PSE: HTTP {res.status_code} -> {res.text[:300]}")
 
                     if res.status_code in [200, 201]:
-                        response_payload = res.json()
-                        order_id = str(response_payload.get("orderId") or "")
-                        checkout_redirect_url = response_payload.get("url")
+                        try:
+                            parsed = res.json() if res.content else {}
+                        except Exception:
+                            parsed = {}
+                        response_payload = parsed if isinstance(parsed, dict) else {"data": parsed}
+                        order_id = str(response_payload.get("orderId") or response_payload.get("id") or "")
+                        # Yoint puede entregar la URL del banco en el body o en el header Location
+                        checkout_redirect_url = (
+                            res.headers.get("Location")
+                            or response_payload.get("url")
+                            or response_payload.get("redirectUrl")
+                            or response_payload.get("paymentUrl")
+                        )
+                        if not checkout_redirect_url:
+                            logger.warning(f"[YointService] PSE sin URL de redirección. Headers: {dict(res.headers)} Body: {res.text[:300]}")
                     else:
                         error_message = f"Error Yoint PSE HTTP {res.status_code}: {res.text}"
                         logger.error(f"[YointService] {error_message}")
