@@ -1271,6 +1271,28 @@ class YointService:
                             or response_payload.get("paymentUrl")
                         )
                         if not checkout_redirect_url:
+                            # Último recurso: metadata (como en Nequi/Bancolombia) o cualquier URL http(s) en la respuesta
+                            for meta in (response_payload.get("metadata") or []):
+                                if isinstance(meta, dict) and meta.get("key") == "async_payment_url":
+                                    checkout_redirect_url = meta.get("value")
+                                    break
+                        if not checkout_redirect_url:
+                            def _find_url(node: Any) -> Optional[str]:
+                                if isinstance(node, str):
+                                    return node if node.startswith(("http://", "https://")) else None
+                                if isinstance(node, dict):
+                                    for v in node.values():
+                                        found = _find_url(v)
+                                        if found:
+                                            return found
+                                elif isinstance(node, list):
+                                    for v in node:
+                                        found = _find_url(v)
+                                        if found:
+                                            return found
+                                return None
+                            checkout_redirect_url = _find_url(response_payload)
+                        if not checkout_redirect_url:
                             logger.warning(f"[YointService] PSE sin URL de redirección. Headers: {dict(res.headers)} Body: {res.text[:300]}")
                     else:
                         error_message = f"Error Yoint PSE HTTP {res.status_code}: {res.text}"
