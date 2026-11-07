@@ -31,6 +31,7 @@ from src.models.share_market import SharePriceHistory, ShareIssuance, ShareListi
 from src.models.wallet_recharge import WalletRecharge
 from src.models.event import Event, EventAttendee, EventAuthorizedDomain, EventLiveSession, EventQuestion, EventQuestionVote, EventSurveyResponse, EventChatMessage, EventCoupon
 from src.models.event_game import EventGameParticipant, EventGameRound, EventGameAnswer
+from src.models.event_raffle import EventRaffle, EventRaffleEntry, EventRaffleQuestion, EventRaffleAnswer
 from src.models.room import MeetingRoom, RoomReservation
 from src.models.yoint_dispersion import YointDispersion
 from src.models.yoint_payin import YointPayin

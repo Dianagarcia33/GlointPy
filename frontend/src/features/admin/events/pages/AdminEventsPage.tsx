@@ -51,6 +51,7 @@ import { LiveRoomCard } from '../components/LiveRoomCard';
 import { ChatModerationCard } from '../components/ChatModerationCard';
 import { QuestionsModerationCard } from '../components/QuestionsModerationCard';
 import { GameCard } from '../components/GameCard';
+import { RaffleCard } from '../components/RaffleCard';
 import { CheckInCard } from '../components/CheckInCard';
 import { SurveyResultsCard } from '../components/SurveyResultsCard';
 import { CouponsCard } from '../components/CouponsCard';
@@ -910,6 +911,7 @@ export const AdminEventsPage: React.FC = () => {
           <ChatModerationCard />
           <QuestionsModerationCard />
           <GameCard />
+          <RaffleCard />
         </div>
       )}
       {activeTab === 'entrada' && (

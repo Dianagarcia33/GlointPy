@@ -97,6 +97,13 @@ export function EventAttendancePage() {
                   <p className="mt-6 text-sm text-slate-600">¿Nos acompañarás en persona? Si no respondes, tu inscripción se mantiene como está.</p>
                 )}
 
+                {data.attendance_mode === 'in_person' && (
+                  <a href={`/rifa/${encodeURIComponent(token)}`}
+                     className="mt-5 block text-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3">
+                    Entrar a la rifa en vivo
+                  </a>
+                )}
+
                 <a href={`/evento/preguntas/${encodeURIComponent(token)}`}
                    className="mt-5 block text-center rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-3">
                   Enviar una pregunta a los presentadores
