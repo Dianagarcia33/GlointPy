@@ -194,6 +194,10 @@ class LiveConfigRequest(BaseModel):
     live_playback_id: Optional[str] = None
     live_open: Optional[bool] = None
 
+class InvestorLiveInvitationRequest(BaseModel):
+    email: str
+    force_virtual: bool = False  # confirma pasar a virtual a un inversionista inscrito como presencial
+
 class LiveInvitationsRequest(BaseModel):
     send: bool = False  # False = solo vista previa de destinatarios
 
@@ -232,6 +236,11 @@ async def update_live_config(body: LiveConfigRequest, db: AsyncSession = Depends
 async def send_live_invitations(body: LiveInvitationsRequest, db: AsyncSession = Depends(get_db)):
     """Invita a los virtuales que aún no tienen invitación. send=false devuelve solo la lista de destinatarios."""
     return await EventLiveService.send_invitations(db, body.send)
+
+@router.post("/admin/live/investor-invitation", dependencies=event_admin)
+async def send_live_invitation_to_investor(body: InvestorLiveInvitationRequest, db: AsyncSession = Depends(get_db)):
+    """Envía el enlace de la transmisión a cualquier inversionista por su correo (lo inscribe como virtual si no lo estaba)."""
+    return await EventLiveService.send_invitation_to_investor(db, body.email, body.force_virtual)
 
 @router.post("/admin/attendees/{attendee_id}/live-invitation", dependencies=event_admin)
 async def send_live_invitation_to_attendee(attendee_id: int, db: AsyncSession = Depends(get_db)):

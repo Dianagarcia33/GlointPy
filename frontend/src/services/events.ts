@@ -732,3 +732,10 @@ export const resetGame = async (): Promise<GameAdminData> => {
 export const deleteGameRound = async (id: number): Promise<GameAdminData> => {
   return await fetchApi(`/events/admin/game/rounds/${id}`, { method: 'DELETE' });
 };
+
+export const sendLiveInvitationToInvestor = async (email: string, forceVirtual = false): Promise<{ sent: boolean; email: string }> => {
+  return await fetchApi('/events/admin/live/investor-invitation', {
+    method: 'POST',
+    body: JSON.stringify({ email, force_virtual: forceVirtual }),
+  });
+};

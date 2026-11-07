@@ -16,11 +16,13 @@ from typing import List, Optional
 
 import jwt
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.config import settings
 from src.models.event import Event, EventAttendee, EventLiveSession
+from src.models.user import User
+from src.models.investor import Investor
 from src.services.email_service import EmailService
 from src.services.event_coupon_rules import attendee_sees_coupon
 from src.services.event_attendance_service import EventAttendanceService
@@ -265,6 +267,45 @@ class EventLiveService:
         attendee.live_invite_sent_at = _utcnow()
         await db.commit()
         return {"sent": True, "email": attendee.email}
+
+    @classmethod
+    async def send_invitation_to_investor(cls, db: AsyncSession, email: str, force_virtual: bool = False) -> dict:
+        """Envía el enlace de la transmisión a CUALQUIER inversionista, esté o no inscrito al evento.
+        Si no tiene inscripción se le crea una virtual; si estaba presencial se pide confirmación para pasarlo a virtual."""
+        email = (email or "").strip().lower()
+        if not email:
+            raise HTTPException(status_code=400, detail="Escribe el correo del inversionista.")
+        user = (await db.execute(select(User).where(func.lower(User.email) == email))).scalars().first()
+        investor = None
+        if user:
+            investor = (await db.execute(select(Investor).where(Investor.user_id == user.id).order_by(desc(Investor.id)))).scalars().first()
+        if not user or not investor:
+            raise HTTPException(status_code=404, detail="No hay un inversionista con ese correo.")
+
+        event = await EventService.get_or_create_default_event(db)
+        attendee = await EventService.find_attendee_for_user(db, event.id, user)
+        if attendee and attendee.status == "confirmed" and attendee.attendance_mode == "in_person" and not force_virtual:
+            raise HTTPException(status_code=409, detail="Este inversionista está inscrito como presencial. Para enviarle la transmisión debe pasar a virtual (se liberan sus cupos presenciales).")
+
+        if not attendee:
+            attendee = EventAttendee(
+                event_id=event.id, user_id=user.id, attendee_type="investor",
+                full_name=(f"{getattr(investor, 'first_name', '') or ''} {getattr(investor, 'last_name', '') or ''}".strip()
+                           or getattr(user, "name", "") or email),
+                email=email, phone=getattr(user, "phone_number", None) or getattr(user, "phone", None),
+                attendance_mode="virtual", has_companion=False, seats_reserved=0, status="confirmed")
+            db.add(attendee)
+        else:
+            attendee.user_id = attendee.user_id or user.id
+            attendee.attendee_type = "investor"
+            attendee.attendance_mode = "virtual"
+            attendee.has_companion = False
+            attendee.companion_name = None
+            attendee.seats_reserved = 0
+            attendee.status = "confirmed"
+        await db.commit()
+        await db.refresh(attendee)
+        return await cls.send_invitation_to_attendee(db, attendee.id)
 
     @staticmethod
     def _send_batch(jobs: List[dict]) -> None:
