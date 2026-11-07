@@ -258,6 +258,11 @@ export const getLiveOverview = async (): Promise<LiveOverview> => {
   return await fetchApi('/events/admin/live');
 };
 
+// Prueba de la transmisión solo para el equipo: no abre la sala ni registra entradas
+export const previewLive = async (): Promise<{ playback_id: string; playback_token: string | null; live_open: boolean }> => {
+  return await fetchApi('/events/admin/live/preview', { method: 'POST' });
+};
+
 export const updateLiveConfig = async (payload: { live_playback_id?: string; live_open?: boolean }): Promise<LiveOverview> => {
   return await fetchApi('/events/admin/live/config', { method: 'PUT', body: JSON.stringify(payload) });
 };

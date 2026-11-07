@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import MuxPlayer from '@mux/mux-player-react';
+import { LivePlayer } from '../components/LivePlayer';
 import { ParticipationPanel } from '../components/ParticipationPanel';
 import { SurveyPanel } from '../components/SurveyPanel';
 import { LiveJoin, LiveStatus, getLiveStatus, joinLive, liveHeartbeat } from '../../../services/events';
@@ -14,22 +14,6 @@ function formatDate(value?: string | null): string {
   } catch {
     return value;
   }
-}
-
-// Playback ID reservado para probar la sala sin cuenta de Mux (el backend no firma token para él)
-const SIMULATED_PLAYBACK_ID = 'simulado';
-
-function SimulatedPlayer() {
-  return (
-    <div className="relative flex flex-col items-center justify-center gap-3 text-white"
-         style={{ width: '100%', aspectRatio: '16 / 9', background: 'linear-gradient(135deg,#0f172a,#1e293b)' }}>
-      <span className="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-red-600 px-3 py-1 text-xs font-bold">
-        <span className="h-2 w-2 rounded-full bg-white animate-pulse" />EN VIVO
-      </span>
-      <p className="text-lg font-semibold">Transmisión simulada</p>
-      <p className="text-xs text-slate-400 px-6 text-center">Modo de prueba: aquí se verá el video de Mux cuando se configure el Playback ID real.</p>
-    </div>
-  );
 }
 
 type Phase = 'loading' | 'invalid' | 'waiting' | 'ready' | 'watching' | 'replaced' | 'ended';
@@ -159,18 +143,7 @@ export function EventLivePage() {
         {phase === 'watching' && join && (
           <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
           <div className="self-start rounded-2xl overflow-hidden bg-black shadow-sm">
-            {join.playback_id === SIMULATED_PLAYBACK_ID ? (
-              <SimulatedPlayer />
-            ) : (
-              <MuxPlayer
-                streamType="live"
-                playbackId={join.playback_id}
-                tokens={join.playback_token ? { playback: join.playback_token } : undefined}
-                autoPlay
-                accentColor="#f97316"
-                style={{ width: '100%', aspectRatio: '16 / 9' }}
-              />
-            )}
+            <LivePlayer playbackId={join.playback_id} playbackToken={join.playback_token} />
           </div>
           {/* Chat y preguntas al lado del video (como en Twitch). En pantalla grande iguala la altura del video; en celular va debajo */}
           <aside aria-label="Chat y preguntas" className="relative h-[32rem] lg:h-auto">

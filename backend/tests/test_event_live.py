@@ -245,3 +245,23 @@ def test_mi_acceso_entrega_enlace_y_estado_solo_de_la_propia_inscripcion():
         stranger = SimpleNamespace(id=99, email="nadie@x.co", document_number=None, document_id=None)
         assert await EventAttendanceService.get_my_access(db, stranger) is None   # sin inscripción: nada
     _run(scenario)
+
+
+def test_el_equipo_prueba_la_transmision_sin_abrir_la_sala_ni_registrar_entradas():
+    async def scenario(db, event):
+        db.add(_attendee(event, "Ana"))
+        await db.commit()
+        with pytest.raises(HTTPException) as exc:               # sin Playback ID no hay nada que probar
+            await EventLiveService.admin_preview(db)
+        assert exc.value.status_code == 400
+
+        await EventLiveService.update_config(db, "abc123PLAYBACK", None)   # configurado, pero la sala sigue cerrada
+        prueba = await EventLiveService.admin_preview(db)
+        assert prueba["playback_id"] == "abc123PLAYBACK" and prueba["live_open"] is False
+
+        with pytest.raises(HTTPException) as exc:               # los inscritos siguen sin poder entrar
+            await EventLiveService.join(db, "tok-Ana")
+        assert exc.value.status_code == 409
+        overview = await EventLiveService.get_overview(db)
+        assert overview["live_open"] is False and overview["joined"] == 0 and overview["online_now"] == 0
+    _run(scenario)

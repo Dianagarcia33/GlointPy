@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Radio, Loader2, Send, Eye, Users, Mail } from 'lucide-react';
+import { Radio, Loader2, Send, Eye, Users, Mail, PlayCircle } from 'lucide-react';
 import {
   AttendanceEmailsResult,
   LiveOverview,
   getLiveOverview,
+  previewLive,
   sendLiveInvitations,
   sendLiveInvitationToAttendee,
   updateLiveConfig,
 } from '../../../../services/events';
 import { useLatestOnly } from '../hooks/useLatestOnly';
+import { LivePlayer } from '../../../events/components/LivePlayer';
 
 const REFRESH_MS = 5000;
 
@@ -32,6 +34,8 @@ export function LiveRoomCard() {
   const [busy, setBusy] = useState(false);
   const [rowBusy, setRowBusy] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Prueba de la transmisión solo para el equipo (no abre la sala a los inscritos)
+  const [test, setTest] = useState<{ playback_id: string; playback_token: string | null } | null>(null);
 
   const { startRead, invalidate } = useLatestOnly();
 
@@ -75,6 +79,11 @@ export function LiveRoomCard() {
     if (!data) return;
     if (data.live_open && !window.confirm('¿Cerrar la sala? Los asistentes conectados verán que la transmisión finalizó.')) return;
     setData(await updateLiveConfig({ live_open: !data.live_open }));
+  });
+
+  const startTest = () => run(async () => {
+    const r = await previewLive();
+    setTest({ playback_id: r.playback_id, playback_token: r.playback_token });
   });
 
   const loadPreview = () => run(async () => setPreview(await sendLiveInvitations(false)));
@@ -133,6 +142,35 @@ export function LiveRoomCard() {
           Guardar
         </button>
       </div>
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-xs font-bold text-slate-700">Probar la transmisión</p>
+            <p className="text-[11px] text-slate-500">Solo la ves tú: no abre la sala ni se les avisa a los inscritos, y no queda registrada como entrada.</p>
+          </div>
+          {test ? (
+            <button onClick={() => setTest(null)}
+              className="rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1.5">
+              Cerrar prueba
+            </button>
+          ) : (
+            <button onClick={startTest} disabled={busy || !data?.live_playback_id}
+              title={!data?.live_playback_id ? 'Guarda primero un Playback ID' : undefined}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+              <PlayCircle className="w-3.5 h-3.5" /> Probar transmisión
+            </button>
+          )}
+        </div>
+        {test && (
+          <>
+            <div className="rounded-xl overflow-hidden bg-black max-w-3xl">
+              <LivePlayer playbackId={test.playback_id} playbackToken={test.playback_token} />
+            </div>
+            <p className="text-[11px] text-slate-500">Si todavía no estás transmitiendo desde el codificador, el reproductor quedará esperando la señal.</p>
+          </>
+        )}
+      </div>
+
       {data && !data.live_open && !data.live_playback_id && (
         <p className="text-xs rounded-lg bg-slate-50 border border-slate-200 text-slate-700 p-2.5">
           Para abrir la sala primero escribe un Playback ID y pulsa <strong>Guardar</strong>.

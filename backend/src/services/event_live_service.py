@@ -182,6 +182,19 @@ class EventLiveService:
         }
 
     @classmethod
+    async def admin_preview(cls, db: AsyncSession) -> dict:
+        """Video para que el equipo pruebe la transmisión SIN abrir la sala: no cambia `live_open`, no crea sesión ni suma
+        permanencia y no avisa a nadie. Solo lo pide el panel de administración."""
+        event = await EventService.get_or_create_default_event(db)
+        if not event.live_playback_id:
+            raise HTTPException(status_code=400, detail="Guarda primero el Playback ID de Mux para poder probar la transmisión.")
+        return {
+            "playback_id": event.live_playback_id,
+            "playback_token": build_playback_token(event.live_playback_id),
+            "live_open": bool(event.live_open),
+        }
+
+    @classmethod
     async def update_config(cls, db: AsyncSession, playback_id: Optional[str], is_open: Optional[bool]) -> dict:
         event = await EventService.get_or_create_default_event(db)
         if playback_id is not None:

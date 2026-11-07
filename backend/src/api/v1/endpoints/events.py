@@ -191,6 +191,12 @@ async def get_live_overview(db: AsyncSession = Depends(get_db)):
     """Quién está conectado ahora, quién entró y cuánto tiempo estuvo."""
     return await EventLiveService.get_overview(db)
 
+@router.post("/admin/live/preview", dependencies=event_admin)
+async def preview_live(response: Response, db: AsyncSession = Depends(get_db)):
+    """Prueba de la transmisión solo para el equipo: no abre la sala ni registra entradas."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return await EventLiveService.admin_preview(db)
+
 @router.put("/admin/live/config", dependencies=event_admin)
 async def update_live_config(body: LiveConfigRequest, db: AsyncSession = Depends(get_db)):
     """Playback ID de Mux y apertura/cierre de la sala."""
