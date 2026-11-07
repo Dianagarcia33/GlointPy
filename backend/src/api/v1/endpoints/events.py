@@ -137,6 +137,19 @@ async def send_attendance_confirmation_email_to_attendee(
     """Envía el correo de confirmación de asistencia a un solo inscrito (pruebas o reenvíos)."""
     return await EventAttendanceService.send_confirmation_email_to_attendee(db, attendee_id)
 
+@router.post("/admin/access-qr-emails", dependencies=event_admin)
+async def send_access_qr_emails(body: AttendanceEmailsRequest, db: AsyncSession = Depends(get_db)):
+    """
+    Reenvía el correo «Tu QR de acceso» a todos los inscritos presenciales vigentes (hayan confirmado o no).
+    Con send=false devuelve únicamente la lista de destinatarios.
+    """
+    return await EventAttendanceService.send_access_qr_emails(db, body.send)
+
+@router.post("/admin/attendees/{attendee_id}/access-qr-email", dependencies=event_admin)
+async def send_access_qr_email_to_attendee(attendee_id: int, db: AsyncSession = Depends(get_db)):
+    """Reenvía el QR de acceso a un solo inscrito presencial."""
+    return await EventAttendanceService.send_access_qr_to_attendee(db, attendee_id)
+
 @router.get("/attendance/{token}")
 async def get_attendance_status(token: str, db: AsyncSession = Depends(get_db)):
     """Estado de la inscripción identificada por el enlace personal del correo."""
@@ -460,22 +473,21 @@ class GameAnswerRequest(BaseModel):
 class GameRoundCreateRequest(BaseModel):
     question: str
     options: List[str]
-    correct_index: int
 
 @router.post("/game/join")
 async def game_join(db: AsyncSession = Depends(get_db)):
-    """Entrega un código corto anónimo (ej. «Colibrí 47») a quien escanea el QR. El navegador guarda el token."""
+    """Entrega un token anónimo a quien escanea el QR (una respuesta por persona). El navegador lo guarda."""
     return await EventGameService.join(db)
 
 @router.get("/game/state")
 async def game_state(response: Response, token: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    """Estado público de la dinámica (pantalla del presentador y celulares). La respuesta correcta solo sale al cerrar la ronda."""
+    """Estado público de la dinámica (pantalla del presentador y celulares). Las opciones solo salen con el token de un participante."""
     response.headers["Cache-Control"] = "no-store"
     return await EventGameService.get_state(db, token)
 
 @router.post("/game/answer")
 async def game_answer(body: GameAnswerRequest, db: AsyncSession = Depends(get_db)):
-    """Responde la ronda abierta (una vez por persona). La primera respuesta correcta gana y cierra la ronda."""
+    """Responde la ronda abierta (una vez por persona, durante el minuto)."""
     return await EventGameService.answer(db, body.token, body.round_id, body.option_index)
 
 @router.get("/game/qr.png")
@@ -518,13 +530,13 @@ async def game_ws(websocket: WebSocket):
 
 @router.get("/admin/game", dependencies=event_admin)
 async def admin_game_list(db: AsyncSession = Depends(get_db)):
-    """Rondas de la dinámica (con la respuesta correcta y el ganador de cada una)."""
+    """Rondas de la dinámica (con sus estadísticas al cerrar)."""
     return await EventGameService.admin_list(db)
 
 @router.post("/admin/game/rounds", dependencies=event_admin)
 async def admin_game_create(body: GameRoundCreateRequest, db: AsyncSession = Depends(get_db)):
-    """Crea una pregunta (opción múltiple, una correcta)."""
-    return await EventGameService.create_round(db, body.question, body.options, body.correct_index)
+    """Crea una pregunta (opción múltiple, sin respuesta correcta)."""
+    return await EventGameService.create_round(db, body.question, body.options)
 
 @router.put("/admin/game/rounds/{round_id}/open", dependencies=event_admin)
 async def admin_game_open(round_id: int, db: AsyncSession = Depends(get_db)):
@@ -535,6 +547,16 @@ async def admin_game_open(round_id: int, db: AsyncSession = Depends(get_db)):
 async def admin_game_close(round_id: int, db: AsyncSession = Depends(get_db)):
     """Cierra la ronda sin esperar ganador."""
     return await EventGameService.close_round(db, round_id)
+
+@router.put("/admin/game/rounds/{round_id}/reset", dependencies=event_admin)
+async def admin_game_reset_round(round_id: int, db: AsyncSession = Depends(get_db)):
+    """Reinicia la ronda: borra sus respuestas y queda lista para abrirla de nuevo."""
+    return await EventGameService.reset_round(db, round_id)
+
+@router.post("/admin/game/reset", dependencies=event_admin)
+async def admin_game_reset_all(db: AsyncSession = Depends(get_db)):
+    """Empieza de cero: borra preguntas, respuestas y participantes de la dinámica."""
+    return await EventGameService.reset_all(db)
 
 @router.delete("/admin/game/rounds/{round_id}", dependencies=event_admin)
 async def admin_game_delete(round_id: int, db: AsyncSession = Depends(get_db)):

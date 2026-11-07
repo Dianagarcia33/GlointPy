@@ -9,8 +9,11 @@ import {
   getAdminGame,
   getEventsWebSocketUrl,
   openGameRound,
+  resetGame,
+  resetGameRound,
 } from '../../../../services/events';
 import { useLatestOnly } from '../hooks/useLatestOnly';
+import { GameStats } from '../../../events/components/GameStats';
 import { useLiveRefresh } from '../../../events/hooks/useLiveRefresh';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
@@ -20,14 +23,14 @@ const STATUS_STYLE: Record<GameRound['status'], string> = {
 };
 
 /**
- * Dinámica «¿quién respondió primero?»: el equipo crea preguntas de opción múltiple, abre una a la vez y proyecta la
- * pantalla con el QR. Gana la primera respuesta correcta; la ronda se cierra sola y el código del ganador sale en pantalla.
+ * Dinámica con estadísticas: el equipo crea preguntas de opción múltiple, abre una a la vez y proyecta la pantalla con el QR.
+ * Cada ronda dura 1 minuto y todos pueden responder desde el celular; al terminar se proyectan las estadísticas de lo que
+ * respondió la gente. No hay ganador ni respuesta correcta.
  */
 export function GameCard() {
   const [data, setData] = useState<GameAdminData | null>(null);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
-  const [correct, setCorrect] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -64,10 +67,9 @@ export function GameCard() {
   };
 
   const create = () => run(async () => {
-    const d = await createGameRound(question, options, correct);
+    const d = await createGameRound(question, options);
     setQuestion('');
     setOptions(['', '']);
-    setCorrect(0);
     return d;
   }, 'Pregunta creada. Ábrela cuando quieras lanzarla.');
 
@@ -75,7 +77,6 @@ export function GameCard() {
   const addOption = () => setOptions((o) => (o.length < 4 ? [...o, ''] : o));
   const removeOption = (i: number) => {
     setOptions((o) => (o.length > 2 ? o.filter((_, j) => j !== i) : o));
-    setCorrect((c) => (c === i ? 0 : c > i ? c - 1 : c));
   };
 
   const joinUrl = `${window.location.origin}/dinamica`;
@@ -98,9 +99,9 @@ export function GameCard() {
         <div className="flex items-center gap-3">
           <Trophy className={`w-5 h-5 ${open ? 'text-orange-500' : 'text-slate-400'}`} />
           <div>
-            <h2 className="text-sm font-bold text-slate-900">Dinámica: ¿quién respondió primero?</h2>
+            <h2 className="text-sm font-bold text-slate-900">Dinámica: preguntas en vivo con estadísticas</h2>
             <p className="text-xs text-slate-500">
-              La gente escanea un QR y responde sin iniciar sesión. Cada ronda dura 1 minuto: gana la primera respuesta correcta y su código sale en la pantalla; si nadie acierta, se cierra sola al acabarse el tiempo.
+              La gente escanea un QR y responde sin iniciar sesión. Cada ronda dura 1 minuto y todos pueden responder: al terminar se cierra sola y la pantalla proyecta cuánta gente eligió cada opción.
               {data ? ` Participantes: ${data.participants}.` : ''}
             </p>
           </div>
@@ -108,6 +109,11 @@ export function GameCard() {
         <div className="flex flex-wrap gap-2">
           <a href={screenUrl} target="_blank" rel="noopener noreferrer"
             className="rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2">Abrir pantalla del presentador</a>
+          <button onClick={() => { if (window.confirm('¿Empezar de cero? Se borran todas las preguntas, las respuestas y los participantes de la dinámica.')) run(resetGame, 'Dinámica reiniciada: ya no hay preguntas ni respuestas.'); }}
+            disabled={busy || !data || (data.rounds.length === 0 && data.participants === 0)}
+            className="rounded-lg border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold px-3 py-2 disabled:opacity-50">
+            Reiniciar todo
+          </button>
           <button onClick={copyJoin} className="rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold px-3 py-2">
             {copied ? '¡Copiado!' : 'Copiar enlace público'}
           </button>
@@ -127,8 +133,6 @@ export function GameCard() {
         <div className="space-y-2">
           {options.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
-              <input type="radio" name="game-correct" checked={correct === i} onChange={() => setCorrect(i)}
-                aria-label={`Marcar la opción ${LETTERS[i]} como correcta`} className="shrink-0" />
               <span className="w-5 text-xs font-bold text-slate-500">{LETTERS[i]}</span>
               <input value={opt} onChange={(e) => setOption(i, e.target.value)} maxLength={120} placeholder={`Opción ${LETTERS[i]}`}
                 aria-label={`Opción ${LETTERS[i]}`} className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm" />
@@ -138,7 +142,7 @@ export function GameCard() {
             </div>
           ))}
         </div>
-        <p className="text-[11px] text-slate-500">El círculo marca la respuesta correcta. Nadie la ve hasta que la ronda cierre.</p>
+        <p className="text-[11px] text-slate-500">No hay respuesta correcta: la pantalla mostrará cuánta gente eligió cada opción. Las opciones solo se ven en los celulares.</p>
         <div className="flex flex-wrap gap-2">
           {options.length < 4 && (
             <button type="button" onClick={addOption} className="rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1.5">Agregar opción</button>
@@ -165,7 +169,11 @@ export function GameCard() {
                 )}
                 {r.status === 'open' && (
                   <button onClick={() => run(() => closeGameRound(r.id))} disabled={busy}
-                    className="rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50">Cerrar sin ganador</button>
+                    className="rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50">Cerrar ahora</button>
+                )}
+                {r.status !== 'draft' && (
+                  <button onClick={() => { if (r.answers === 0 || window.confirm(`¿Reiniciar esta pregunta? Se borran sus ${r.answers} respuestas y queda lista para abrirla otra vez.`)) run(() => resetGameRound(r.id), 'Pregunta reiniciada: ábrela cuando quieras lanzarla de nuevo.'); }} disabled={busy}
+                    className="rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold px-3 py-1.5 disabled:opacity-50">Reiniciar</button>
                 )}
                 {r.status !== 'open' && (
                   <button onClick={() => { if (window.confirm('¿Eliminar esta pregunta y sus respuestas?')) run(() => deleteGameRound(r.id)); }} disabled={busy}
@@ -173,16 +181,16 @@ export function GameCard() {
                 )}
               </div>
             </div>
-            <ul className="grid sm:grid-cols-2 gap-1 text-xs text-slate-700">
-              {r.options.map((o, i) => (
-                <li key={i} className={i === r.correct_index ? 'font-bold text-green-700' : ''}>
-                  {LETTERS[i]}. {o}{i === r.correct_index ? ' ✓' : ''}
-                </li>
-              ))}
-            </ul>
+            {r.distribution && r.answers > 0 ? (
+              <GameStats distribution={r.distribution} options={r.options} variant="admin" />
+            ) : (
+              <ul className="grid sm:grid-cols-2 gap-1 text-xs text-slate-700">
+                {r.options.map((o, i) => <li key={i}>{LETTERS[i]}. {o}</li>)}
+              </ul>
+            )}
             <p className="text-xs text-slate-500">
               {r.answers} {r.answers === 1 ? 'respuesta' : 'respuestas'}
-              {r.winner_alias ? <> · Ganó <strong className="text-slate-900">{r.winner_alias}</strong> en {((r.winner_ms ?? 0) / 1000).toFixed(1)} s</> : r.status === 'closed' ? ' · Sin ganador' : ''}
+              {r.status === 'closed' && r.answers === 0 ? ' · Nadie respondió' : ''}
             </p>
           </li>
         ))}

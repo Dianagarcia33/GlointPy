@@ -201,3 +201,91 @@ def test_envio_individual_falla_con_502_si_el_correo_no_sale_y_no_marca_enviado(
         await db.refresh(a)
         assert a.attendance_email_sent_at is None
     _run(scenario)
+
+
+def test_reenvio_del_qr_llega_a_todos_los_presenciales_vigentes_hayan_confirmado_o_no():
+    async def scenario(db, event):
+        db.add_all([
+            _attendee(event, "Pendiente"),
+            _attendee(event, "YaConfirmo", attendance_confirmed_at=datetime.now(timezone.utc)),
+            _attendee(event, "Virtual", mode="virtual"),
+            _attendee(event, "Cancelado", status="cancelled"),
+        ])
+        await db.commit()
+        res = await EventAttendanceService.send_access_qr_emails(db, send=False)
+        assert res["send"] is False and res["recipients"] == 2
+        assert sorted(res["emails"]) == ["pendiente@x.co", "yaconfirmo@x.co"]
+        rows = (await db.execute(EventAttendee.__table__.select())).fetchall()
+        assert all(r.access_qr_sent_at is None for r in rows)                      # la vista previa no marca nada
+    _run(scenario)
+
+
+def test_reenvio_masivo_del_qr_envia_el_correo_nuevo_y_registra_la_fecha(monkeypatch):
+    enviados, confirmaciones = [], []
+    monkeypatch.setattr(svc, "SEND_PAUSE_SECONDS", 0)
+    monkeypatch.setattr(svc.EmailService, "send_event_access_qr_email",
+                        classmethod(lambda cls, **kw: enviados.append(kw) or True))
+    monkeypatch.setattr(svc.EmailService, "send_event_attendance_confirmation_email",
+                        classmethod(lambda cls, **kw: confirmaciones.append(kw) or True))
+
+    async def scenario(db, event):
+        db.add_all([_attendee(event, "Ana", has_companion=True, companion_name="Luis", seats=2),
+                    _attendee(event, "YaConfirmo", attendance_confirmed_at=datetime.now(timezone.utc))])
+        await db.commit()
+        res = await EventAttendanceService.send_access_qr_emails(db, send=True)
+        assert res["recipients"] == 2
+        for _ in range(60):
+            await asyncio.sleep(0.05)
+            if len(enviados) == 2 and not svc._qr_send_in_progress:
+                break
+        assert sorted(j["to_email"] for j in enviados) == ["ana@x.co", "yaconfirmo@x.co"]
+        assert confirmaciones == []                                                # no es el correo de confirmación
+        ana = next(j for j in enviados if j["to_email"] == "ana@x.co")
+        assert ana["companion_name"] == "Luis" and ana["seats_reserved"] == 2 and ana["qr_png"][:4] == b"\x89PNG"
+        rows = (await db.execute(EventAttendee.__table__.select())).fetchall()
+        assert all(r.access_qr_sent_at is not None for r in rows)
+        assert all(r.attendance_email_sent_at is None for r in rows)               # y no toca la fecha de la confirmación
+    _run(scenario)
+
+
+def test_reenvio_individual_del_qr_valida_estado_y_falla_con_502_si_no_sale(monkeypatch):
+    enviados = []
+    ok = {"value": True}
+    monkeypatch.setattr(svc.EmailService, "send_event_access_qr_email",
+                        classmethod(lambda cls, **kw: enviados.append(kw) or ok["value"]))
+
+    async def scenario(db, event):
+        ana, virtual, cancelado = _attendee(event, "Ana"), _attendee(event, "Virtual", mode="virtual"), _attendee(event, "Cancelado", status="cancelled")
+        db.add_all([ana, virtual, cancelado])
+        await db.commit()
+        assert await EventAttendanceService.send_access_qr_to_attendee(db, ana.id) == {"sent": True, "email": "ana@x.co"}
+        await db.refresh(ana)
+        assert ana.access_qr_sent_at is not None
+        for bad in (virtual.id, cancelado.id):
+            with pytest.raises(HTTPException) as exc:
+                await EventAttendanceService.send_access_qr_to_attendee(db, bad)
+            assert exc.value.status_code == 400
+        with pytest.raises(HTTPException) as exc:
+            await EventAttendanceService.send_access_qr_to_attendee(db, 9999)
+        assert exc.value.status_code == 404
+        ok["value"] = False                                                         # el proveedor de correo falla
+        ana.access_qr_sent_at = None
+        await db.commit()
+        with pytest.raises(HTTPException) as exc:
+            await EventAttendanceService.send_access_qr_to_attendee(db, ana.id)
+        assert exc.value.status_code == 502
+        await db.refresh(ana)
+        assert ana.access_qr_sent_at is None
+    _run(scenario)
+
+
+def test_correo_del_qr_es_corto_lleva_el_qr_y_no_pide_confirmar_ni_cambiar_a_virtual():
+    subject, html = EmailTemplateService.get_event_access_qr_template(
+        user_name="Ana", event_title="Gloint Power Tech", event_date=datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc),
+        location="Auditorio Gloint", seats_reserved=2, companion_name="Luis",
+        access_url="https://app.test/evento/asistencia/tok", qr_cid="qr-acceso")
+    assert "Tu QR de acceso" in subject
+    assert "cid:qr-acceso" in html and "https://app.test/evento/asistencia/tok" in html
+    assert "Luis" in html and "Auditorio Gloint" in html
+    assert "Confirmo mi asistencia" not in html and "Cambiar a virtual" not in html
+    assert "meet" not in html.lower()

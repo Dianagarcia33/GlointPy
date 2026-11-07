@@ -34,6 +34,7 @@ QR_PREFIX = "GLT-PT:"
 SEND_PAUSE_SECONDS = 0.6
 
 _send_in_progress = False
+_qr_send_in_progress = False
 
 
 def qr_content(access_token: str) -> str:
@@ -250,6 +251,98 @@ class EventAttendanceService:
         await db.commit()
         logger.info(f"[EventAttendance] Correo de confirmación individual enviado a {attendee.email}.")
         return {"sent": True, "email": attendee.email}
+
+    # ------------------------------------------------------------------ admin: reenvío del QR de acceso
+    @staticmethod
+    async def _access_qr_recipients(db: AsyncSession, event_id: int) -> List[EventAttendee]:
+        """Todos los presenciales vigentes (hayan confirmado o no): el QR es lo que necesitan para entrar."""
+        result = await db.execute(
+            select(EventAttendee).where(
+                EventAttendee.event_id == event_id,
+                EventAttendee.status == "confirmed",
+                EventAttendee.attendance_mode == "in_person",
+            ).order_by(EventAttendee.id)
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    def _access_qr_job(event: Event, a: EventAttendee) -> dict:
+        return dict(
+            to_email=a.email,
+            user_name=a.full_name or "Estimado/a Participante",
+            event_title=event.title or "Gloint Power Tech",
+            event_date=event.event_date,
+            location=event.location,
+            seats_reserved=a.seats_reserved or 1,
+            companion_name=a.companion_name if a.has_companion else None,
+            access_token=a.access_token,
+        )
+
+    @classmethod
+    async def send_access_qr_emails(cls, db: AsyncSession, send: bool) -> dict:
+        """
+        Reenvía el correo «Tu QR de acceso» a todos los presenciales vigentes. Con send=False solo cuenta a quién se
+        enviaría (vista previa); con send=True encola el envío en segundo plano y registra la fecha de cada inscrito.
+        """
+        global _qr_send_in_progress
+        event = await EventService.get_or_create_default_event(db)
+        recipients = await cls._access_qr_recipients(db, event.id)
+        await cls._ensure_tokens(db, recipients)
+
+        summary = {"send": send, "recipients": len(recipients), "emails": [a.email for a in recipients]}
+        if not send:
+            return summary
+        if _qr_send_in_progress:
+            raise HTTPException(status_code=409, detail="Ya hay un reenvío de QR en curso. Espera a que termine.")
+
+        jobs = [cls._access_qr_job(event, a) for a in recipients]
+        now = datetime.now(timezone.utc)
+        for a in recipients:
+            a.access_qr_sent_at = now
+        await db.commit()
+
+        _qr_send_in_progress = True
+        asyncio.create_task(asyncio.to_thread(cls._send_qr_batch, jobs))
+        logger.info(f"[EventAttendance] Programado reenvío de {len(jobs)} correos «Tu QR de acceso».")
+        return summary
+
+    @classmethod
+    async def send_access_qr_to_attendee(cls, db: AsyncSession, attendee_id: int) -> dict:
+        """Reenvía el QR de acceso a un solo inscrito presencial y espera el resultado para informarlo."""
+        attendee = (await db.execute(select(EventAttendee).where(EventAttendee.id == attendee_id))).scalar_one_or_none()
+        if not attendee:
+            raise HTTPException(status_code=404, detail="Asistente no encontrado.")
+        if attendee.status != "confirmed":
+            raise HTTPException(status_code=400, detail="La inscripción está cancelada.")
+        if attendee.attendance_mode != "in_person":
+            raise HTTPException(status_code=400, detail="El QR de acceso es solo para inscritos con asistencia presencial.")
+        event = await EventService.get_or_create_default_event(db)
+        await cls._ensure_tokens(db, [attendee])
+        job = cls._access_qr_job(event, attendee)
+        sent = await asyncio.to_thread(EmailService.send_event_access_qr_email, qr_png=build_qr_png(job["access_token"]), **job)
+        if not sent:
+            raise HTTPException(status_code=502, detail="No se pudo enviar el correo. Revisa la configuración de correo (Resend) del servidor.")
+        attendee.access_qr_sent_at = datetime.now(timezone.utc)
+        await db.commit()
+        logger.info(f"[EventAttendance] QR de acceso reenviado a {attendee.email}.")
+        return {"sent": True, "email": attendee.email}
+
+    @staticmethod
+    def _send_qr_batch(jobs: List[dict]) -> None:
+        global _qr_send_in_progress
+        ok = failed = 0
+        try:
+            for job in jobs:
+                try:
+                    sent = EmailService.send_event_access_qr_email(qr_png=build_qr_png(job["access_token"]), **job)
+                except Exception as e:
+                    logger.error(f"[EventAttendance] Error reenviando QR a {job['to_email']}: {e}")
+                    sent = False
+                ok, failed = (ok + 1, failed) if sent else (ok, failed + 1)
+                time.sleep(SEND_PAUSE_SECONDS)
+        finally:
+            _qr_send_in_progress = False
+            logger.info(f"[EventAttendance] Reenvío de QR terminado: {ok} enviados, {failed} fallidos.")
 
     @staticmethod
     def _send_batch(jobs: List[dict]) -> None:

@@ -30,18 +30,21 @@ import {
   ScanLine,
   ClipboardCheck,
   MessagesSquare,
-  Ticket
+  Ticket,
+  QrCode
 } from 'lucide-react';
 import { 
   getAdminEventSummary, 
   updateAdminEventConfig, 
   cancelAttendeeRegistration, 
   sendAttendanceEmailToAttendee, 
+  sendAccessQrEmailToAttendee,
   AdminEventSummary, 
   AttendeeData, 
   EventConfigPayload 
 } from '../../../../services/events';
 import { AttendanceEmailsCard } from '../components/AttendanceEmailsCard';
+import { AccessQrEmailsCard } from '../components/AccessQrEmailsCard';
 import { LiveRoomCard } from '../components/LiveRoomCard';
 import { ChatModerationCard } from '../components/ChatModerationCard';
 import { QuestionsModerationCard } from '../components/QuestionsModerationCard';
@@ -236,6 +239,21 @@ export const AdminEventsPage: React.FC = () => {
       setFeedbackMsg({ type: 'success', text: `Correo de confirmación enviado a ${email}.` });
     } catch (err: any) {
       setFeedbackMsg({ type: 'error', text: err.message || 'No se pudo enviar el correo.' });
+    } finally {
+      setEmailingId(null);
+    }
+  };
+
+  const handleSendAccessQr = async (id: number, name: string, email: string) => {
+    if (!window.confirm(`Se reenviará el QR de acceso a "${name}" (${email}). ¿Continuar?`)) {
+      return;
+    }
+    try {
+      setEmailingId(id);
+      await sendAccessQrEmailToAttendee(id);
+      setFeedbackMsg({ type: 'success', text: `QR de acceso reenviado a ${email}.` });
+    } catch (err: any) {
+      setFeedbackMsg({ type: 'error', text: err.message || 'No se pudo reenviar el QR.' });
     } finally {
       setEmailingId(null);
     }
@@ -465,6 +483,7 @@ export const AdminEventsPage: React.FC = () => {
       {activeTab === 'inscritos' && (
       <div role="tabpanel" id="event-panel-inscritos" aria-labelledby="event-tab-inscritos" className="space-y-6">
       <AttendanceEmailsCard onSent={loadSummary} />
+      <AccessQrEmailsCard onSent={loadSummary} />
 
       {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -800,6 +819,17 @@ export const AdminEventsPage: React.FC = () => {
                             ) : (
                               <Mail className="w-4 h-4" />
                             )}
+                          </button>
+                        )}
+                        {att.status === 'confirmed' && att.attendance_mode === 'in_person' && (
+                          <button
+                            type="button"
+                            disabled={emailingId === att.id}
+                            onClick={() => handleSendAccessQr(att.id, att.full_name, att.email)}
+                            className="p-1.5 hover:bg-brand-50 text-slate-400 hover:text-brand-700 rounded-xl transition-all border border-transparent hover:border-brand-100 shadow-2xs cursor-pointer disabled:opacity-50"
+                            title="Reenviar QR de acceso"
+                          >
+                            <QrCode className="w-4 h-4" />
                           </button>
                         )}
                         {att.status === 'confirmed' ? (
