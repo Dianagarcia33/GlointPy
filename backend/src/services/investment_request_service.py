@@ -628,9 +628,9 @@ class InvestmentRequestService:
                 yoint_method = None
                 if req.extra_data and isinstance(req.extra_data, dict):
                     if req.extra_data.get("yoint_payment_method"):
-                        yoint_method = f"Pasarela Yoint ({req.extra_data.get('yoint_payment_method')})"
+                        yoint_method = f"Pago en línea ({req.extra_data.get('yoint_payment_method')})"
                     elif req.extra_data.get("auto_approved_by") == "YOINT_GATEWAY":
-                        yoint_method = "Pasarela en línea Yoint"
+                        yoint_method = "Pago en línea"
 
                 EmailService.send_investment_activated_email(
                     to_email=investor_user.email,

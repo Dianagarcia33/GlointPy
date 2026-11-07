@@ -429,7 +429,7 @@ export const SharesMarketPage: React.FC = () => {
                                                     <td className="p-4 font-bold font-mono text-slate-900">${o.total_amount.toLocaleString('es-CO')} COP</td>
                                                     <td className="p-4">
                                                         <span className="text-[11px] text-slate-600 font-medium">
-                                                            {o.payment_method === 'full_wallet' ? '100% Saldo Billetera' : 'Excedente Bancario'}
+                                                            {o.payment_method === 'full_wallet' ? '100% Saldo Billetera' : o.payment_method === 'online_payment' ? 'Pago en Línea' : 'Transferencia Bancaria'}
                                                         </span>
                                                     </td>
                                                     <td className="p-4">
@@ -441,6 +441,11 @@ export const SharesMarketPage: React.FC = () => {
                                                         {o.status === 'pending_admin_approval' && (
                                                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
                                                                 <Clock className="w-3 h-3" /> Pendiente Verificación
+                                                            </span>
+                                                        )}
+                                                        {o.status === 'pending_payment' && (
+                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+                                                                <Clock className="w-3 h-3" /> Esperando Pago
                                                             </span>
                                                         )}
                                                         {o.status === 'rejected' && (

@@ -133,6 +133,33 @@ async def buy_shares_with_surplus(
         actor=current_user
     )
 
+@router.post("/buy-online", response_model=ShareTradeOrderOut, dependencies=SHARES_TRADE)
+async def buy_shares_online(
+    listing_id: int = Form(...),
+    shares_quantity: int = Form(...),
+    wallet_amount_used: float = Form(0.0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reserva las acciones para pagar en línea el total o el excedente. La compra se completa sola al confirmarse el pago."""
+    return await ShareMarketService.create_online_trade_order(
+        db=db,
+        buyer_id=current_user.id,
+        listing_id=listing_id,
+        shares_quantity=shares_quantity,
+        wallet_amount_used=wallet_amount_used,
+        actor=current_user
+    )
+
+@router.post("/orders/{order_id}/cancel-online", response_model=ShareTradeOrderOut, dependencies=SHARES_TRADE)
+async def cancel_online_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Cancela un pago en línea que el comprador no completó y libera sus acciones y saldo retenido."""
+    return await ShareMarketService.cancel_online_order(db=db, order_id=order_id, buyer_id=current_user.id)
+
 @router.get("/my-orders", response_model=List[ShareTradeOrderOut], dependencies=SHARES_READ)
 async def get_my_trade_orders(
     db: AsyncSession = Depends(get_db),

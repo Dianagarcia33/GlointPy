@@ -751,14 +751,14 @@ export const AdminSharesPage: React.FC = () => {
                                         <td className="p-4 font-mono">${o.price_per_share.toLocaleString('es-CO')}</td>
                                         <td className="p-4 font-bold font-mono text-slate-900">${o.total_amount.toLocaleString('es-CO')}</td>
                                         <td className="p-4 text-[11px]">
-                                            {o.payment_method === 'full_wallet' ? '100% Saldo' : 'Excedente'}
+                                            {o.payment_method === 'full_wallet' ? '100% Saldo' : o.payment_method === 'online_payment' ? 'Pago en línea' : 'Transferencia'}
                                         </td>
                                         <td className="p-4">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
                                                 o.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                                o.status === 'pending_admin_approval' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                                (o.status === 'pending_admin_approval' || o.status === 'pending_payment') ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
                                             }`}>
-                                                {o.status === 'completed' ? 'Completada' : o.status === 'pending_admin_approval' ? 'Pendiente' : 'Rechazada'}
+                                                {o.status === 'completed' ? 'Completada' : o.status === 'pending_admin_approval' ? 'Pendiente' : o.status === 'pending_payment' ? 'Esperando pago' : 'Rechazada'}
                                             </span>
                                         </td>
                                         <td className="p-4 pr-6">

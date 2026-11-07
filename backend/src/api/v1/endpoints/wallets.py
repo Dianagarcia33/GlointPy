@@ -469,7 +469,7 @@ def _translate_payment_method(method: Optional[str]) -> str:
         "CASH": "Efectivo",
         "WALLET": "Billetera Gloint",
         "BILLETERA": "Billetera Gloint",
-        "YOINT": "Yoint en Línea",
+        "YOINT": "Pago en Línea",
         "GATEWAY": "Pasarela de Pago",
         "MANUAL": "Consignación Directa",
     }
@@ -703,7 +703,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             fecha_aprobacion_val = None
             fecha_procesamiento_val = None
         elif t.reference_type == "yoint_payin" or "yoint" in (t.type or "").lower() or "recharge" in (t.type or "").lower():
-            metodo_pago_val = _translate_payment_method("BOTON_BANCOLOMBIA" if "bancolombia" in desc.lower() else "Yoint en Línea")
+            metodo_pago_val = _translate_payment_method("BOTON_BANCOLOMBIA" if "bancolombia" in desc.lower() else "Pago en Línea")
 
         tipo_display = _get_movement_type_display(t.type, not is_outflow)
 
@@ -866,7 +866,7 @@ async def cancel_my_withdrawal(
     if has_active_dispersion:
         raise HTTPException(
             status_code=400,
-            detail="Esta solicitud de retiro ya fue despachada y se encuentra en procesamiento con la pasarela bancaria Yoint. No puede ser cancelada para evitar duplicidad de desembolsos."
+            detail="Esta solicitud de retiro ya fue despachada y se encuentra en procesamiento con la entidad bancaria. No puede ser cancelada para evitar duplicidad de desembolsos."
         )
         
     # 2. Fetch Wallet
@@ -1424,7 +1424,7 @@ async def get_my_recharges(
             if payin or linked_tx:
                 r.status = "approved"
                 r.reviewed_at = (payin.updated_at if payin else (linked_tx.created_at if linked_tx else None)) or datetime.utcnow()
-                r.admin_notes = f"Aprobada y sincronizada automáticamente con la pasarela Yoint ({payin.order_id if payin else 'Saldo acreditado'})"
+                r.admin_notes = f"Aprobada y sincronizada automáticamente con la pasarela de pagos ({payin.order_id if payin else 'Saldo acreditado'})"
                 if payin and payin.order_id:
                     r.reference_number = payin.order_id
                 db.add(r)
@@ -1544,7 +1544,7 @@ async def get_all_recharges_admin(
                 pr.status = "approved"
                 pr.reviewed_at = matched_payin.updated_at or datetime.utcnow()
                 pr.reference_number = matched_payin.order_id or matched_payin.payment_reference or pr.reference_number
-                pr.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({matched_payin.order_id or matched_payin.payment_reference})"
+                pr.admin_notes = f"Aprobada automáticamente por la pasarela de pagos ({matched_payin.order_id or matched_payin.payment_reference})"
                 if not matched_payin.wallet_recharge_id:
                     matched_payin.wallet_recharge_id = pr.id
                     db.add(matched_payin)

@@ -13,6 +13,7 @@ from src.models.user import User
 from src.models.yoint_payin import YointPayin
 from src.models.wallet import Wallet
 from src.models.wallet_recharge import WalletRecharge
+from src.models.share_market import ShareTradeOrder
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
 from src.services.yoint_service import YointService
 
@@ -21,10 +22,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 class InitPayinRequest(BaseModel):
-    payin_type: str = Field(..., description="'WALLET_TOPUP' o 'INVESTMENT_REQUEST'")
+    payin_type: str = Field(..., description="'WALLET_TOPUP', 'INVESTMENT_REQUEST' o 'SHARE_PURCHASE'")
     amount: float = Field(..., gt=0, description="Monto en COP a recaudar")
     payment_method: str = Field(..., description="'NEQUI', 'BOTON_BANCOLOMBIA' o 'PSE'")
     investment_request_id: Optional[int] = Field(None, description="ID de la solicitud de inversión (si aplica)")
+    share_trade_order_id: Optional[int] = Field(None, description="ID de la orden de compra de acciones (si aplica)")
     phone_nequi: Optional[str] = Field(None, description="Teléfono celular para recaudo Nequi")
     bank_id: Optional[str] = Field(None, description="ID de la entidad financiera para PSE")
     redirect_url: Optional[str] = Field(None, description="URL de retorno a la plataforma tras el pago")
@@ -62,6 +64,7 @@ async def init_payin(
 
     wallet_recharge_id = None
     investment_request_id = payload.investment_request_id
+    share_trade_order_id = None
     recharge = None
 
     # 1. Validaciones para SOLICITUD DE INVERSIÓN
@@ -81,6 +84,24 @@ async def init_payin(
         
         if inv_req.status != InvestmentRequestStatus.pending:
             raise HTTPException(status_code=400, detail=f"La solicitud ya se encuentra en estado '{inv_req.status.value}'")
+
+    # 1b. Compra de acciones: el monto lo fija la orden (total - saldo de billetera), no el cliente
+    elif payload.payin_type == "SHARE_PURCHASE":
+        if not payload.share_trade_order_id:
+            raise HTTPException(status_code=400, detail="Se requiere 'share_trade_order_id' para este tipo de pago")
+        ord_res = await db.execute(
+            select(ShareTradeOrder).where(
+                ShareTradeOrder.id == payload.share_trade_order_id,
+                ShareTradeOrder.buyer_id == current_user.id
+            )
+        )
+        share_order = ord_res.scalars().first()
+        if not share_order:
+            raise HTTPException(status_code=404, detail="Orden de compra no encontrada")
+        if share_order.status != "pending_payment":
+            raise HTTPException(status_code=400, detail=f"La orden ya se encuentra en estado '{share_order.status}'")
+        share_trade_order_id = share_order.id
+        amount_dec = Decimal(str(share_order.surplus_amount))
 
     # 2. Preparar RECARGA DE BILLETERA
     elif payload.payin_type == "WALLET_TOPUP":
@@ -119,6 +140,7 @@ async def init_payin(
         payin_type=payload.payin_type,
         investment_request_id=investment_request_id,
         wallet_recharge_id=wallet_recharge_id,
+        share_trade_order_id=share_trade_order_id,
         phone_nequi=payload.phone_nequi,
         redirect_url=payload.redirect_url,
         bank_id=payload.bank_id,
@@ -126,6 +148,13 @@ async def init_payin(
     )
 
     if not result.get("success"):
+        # Si no se pudo iniciar el pago, liberar de inmediato las acciones reservadas
+        if share_trade_order_id:
+            from src.services.share_market_service import ShareMarketService
+            try:
+                await ShareMarketService.settle_online_trade(db, share_trade_order_id, paid=False, note="No se pudo iniciar el pago en línea")
+            except Exception as rel_err:
+                logger.error(f"No se pudo liberar la orden de acciones #{share_trade_order_id}: {rel_err}")
         raise HTTPException(status_code=502, detail=result.get("error", "Error iniciando pago con la pasarela Yoint"))
 
     # Actualizar la recarga preliminar con el order_id asignado por Yoint
@@ -214,6 +243,14 @@ async def get_payin_status(
             except Exception as auto_rec_err:
                 logger.warning(f"Error en reintento de acreditación para recarga #{payin.wallet_recharge_id}: {auto_rec_err}")
 
+    # Compra de acciones: ¿ya se completó?
+    share_order_completed = False
+    if payin.share_trade_order_id:
+        so_res = await db.execute(
+            select(ShareTradeOrder.status).where(ShareTradeOrder.id == payin.share_trade_order_id)
+        )
+        share_order_completed = so_res.scalar_one_or_none() == "completed"
+
     return {
         "payin_id": payin.id,
         "order_id": payin.order_id,
@@ -226,6 +263,8 @@ async def get_payin_status(
         "investment_approved": investment_approved,
         "wallet_recharge_id": payin.wallet_recharge_id,
         "recharge_approved": recharge_approved,
+        "share_trade_order_id": payin.share_trade_order_id,
+        "share_order_completed": share_order_completed,
         "created_at": payin.created_at.isoformat() if payin.created_at else None,
         "updated_at": payin.updated_at.isoformat() if payin.updated_at else None
     }

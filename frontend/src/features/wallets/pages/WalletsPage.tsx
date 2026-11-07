@@ -233,7 +233,7 @@ export const WalletsPage: React.FC = () => {
             'CASH': 'Efectivo',
             'WALLET': 'Billetera Gloint',
             'BILLETERA': 'Billetera Gloint',
-            'YOINT': 'Yoint en Línea',
+            'YOINT': 'Pago en Línea',
             'GATEWAY': 'Pasarela de Pago',
             'MANUAL': 'Consignación Directa',
             'CONSIGNACION': 'Consignación Bancaria',
@@ -1060,9 +1060,9 @@ export const WalletsPage: React.FC = () => {
                                                                 <span>Cancelar</span>
                                                             </button>
                                                         ) : mov.estado === 'pendiente' && mov.has_yoint_dispersion ? (
-                                                            <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/80 font-bold rounded-xl text-xs flex items-center gap-1.5 font-montserrat" title="Esta solicitud de retiro ya fue despachada hacia la pasarela de pagos Yoint y está en proceso de desembolso bancario.">
+                                                            <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/80 font-bold rounded-xl text-xs flex items-center gap-1.5 font-montserrat" title="Esta solicitud de retiro ya fue despachada hacia la entidad bancaria y está en proceso de desembolso bancario.">
                                                                 <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
-                                                                <span>En dispersión Yoint</span>
+                                                                <span>En proceso de desembolso</span>
                                                             </span>
                                                         ) : null}
                                                     </div>
