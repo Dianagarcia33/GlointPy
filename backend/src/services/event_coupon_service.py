@@ -7,7 +7,6 @@ Cupones de descuento del evento Gloint Power Tech para comprar en Gloint Place.
 - El descuento lo aplica Gloint Place (otro proyecto): consulta aquí si un código es válido y luego lo marca como usado.
   Cada código se puede usar una sola vez.
 """
-import io
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -48,13 +47,6 @@ def build_store_link(store_url: Optional[str], code: str) -> str:
     parsed = urlparse((store_url or DEFAULT_STORE_URL).strip())
     query = [(k, v) for k, v in parse_qsl(parsed.query) if k != "cupon"] + [("cupon", code)]
     return urlunparse(parsed._replace(query=urlencode(query)))
-
-
-def build_qr_png(link: str) -> bytes:
-    import segno
-    buffer = io.BytesIO()
-    segno.make(link, error="m").save(buffer, kind="png", scale=8, border=2)
-    return buffer.getvalue()
 
 
 def coupon_status(event: Event, coupon: EventCoupon, now: Optional[datetime] = None) -> str:
@@ -118,13 +110,6 @@ class EventCouponService:
             "store_link": build_store_link(event.coupon_store_url, coupon.code),
             "redeemed_at": coupon.redeemed_at,
         }
-
-    @classmethod
-    async def get_qr(cls, db: AsyncSession, token: str) -> bytes:
-        data = await cls.get_for_attendee(db, token)
-        if not data.get("code") or data["status"] != "valid":
-            raise HTTPException(status_code=404, detail="El cupón no está disponible.")
-        return build_qr_png(data["store_link"])
 
     # ------------------------------------------------------------------ admin
     @classmethod

@@ -121,9 +121,6 @@ def test_seleccionado_no_ve_el_codigo_hasta_activar_y_no_seleccionado_nunca():
 
         nunca = await Svc.get_for_attendee(db, "tok-Eva")                       # no elegida: ni con los cupones activos
         assert nunca["assigned"] is False and nunca["status"] == "none" and nunca["code"] is None
-        with pytest.raises(HTTPException) as exc:
-            await Svc.get_qr(db, "tok-Eva")
-        assert exc.value.status_code == 404
     _run(scenario)
 
 
@@ -297,15 +294,3 @@ def test_enlace_de_tienda_conserva_parametros_y_el_codigo_se_normaliza():
     assert normalize_code("  gpt-abcd 2345 ") == "GPT-ABCD2345"
 
 
-def test_qr_lleva_a_la_tienda_con_el_cupon():
-    pytest.importorskip("segno")
-
-    async def scenario(db, event):
-        ana, = await _crear(db, event, _attendee(event, "Ana"))
-        await Svc.assign(db, [ana.id])
-        with pytest.raises(HTTPException) as exc:                                # sin activar no hay QR
-            await Svc.get_qr(db, "tok-Ana")
-        assert exc.value.status_code == 404
-        await Svc.set_active(db, True)
-        assert (await Svc.get_qr(db, "tok-Ana"))[:8] == b"\x89PNG\r\n\x1a\n"
-    _run(scenario)

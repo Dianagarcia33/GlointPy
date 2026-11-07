@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MyCoupon, getCouponQrUrl, getMyCoupon } from '../../../services/events';
+import { MyCoupon, getMyCoupon } from '../../../services/events';
 
 function remaining(expiresAt?: string | null): string {
   if (!expiresAt) return '';
@@ -123,11 +123,9 @@ export function EventCouponPage() {
                   className="mt-5 block text-center rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3">
                   Ir a Gloint Place con mi cupón
                 </a>
-                <div className="mt-5 flex flex-col items-center">
-                  <img src={getCouponQrUrl(token)} alt="Código QR que abre Gloint Place con tu cupón" width={180} height={180}
-                    className="border border-slate-200 rounded-xl p-2 bg-white" />
-                  <p className="mt-2 text-xs text-slate-500">También puedes escanear este QR desde tu celular.</p>
-                </div>
+                <p className="mt-3 text-xs text-slate-500 text-center">
+                  Si compras por tu cuenta, ingresa el código <strong className="font-mono">{data.code}</strong> al pagar.
+                </p>
               </>
             )}
           </div>

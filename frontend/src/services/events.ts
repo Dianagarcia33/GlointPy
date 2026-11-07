@@ -574,10 +574,6 @@ export const getMyCoupon = async (token: string): Promise<MyCoupon> => {
   return await fetchApi(`/events/coupon/${encodeURIComponent(token)}`);
 };
 
-export const getCouponQrUrl = (token: string): string => {
-  return `${API_URL}/events/coupon/${encodeURIComponent(token)}/qr.png`;
-};
-
 export const getAdminCoupons = async (): Promise<AdminCoupons> => {
   return await fetchApi('/events/admin/coupons');
 };

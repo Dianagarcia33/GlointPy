@@ -506,12 +506,6 @@ async def get_my_coupon(token: str, db: AsyncSession = Depends(get_db)):
     """Cupón personal del asistente (solo con los cupones activados por el equipo)."""
     return await EventCouponService.get_for_attendee(db, token)
 
-@router.get("/coupon/{token}/qr.png")
-async def get_my_coupon_qr(token: str, db: AsyncSession = Depends(get_db)):
-    """QR que lleva a Gloint Place con el cupón ya puesto (PNG)."""
-    png = await EventCouponService.get_qr(db, token)
-    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, no-store"})
-
 @router.get("/admin/coupons", dependencies=event_admin)
 async def admin_get_coupons(db: AsyncSession = Depends(get_db)):
     """Configuración de los cupones y a quién se le dio cada uno (con su estado)."""
