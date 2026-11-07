@@ -161,7 +161,12 @@ export function EventRaffleMePage() {
                   )}
 
                   {!won && raffle.status === 'running' && !q && me.status === 'active' && (
-                    <p className="text-center text-slate-300">Atento: el presentador lanzará la primera pregunta.</p>
+                    <p className="text-center text-slate-300">
+                      {raffle.last_round ? '¡Sigues en juego! Mira la pantalla: el presentador continúa.' : 'Atento a la pantalla: el presentador continúa con la rifa.'}
+                    </p>
+                  )}
+                  {!won && raffle.status === 'running' && !q && me.status === 'eliminated' && (
+                    <p className="rounded-2xl bg-white/10 border border-white/15 p-5 text-center text-slate-200">Quedaste fuera de la rifa. Sigue el resultado en la pantalla.</p>
                   )}
                 </div>
               )}

@@ -763,6 +763,8 @@ export interface RafflePublic {
   /** Nombres cortos («Diana G.») de quienes siguen; null si son demasiados para la pantalla */
   names: string[] | null;
   last_eliminated: string[] | null;
+  /** Última ronda al azar (sin pregunta): cuántos salieron y, si son pocos, sus nombres */
+  last_round: { number: number; count: number; names: string[] | null } | null;
   question: RaffleQuestion | null;
   winner: string | null;
 }
@@ -846,6 +848,10 @@ export const closeRaffleQuestion = async (questionId: number): Promise<RaffleAdm
 
 export const drawRaffle = async (raffleId: number): Promise<RaffleAdminData> => {
   return await fetchApi(`/events/admin/raffle/${raffleId}/draw`, { method: 'PUT' });
+};
+
+export const eliminateRaffleRandom = async (raffleId: number, count: number): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/${raffleId}/eliminate`, { method: 'PUT', body: JSON.stringify({ count }) });
 };
 
 export const resetRaffle = async (raffleId: number): Promise<RaffleAdminData> => {

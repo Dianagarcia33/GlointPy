@@ -667,6 +667,14 @@ async def admin_raffle_draw(raffle_id: int, db: AsyncSession = Depends(get_db), 
     """Sortea al ganador al azar entre quienes siguen en juego."""
     return await EventRaffleService.draw(db, raffle_id, actor=current_user)
 
+class RaffleEliminateRequest(BaseModel):
+    count: int
+
+@router.put("/admin/raffle/{raffle_id}/eliminate", dependencies=event_admin)
+async def admin_raffle_eliminate(raffle_id: int, body: RaffleEliminateRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Elimina al azar a N participantes de los que siguen en juego (sin preguntas)."""
+    return await EventRaffleService.eliminate_random(db, raffle_id, body.count, actor=current_user)
+
 @router.put("/admin/raffle/{raffle_id}/reset", dependencies=event_admin)
 async def admin_raffle_reset(raffle_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Reinicia la rifa: borra participantes, respuestas y ganador, y deja las preguntas listas."""

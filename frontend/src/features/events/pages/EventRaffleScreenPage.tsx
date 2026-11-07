@@ -94,6 +94,14 @@ export function EventRaffleScreenPage() {
                     )}
                   </p>
                 )}
+                {!q && raffle.last_round && (
+                  <p className="mb-4 text-xl sm:text-2xl font-bold">
+                    Ronda {raffle.last_round.number}: salieron <span className="text-red-400">{raffle.last_round.count}</span>
+                    {raffle.last_round.names && raffle.last_round.names.length > 0 && (
+                      <span className="ml-2 text-red-300 font-semibold">{raffle.last_round.names.join(' · ')}</span>
+                    )}
+                  </p>
+                )}
                 {!q && <p className="mb-4 text-xl sm:text-2xl font-bold text-slate-300">Estos son los que juegan:</p>}
                 {raffle.names ? (
                   <ul className="flex flex-wrap gap-2 sm:gap-3">

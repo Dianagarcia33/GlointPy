@@ -10,6 +10,7 @@ import {
   deleteRaffle,
   deleteRaffleQuestion,
   drawRaffle,
+  eliminateRaffleRandom,
   getAdminRaffle,
   getEventsWebSocketUrl,
   openRaffleQuestion,
@@ -30,6 +31,36 @@ const Q_LABEL: Record<RaffleQuestion['status'], string> = { draft: 'Lista', open
 const Q_STYLE: Record<RaffleQuestion['status'], string> = {
   draft: 'bg-slate-100 text-slate-700', open: 'bg-green-100 text-green-800', closed: 'bg-slate-200 text-slate-600',
 };
+
+/** Ronda al azar: el presentador elige cuántos salen y el sistema los escoge sin preguntas, hasta que quede uno. */
+function RandomEliminate({ remaining, disabled, onEliminate }: { remaining: number; disabled: boolean; onEliminate: (n: number) => void }) {
+  const [custom, setCustom] = useState('');
+  const half = Math.max(1, Math.floor(remaining / 2));
+  const go = (n: number) => {
+    const real = Math.min(n, remaining - 1);
+    if (real >= 1 && window.confirm(`¿Eliminar al azar a ${real} de los ${remaining} que siguen?`)) onEliminate(real);
+  };
+  const quick = Array.from(new Set([1, 5, 10, half])).filter((n) => n < remaining).sort((a, b) => a - b);
+  const customN = Number(custom);
+  return (
+    <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 space-y-2">
+      <p className="text-xs font-bold text-orange-900">Eliminar al azar (sin preguntas) · siguen {remaining}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {quick.map((n) => (
+          <button key={n} onClick={() => go(n)} disabled={disabled}
+            className="rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50">
+            {n === half && n > 10 ? `La mitad (${n})` : `Sacar ${n}`}
+          </button>
+        ))}
+        <input type="number" min={1} max={remaining - 1} value={custom} onChange={(e) => setCustom(e.target.value)}
+          aria-label="Cantidad a eliminar" placeholder="Otra cantidad" className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-xs" />
+        <button onClick={() => go(customN)} disabled={disabled || !Number.isInteger(customN) || customN < 1}
+          className="rounded-lg border border-orange-400 text-orange-800 hover:bg-orange-100 text-xs font-bold px-3 py-1.5 disabled:opacity-50">Sacar</button>
+      </div>
+      <p className="text-[11px] text-orange-800">Siempre queda al menos uno; cuando queda uno solo, es el ganador.</p>
+    </div>
+  );
+}
 
 /** Formulario para agregar una pregunta (opción múltiple, una correcta y su tiempo) a una rifa. */
 function QuestionForm({ disabled, onAdd }: { disabled: boolean; onAdd: (q: string, options: string[], correct: number, seconds: number) => Promise<void> }) {
@@ -204,6 +235,11 @@ export function RaffleCard() {
                   <p className="font-bold">🏆 Ganador: {r.winner.full_name} <span className="font-normal text-orange-700">(en pantalla: {r.winner.display_name})</span></p>
                   <p className="mt-1">Correo: {r.winner.email}{r.winner.phone ? ` · Teléfono: ${r.winner.phone}` : ''}{r.winner.document_id ? ` · Documento: ${r.winner.document_id}` : ''}</p>
                 </div>
+              )}
+
+              {r.status === 'running' && r.remaining > 1 && (
+                <RandomEliminate remaining={r.remaining} disabled={busy || !!openQ}
+                  onEliminate={(n) => run(() => eliminateRaffleRandom(r.id, n), `Se eliminaron ${Math.min(n, r.remaining - 1)} al azar.`)} />
               )}
 
               <ul className="space-y-2">

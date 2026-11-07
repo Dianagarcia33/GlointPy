@@ -344,3 +344,27 @@ def test_validaciones_de_la_rifa_y_de_las_preguntas_y_aviso_en_vivo():
             await Svc.delete_question(db, qid)
         assert exc.value.status_code == 409
     _run(scenario)
+
+
+def test_eliminar_al_azar_por_rondas_hasta_que_queda_uno_sin_preguntas():
+    async def scenario(db, event):
+        t = await _jugadores(db, event, 6)
+        rid = await _rifa_iniciada(db)
+        with pytest.raises(HTTPException) as exc:
+            await Svc.eliminate_random(db, rid, 0)
+        assert exc.value.status_code == 422
+        r = _raffle(await Svc.eliminate_random(db, rid, 2), rid)
+        assert r["remaining"] == 4 and r["status"] == "running"
+        publico = await Svc.get_public_state(db)
+        assert publico["raffle"]["last_round"]["number"] == 1 and publico["raffle"]["last_round"]["count"] == 2
+        r = _raffle(await Svc.eliminate_random(db, rid, 2), rid)
+        assert r["remaining"] == 2
+        assert (await Svc.get_public_state(db))["raffle"]["last_round"]["number"] == 2
+        r = _raffle(await Svc.eliminate_random(db, rid, 50), rid)                  # nunca elimina al último: queda uno y gana
+        assert r["status"] == "finished" and r["winner"]
+        estados = [(await Svc.get_my_state(db, tok))["me"]["status"] for tok in t]
+        assert estados.count("winner") == 1 and estados.count("eliminated") == 5
+        with pytest.raises(HTTPException) as exc:
+            await Svc.eliminate_random(db, rid, 1)
+        assert exc.value.status_code == 409
+    _run(scenario)

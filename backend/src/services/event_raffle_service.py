@@ -250,6 +250,13 @@ class EventRaffleService:
             EventRaffleQuestion.raffle_id == raffle.id, EventRaffleQuestion.status == "closed")
             .order_by(EventRaffleQuestion.closed_at.desc(), EventRaffleQuestion.id.desc()).limit(1))).scalar_one_or_none()
         last_out = [e.display_name for e in entries if last_closed and e.eliminated_question_id == last_closed]
+        # Rondas al azar (sin pregunta): se marcan con un número NEGATIVO en eliminated_question_id (-1, -2, ...)
+        rounds = [-e.eliminated_question_id for e in entries if e.eliminated_question_id and e.eliminated_question_id < 0]
+        last_round = None
+        if rounds:
+            n = max(rounds)
+            out_names = [e.display_name for e in entries if e.eliminated_question_id == -n]
+            last_round = {"number": n, "count": len(out_names), "names": out_names if len(out_names) <= 30 else None}
         question = None
         if q:
             question = _question_public(q, await cls._answers_count(db, q.id), include_options=include_options, reveal_correct=reveal_correct)
@@ -261,6 +268,7 @@ class EventRaffleService:
             "remaining": len(active) if raffle.status == "running" else (1 if winner else 0),
             "names": [e.display_name for e in active] if raffle.status == "running" and len(active) <= MAX_NAMES_ON_SCREEN else None,
             "last_eliminated": last_out if len(last_out) <= 30 else None,
+            "last_round": last_round,
             "question": question,
             "winner": winner.display_name if winner else None,
         }
@@ -470,6 +478,41 @@ class EventRaffleService:
         await audit_in_tx(db, "EVENT_RAFFLE_DRAW", "events", actor, "EventRaffle", raffle.id,
                           f"Rifa «{raffle.title}»: sorteo entre {len(active)} que seguían en juego",
                           {"raffle_id": raffle.id, "candidatos": len(active), "ganador_attendee_id": winner.attendee_id})
+        await db.commit()
+        await raffle_hub.notify()
+        return await cls.admin_overview(db)
+
+    @classmethod
+    async def eliminate_random(cls, db: AsyncSession, raffle_id: int, count: int, actor=None) -> dict:
+        """Elimina AL AZAR a `count` de los que siguen en juego (sin preguntas). Siempre queda al menos uno; si queda uno, gana."""
+        raffle = await cls._raffle(db, raffle_id, lock=True)
+        if raffle.status != "running":
+            raise HTTPException(status_code=409, detail="La rifa no está en curso.")
+        if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+            raise HTTPException(status_code=422, detail="Indica cuántos participantes eliminar (al menos 1).")
+        for q in await cls._questions(db, raffle.id):
+            if q.status == "open":
+                raise HTTPException(status_code=409, detail="Cierra la pregunta abierta antes de eliminar al azar.")
+        entries = await cls._entries(db, raffle.id)
+        active = [e for e in entries if e.status == "active"]
+        if len(active) < 2:
+            raise HTTPException(status_code=409, detail="Ya solo queda uno en juego.")
+        count = min(count, len(active) - 1)
+        number = 1 + max([-e.eliminated_question_id for e in entries if e.eliminated_question_id and e.eliminated_question_id < 0], default=0)
+        out = _rng.sample(active, count)
+        for e in out:
+            e.status, e.eliminated_question_id = "eliminated", -number
+        remaining = [e for e in active if e.status == "active"]
+        winner = None
+        if len(remaining) == 1:
+            winner = remaining[0]
+            winner.status = "winner"
+            raffle.status, raffle.finished_at, raffle.winner_attendee_id = "finished", _utcnow(), winner.attendee_id
+        await audit_in_tx(
+            db, "EVENT_RAFFLE_RANDOM_ROUND", "events", actor, "EventRaffle", raffle.id,
+            f"Rifa «{raffle.title}»: ronda {number} al azar ({len(out)} eliminados, quedan {len(remaining)})",
+            {"raffle_id": raffle.id, "ronda": number, "eliminados_attendee_ids": [e.attendee_id for e in out],
+             "restantes": len(remaining), "ganador_attendee_id": winner.attendee_id if winner else None})
         await db.commit()
         await raffle_hub.notify()
         return await cls.admin_overview(db)
