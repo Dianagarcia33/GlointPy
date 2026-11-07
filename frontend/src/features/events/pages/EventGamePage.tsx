@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameState, gameAnswer, gameJoin, getEventsWebSocketUrl, getGameState } from '../../../services/events';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
+import { formatCountdown, useRoundCountdown } from '../hooks/useRoundCountdown';
 
 const TOKEN_KEY = 'gloint_game_token';
 const LETTERS = ['A', 'B', 'C', 'D'];
@@ -73,6 +74,8 @@ export function EventGamePage() {
   };
 
   const round = state?.round ?? null;
+  const timeLeft = useRoundCountdown(round, load);
+  const urgent = timeLeft !== null && timeLeft <= 10;
   const me = state?.me ?? null;
   const won = !!me?.is_winner && round?.status === 'closed';
 
@@ -98,6 +101,15 @@ export function EventGamePage() {
 
           {round && round.status === 'open' && (
             <div>
+              {timeLeft !== null && (
+                <div className="mb-5 text-center">
+                  <span className={`text-5xl font-extrabold tabular-nums ${urgent ? 'text-red-400 animate-pulse' : 'text-orange-400'}`}>{formatCountdown(timeLeft)}</span>
+                  <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden" aria-hidden="true">
+                    <div className={`h-full transition-all duration-300 ${urgent ? 'bg-red-500' : 'bg-orange-500'}`}
+                      style={{ width: `${Math.min(100, (timeLeft / (round.duration_seconds || 60)) * 100)}%` }} />
+                  </div>
+                </div>
+              )}
               <h1 className="text-2xl font-extrabold leading-snug text-center">{round.question}</h1>
               {me?.answered ? (
                 <div className="mt-8 rounded-2xl bg-white/10 border border-white/15 p-6 text-center">
@@ -107,7 +119,7 @@ export function EventGamePage() {
               ) : (
                 <div className="mt-6 space-y-3">
                   {round.options.map((opt, i) => (
-                    <button key={i} disabled={sending !== null} onClick={() => answer(round.id, i)}
+                    <button key={i} disabled={sending !== null || timeLeft === 0} onClick={() => answer(round.id, i)}
                       className="w-full flex items-center gap-3 text-left rounded-2xl bg-white text-slate-900 active:scale-[0.98] disabled:opacity-60 px-4 py-4 text-lg font-semibold shadow">
                       <span className="shrink-0 w-9 h-9 rounded-full bg-orange-500 text-white flex items-center justify-center font-extrabold">{LETTERS[i]}</span>
                       <span>{opt}</span>
@@ -133,7 +145,7 @@ export function EventGamePage() {
                   <p className="text-slate-300">en {seconds(round.winner_ms)}</p>
                 </>
               ) : (
-                <h1 className="text-2xl font-extrabold">La ronda terminó sin ganador</h1>
+                <h1 className="text-2xl font-extrabold">Se acabó el tiempo: nadie acertó</h1>
               )}
               {round.correct_index !== null && (
                 <p className="text-sm text-slate-200">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { GameState, getEventsWebSocketUrl, getGameQrUrl, getGameState } from '../../../services/events';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
+import { formatCountdown, useRoundCountdown } from '../hooks/useRoundCountdown';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 const seconds = (ms: number | null) => (ms === null || ms === undefined ? '' : `${(ms / 1000).toFixed(1)} s`);
@@ -27,6 +28,8 @@ export function EventGameScreenPage() {
   useLiveRefresh(getEventsWebSocketUrl('/game/ws'), load, 3000);
 
   const round = state?.round ?? null;
+  const timeLeft = useRoundCountdown(round, load);
+  const urgent = timeLeft !== null && timeLeft <= 10;
   const joinUrl = `${window.location.origin}/dinamica`;
 
   const qr = (size: string) => (
@@ -56,6 +59,18 @@ export function EventGameScreenPage() {
         {round && round.status === 'open' && (
           <div className="grid gap-10 lg:grid-cols-[1fr_auto] items-center w-full max-w-7xl">
             <div>
+              {timeLeft !== null && (
+                <div className="mb-8" aria-live="off">
+                  <div className="flex items-baseline gap-4">
+                    <span className={`text-7xl sm:text-8xl font-extrabold tabular-nums ${urgent ? 'text-red-400 animate-pulse' : 'text-orange-400'}`} data-testid="countdown">{formatCountdown(timeLeft)}</span>
+                    <span className="text-xl text-slate-400">para responder</span>
+                  </div>
+                  <div className="mt-3 h-3 rounded-full bg-white/10 overflow-hidden" aria-hidden="true">
+                    <div className={`h-full transition-all duration-300 ${urgent ? 'bg-red-500' : 'bg-orange-500'}`}
+                      style={{ width: `${Math.min(100, (timeLeft / (round.duration_seconds || 60)) * 100)}%` }} />
+                  </div>
+                </div>
+              )}
               <h1 className="text-4xl sm:text-6xl font-extrabold leading-tight">{round.question}</h1>
               <ul className="mt-8 grid gap-4 sm:grid-cols-2">
                 {round.options.map((opt, i) => (
@@ -81,7 +96,7 @@ export function EventGameScreenPage() {
                 <p className="mt-6 text-xl sm:text-2xl text-slate-400">Levanta tu celular y dinos: «¡fui yo!»</p>
               </>
             ) : (
-              <h1 className="text-5xl sm:text-7xl font-extrabold">La ronda terminó sin ganador</h1>
+              <h1 className="text-5xl sm:text-7xl font-extrabold">Se acabó el tiempo: nadie acertó</h1>
             )}
             {round.correct_index !== null && (
               <p className="mt-8 text-2xl sm:text-3xl">

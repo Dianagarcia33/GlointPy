@@ -7,13 +7,15 @@ Dinámica en vivo del evento Gloint Power Tech: «¿quién respondió primero?»
 - El equipo crea rondas (pregunta de opción múltiple con una respuesta correcta) y abre una a la vez.
 - Gana la PRIMERA respuesta correcta. La decide el servidor con una actualización atómica (no la hora del celular), así que
   dos respuestas casi simultáneas nunca dan dos ganadores. Al haber ganador la ronda se cierra sola.
+- Cada ronda dura ROUND_SECONDS (1 minuto) desde que se abre: pasado ese tiempo se cierra sola, sin ganador si nadie acertó,
+  y las respuestas tardías se rechazan. El cierre lo hace el servidor (en la siguiente consulta o respuesta), no el celular.
 - Cada participante responde una sola vez por ronda. La respuesta correcta no se envía a nadie hasta que la ronda cierra.
 """
 import asyncio
 import logging
 import random
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Set
 
 from fastapi import HTTPException, WebSocket
@@ -31,6 +33,7 @@ ANIMALS = [
     "Colibrí", "Jaguar", "Cóndor", "Delfín", "Tucán", "Puma", "Oso", "Búho", "Lobo", "Zorro",
     "Halcón", "Tigre", "Panda", "Koala", "Lince", "Ocelote", "Manatí", "Capibara", "Guacamaya", "Mono",
 ]
+ROUND_SECONDS = 60   # tiempo para responder desde que se abre la ronda
 MAX_QUESTION = 300
 MAX_OPTION = 120
 COALESCE_SECONDS = 0.25
@@ -93,12 +96,25 @@ def _clean_options(options: List[str]) -> List[str]:
     return cleaned
 
 
+def _expires_at(r: EventGameRound) -> Optional[datetime]:
+    return _aware(r.opened_at) + timedelta(seconds=ROUND_SECONDS) if r.opened_at else None
+
+
+def _seconds_left(r: EventGameRound) -> Optional[float]:
+    """Segundos que le quedan a una ronda abierta (None si no está abierta)."""
+    if r.status != "open" or not r.opened_at:
+        return None
+    return round(max(0.0, (_expires_at(r) - _utcnow()).total_seconds()), 1)
+
+
 def _round_public(r: EventGameRound, answers: int) -> dict:
     return {
         "id": r.id,
         "question": r.question,
         "options": list(r.options or []),
         "status": r.status,
+        "duration_seconds": ROUND_SECONDS,
+        "seconds_left": _seconds_left(r),
         "answers": answers,
         "winner_alias": r.winner_alias,
         "winner_ms": r.winner_ms,
@@ -118,6 +134,21 @@ class EventGameService:
         if not token:
             return None
         return (await db.execute(select(EventGameParticipant).where(EventGameParticipant.token == token))).scalar_one_or_none()
+
+    @staticmethod
+    async def _close_if_expired(db: AsyncSession, rnd: EventGameRound) -> bool:
+        """Cierra la ronda si ya pasó su minuto. Es idempotente: varias consultas a la vez no duplican nada."""
+        if rnd.status != "open" or not rnd.opened_at or _utcnow() < _expires_at(rnd):
+            return False
+        res = await db.execute(
+            update(EventGameRound)
+            .where(EventGameRound.id == rnd.id, EventGameRound.status == "open")
+            .values(status="closed", closed_at=_expires_at(rnd)))
+        await db.commit()
+        await db.refresh(rnd)
+        if res.rowcount == 1:
+            await game_hub.notify()
+        return True
 
     @staticmethod
     async def _current_round(db: AsyncSession, event_id: int) -> Optional[EventGameRound]:
@@ -154,6 +185,8 @@ class EventGameService:
     async def get_state(cls, db: AsyncSession, token: Optional[str] = None) -> dict:
         event = await EventService.get_or_create_default_event(db)
         current = await cls._current_round(db, event.id)
+        if current:
+            await cls._close_if_expired(db, current)   # si se acabó el tiempo, ya se muestra cerrada
         participant = await cls._participant(db, token)
         state: dict = {"round": None, "me": None}
         if current:
@@ -180,6 +213,8 @@ class EventGameService:
             raise HTTPException(status_code=404, detail="La pregunta no existe.")
         if rnd.status != "open":
             raise HTTPException(status_code=409, detail="Esta ronda ya cerró.")
+        if await cls._close_if_expired(db, rnd):
+            raise HTTPException(status_code=409, detail="Se acabó el tiempo de esta ronda.")
         if isinstance(option_index, bool) or not isinstance(option_index, int) or not 0 <= option_index < len(rnd.options or []):
             raise HTTPException(status_code=422, detail="La opción elegida no es válida.")
 
@@ -213,6 +248,8 @@ class EventGameService:
         event = await EventService.get_or_create_default_event(db)
         rounds = (await db.execute(select(EventGameRound).where(EventGameRound.event_id == event.id)
                                    .order_by(EventGameRound.id.desc()))).scalars().all()
+        for r in rounds:
+            await cls._close_if_expired(db, r)   # el panel también ve cerradas las que se les acabó el tiempo
         counts = {rid: int(c) for rid, c in (await db.execute(
             select(EventGameAnswer.round_id, func.count(EventGameAnswer.id)).group_by(EventGameAnswer.round_id))).all()}
         participants = int((await db.execute(select(func.count(EventGameParticipant.id)))).scalar() or 0)

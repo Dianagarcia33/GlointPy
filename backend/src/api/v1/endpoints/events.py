@@ -479,14 +479,25 @@ async def game_answer(body: GameAnswerRequest, db: AsyncSession = Depends(get_db
     return await EventGameService.answer(db, body.token, body.round_id, body.option_index)
 
 @router.get("/game/qr.png")
-async def game_qr():
-    """QR que lleva a la página pública de la dinámica (PNG)."""
+async def game_qr(origin: Optional[str] = None):
+    """QR que lleva a la página pública de la dinámica (PNG).
+
+    `origin` es el sitio desde el que se abre la pantalla del presentador: así el QR apunta al mismo sitio (staging o
+    producción) y no a otro. Solo se acepta si es un origen propio (lista blanca); si no, se usa FRONTEND_URL."""
     import io
     import segno
+    from urllib.parse import urlparse
     from src.core.config import settings
+
+    base = settings.FRONTEND_URL.rstrip("/")
+    if origin:
+        parsed = urlparse(origin.strip())
+        candidate = f"{parsed.scheme}://{parsed.netloc}".lower()
+        if parsed.scheme in ("http", "https") and parsed.netloc and candidate in {o.lower().rstrip("/") for o in settings.get_credentialed_origins()}:
+            base = candidate
     buffer = io.BytesIO()
-    segno.make(f"{settings.FRONTEND_URL.rstrip('/')}/dinamica", error="m").save(buffer, kind="png", scale=10, border=2)
-    return Response(content=buffer.getvalue(), media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
+    segno.make(f"{base}/dinamica", error="m").save(buffer, kind="png", scale=10, border=2)
+    return Response(content=buffer.getvalue(), media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
 
 @router.websocket("/game/ws")
 async def game_ws(websocket: WebSocket):
