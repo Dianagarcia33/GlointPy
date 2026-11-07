@@ -1,3 +1,3 @@
-// Pagos en línea (Yoint: Nequi, Botón Bancolombia, PSE). Ocultos temporalmente: solo se aceptan transferencias.
-// Para reactivarlos basta con ponerlo en true.
-export const ONLINE_PAYMENTS_ENABLED = false;
+// Pagos en línea (Yoint: Nequi, Botón Bancolombia, PSE). Habilitados.
+// Para ocultarlos de nuevo (solo transferencias) basta con ponerlo en false.
+export const ONLINE_PAYMENTS_ENABLED = true;

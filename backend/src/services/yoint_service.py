@@ -1228,6 +1228,8 @@ class YointService:
 
                 elif method_upper == "PSE":
                     # POST /api/payments/v1/payment-pse
+                    if not bank_id:
+                        raise ValueError("Selecciona el banco con el que vas a pagar por PSE")
                     endpoint_url = f"{base_url}/api/payments/v1/payment-pse"
                     request_payload = {
                         "amount": float(amount),
@@ -1237,7 +1239,7 @@ class YointService:
                         "ip": ip_address or "127.0.0.1",
                         "serviceCode": str(getattr(settings, "YOINT_SERVICE_CODE", "1001") or "1001")[:35],
                         "financialEntity": {
-                            "id": str(bank_id or "1007")
+                            "id": str(bank_id)
                         },
                         "payer": {
                             "payerFullName": payer_name,
@@ -1427,8 +1429,9 @@ class YointService:
     @classmethod
     async def get_financial_entities(cls, db: AsyncSession) -> List[Dict[str, Any]]:
         """
-        Retorna el catálogo de entidades financieras soportadas (bancos y billeteras)
-        consultando a Yoint (GET /api/payments/v2/financial-entities), con fallback a data_bancks.
+        Retorna los bancos habilitados para PSE consultando a Yoint
+        (GET /api/payments/v2/financial-entities?$filter=BANKS-PSE), con fallback a data_bancks.
+        El `id` de cada banco es el que se envía como código de banco en la orden PSE.
         """
         base_url = settings.YOINT_API_URL.rstrip('/')
         url = f"{base_url}/api/payments/v2/financial-entities"
@@ -1436,7 +1439,7 @@ class YointService:
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.get(url, headers=headers)
+                res = await client.get(url, headers=headers, params={"$filter": "BANKS-PSE"})
                 if res.status_code == 200:
                     data = res.json()
                     if isinstance(data, list) and len(data) > 0:
