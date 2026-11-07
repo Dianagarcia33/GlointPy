@@ -26,6 +26,7 @@ from src.services.event_coupon_service import EventCouponService
 from src.services.event_chat_service import EventChatService, chat_hub
 from src.services.event_survey_service import EventSurveyService
 from src.services.event_game_service import EventGameService, game_hub
+from src.services.event_raffle_service import EventRaffleService, raffle_hub
 from src.services.event_checkin_service import EventCheckinService
 from src.services.event_question_service import EventQuestionService, questions_hub
 from pydantic import BaseModel
@@ -583,6 +584,107 @@ async def admin_game_reset_all(db: AsyncSession = Depends(get_db)):
 async def admin_game_delete(round_id: int, db: AsyncSession = Depends(get_db)):
     """Elimina una ronda (no puede estar abierta)."""
     return await EventGameService.delete_round(db, round_id)
+
+# ==========================================
+# RIFA POR ELIMINACIÓN (presenciales que ya entraron al evento; responden con su enlace personal)
+# ==========================================
+
+class RaffleCreateRequest(BaseModel):
+    title: str
+
+class RaffleQuestionRequest(BaseModel):
+    question: str
+    options: List[str]
+    correct_index: int
+    duration_seconds: int = 30
+
+class RaffleAnswerRequest(BaseModel):
+    question_id: int
+    option_index: int
+
+@router.get("/raffle/state")
+async def raffle_state(response: Response, db: AsyncSession = Depends(get_db)):
+    """Estado público de la rifa para la pantalla del presentador: solo nombres cortos («Diana G.»), sin opciones ni respuesta correcta."""
+    response.headers["Cache-Control"] = "no-store"
+    return await EventRaffleService.get_public_state(db)
+
+@router.websocket("/raffle/ws")
+async def raffle_ws(websocket: WebSocket):
+    """Aviso en vivo (público) para que la pantalla y los celulares vuelvan a pedir el estado de la rifa."""
+    from src.api.v1.endpoints.chat import ws_origin_ok
+
+    await websocket.accept()
+    if not ws_origin_ok(websocket):
+        return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+    raffle_hub.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # mantiene la conexión; el cliente puede enviar pings
+    except WebSocketDisconnect:
+        pass
+    finally:
+        raffle_hub.disconnect(websocket)
+
+@router.get("/raffle/me/{token}")
+async def raffle_my_state(token: str, response: Response, db: AsyncSession = Depends(get_db)):
+    """Estado de la rifa para un invitado, identificado por su enlace personal (las opciones solo si sigue en juego)."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return await EventRaffleService.get_my_state(db, token)
+
+@router.post("/raffle/me/{token}/answer")
+async def raffle_answer(token: str, body: RaffleAnswerRequest, db: AsyncSession = Depends(get_db)):
+    """Responde la pregunta abierta de la rifa (una vez). No dice si acertó: eso se sabe al cerrar."""
+    return await EventRaffleService.answer(db, token, body.question_id, body.option_index)
+
+@router.get("/admin/raffle", dependencies=event_admin)
+async def admin_raffle_overview(db: AsyncSession = Depends(get_db)):
+    """Rifas del evento, sus preguntas y cuántos entrarían a la bolsa ahora (con el contacto del ganador)."""
+    return await EventRaffleService.admin_overview(db)
+
+@router.post("/admin/raffle", dependencies=event_admin)
+async def admin_raffle_create(body: RaffleCreateRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Crea una rifa (nombre o premio)."""
+    return await EventRaffleService.create(db, body.title, actor=current_user)
+
+@router.post("/admin/raffle/{raffle_id}/questions", dependencies=event_admin)
+async def admin_raffle_add_question(raffle_id: int, body: RaffleQuestionRequest, db: AsyncSession = Depends(get_db)):
+    """Agrega una pregunta (opción múltiple, una correcta, con su tiempo) a la rifa."""
+    return await EventRaffleService.add_question(db, raffle_id, body.question, body.options, body.correct_index, body.duration_seconds)
+
+@router.delete("/admin/raffle/questions/{question_id}", dependencies=event_admin)
+async def admin_raffle_delete_question(question_id: int, db: AsyncSession = Depends(get_db)):
+    """Elimina una pregunta que aún no se ha lanzado."""
+    return await EventRaffleService.delete_question(db, question_id)
+
+@router.put("/admin/raffle/{raffle_id}/start", dependencies=event_admin)
+async def admin_raffle_start(raffle_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Inicia la rifa: arma la bolsa con los presenciales que ya entraron al evento."""
+    return await EventRaffleService.start(db, raffle_id, actor=current_user)
+
+@router.put("/admin/raffle/questions/{question_id}/open", dependencies=event_admin)
+async def admin_raffle_open_question(question_id: int, db: AsyncSession = Depends(get_db)):
+    """Lanza la pregunta: los que siguen en juego la ven en su celular."""
+    return await EventRaffleService.open_question(db, question_id)
+
+@router.put("/admin/raffle/questions/{question_id}/close", dependencies=event_admin)
+async def admin_raffle_close_question(question_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Cierra la pregunta ya: queda eliminado quien falló o no respondió."""
+    return await EventRaffleService.close_question(db, question_id, actor=current_user)
+
+@router.put("/admin/raffle/{raffle_id}/draw", dependencies=event_admin)
+async def admin_raffle_draw(raffle_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Sortea al ganador al azar entre quienes siguen en juego."""
+    return await EventRaffleService.draw(db, raffle_id, actor=current_user)
+
+@router.put("/admin/raffle/{raffle_id}/reset", dependencies=event_admin)
+async def admin_raffle_reset(raffle_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Reinicia la rifa: borra participantes, respuestas y ganador, y deja las preguntas listas."""
+    return await EventRaffleService.reset(db, raffle_id, actor=current_user)
+
+@router.delete("/admin/raffle/{raffle_id}", dependencies=event_admin)
+async def admin_raffle_delete(raffle_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Elimina una rifa que no esté en curso."""
+    return await EventRaffleService.delete(db, raffle_id, actor=current_user)
 
 # ==========================================
 # CHAT EN VIVO (solo inscritos virtuales; moderación posterior)

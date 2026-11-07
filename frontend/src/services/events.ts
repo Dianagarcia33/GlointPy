@@ -739,3 +739,126 @@ export const sendLiveInvitationToInvestor = async (email: string, forceVirtual =
     body: JSON.stringify({ email, force_virtual: forceVirtual }),
   });
 };
+// ---------------------------------------------------------------------------
+// Rifa por eliminación (presenciales que ya entraron; responden con su enlace personal)
+// ---------------------------------------------------------------------------
+
+export interface RaffleQuestion {
+  id: number;
+  question: string;
+  /** Solo llegan al celular de quien sigue en juego y al panel del equipo; la pantalla recibe []. */
+  options: string[];
+  options_count: number;
+  status: 'draft' | 'open' | 'closed';
+  duration_seconds: number;
+  seconds_left: number | null;
+  answers: number;
+  /** Con la pregunta cerrada: cuántos salieron y cuántos siguen */
+  eliminated_count: number | null;
+  survivors_count: number | null;
+  /** Solo el equipo y, al cerrar, los participantes; la pantalla nunca la recibe */
+  correct_index: number | null;
+  correct_text: string | null;
+}
+
+export interface RafflePublic {
+  id: number;
+  title: string;
+  status: 'draft' | 'running' | 'finished';
+  total: number;
+  remaining: number;
+  /** Nombres cortos («Diana G.») de quienes siguen; null si son demasiados para la pantalla */
+  names: string[] | null;
+  last_eliminated: string[] | null;
+  question: RaffleQuestion | null;
+  winner: string | null;
+}
+
+export interface RaffleMyState {
+  full_name: string;
+  in_person: boolean;
+  raffle: RafflePublic | null;
+  me: {
+    in_raffle: boolean;
+    status: 'active' | 'eliminated' | 'winner' | null;
+    display_name: string | null;
+    answered: boolean;
+    option_index: number | null;
+    passed: boolean | null;
+    can_answer: boolean;
+    eliminated_now?: boolean;
+  } | null;
+}
+
+export interface RaffleAdminItem {
+  id: number;
+  title: string;
+  status: 'draft' | 'running' | 'finished';
+  total: number;
+  remaining: number;
+  winner: { full_name: string; email: string; phone: string | null; document_id: string | null; display_name: string } | null;
+  questions: RaffleQuestion[];
+}
+
+export interface RaffleAdminData {
+  eligible_now: number;
+  raffles: RaffleAdminItem[];
+}
+
+export const getRaffleState = async (): Promise<{ raffle: RafflePublic | null }> => {
+  return await fetchApi('/events/raffle/state');
+};
+
+export const getMyRaffleState = async (token: string): Promise<RaffleMyState> => {
+  return await fetchApi(`/events/raffle/me/${encodeURIComponent(token)}`);
+};
+
+export const answerRaffle = async (token: string, questionId: number, optionIndex: number): Promise<{ accepted: boolean }> => {
+  return await fetchApi(`/events/raffle/me/${encodeURIComponent(token)}/answer`, {
+    method: 'POST',
+    body: JSON.stringify({ question_id: questionId, option_index: optionIndex }),
+  });
+};
+
+export const getAdminRaffle = async (): Promise<RaffleAdminData> => fetchApi('/events/admin/raffle');
+
+export const createRaffle = async (title: string): Promise<RaffleAdminData> => {
+  return await fetchApi('/events/admin/raffle', { method: 'POST', body: JSON.stringify({ title }) });
+};
+
+export const addRaffleQuestion = async (
+  raffleId: number, question: string, options: string[], correctIndex: number, durationSeconds: number,
+): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/${raffleId}/questions`, {
+    method: 'POST',
+    body: JSON.stringify({ question, options, correct_index: correctIndex, duration_seconds: durationSeconds }),
+  });
+};
+
+export const deleteRaffleQuestion = async (questionId: number): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/questions/${questionId}`, { method: 'DELETE' });
+};
+
+export const startRaffle = async (raffleId: number): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/${raffleId}/start`, { method: 'PUT' });
+};
+
+export const openRaffleQuestion = async (questionId: number): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/questions/${questionId}/open`, { method: 'PUT' });
+};
+
+export const closeRaffleQuestion = async (questionId: number): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/questions/${questionId}/close`, { method: 'PUT' });
+};
+
+export const drawRaffle = async (raffleId: number): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/${raffleId}/draw`, { method: 'PUT' });
+};
+
+export const resetRaffle = async (raffleId: number): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/${raffleId}/reset`, { method: 'PUT' });
+};
+
+export const deleteRaffle = async (raffleId: number): Promise<RaffleAdminData> => {
+  return await fetchApi(`/events/admin/raffle/${raffleId}`, { method: 'DELETE' });
+};
