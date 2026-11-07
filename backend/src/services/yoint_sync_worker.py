@@ -105,6 +105,13 @@ async def background_yoint_sync_worker():
                     res_unconciliated_rec = await db.execute(q_unconciliated_rec)
                     unconciliated_rec_payins = res_unconciliated_rec.scalars().all()
 
+                    # Compras de acciones con pago en línea: completar las ya pagadas y liberar las abandonadas
+                    try:
+                        from src.services.share_market_service import ShareMarketService
+                        await ShareMarketService.reconcile_online_orders(db)
+                    except Exception as share_err:
+                        logger.error(f"[YointSyncWorker] Error conciliando órdenes de acciones: {share_err}")
+
                     has_active_activity = (
                         bool(pending_dispersions) 
                         or bool(pending_payins) 

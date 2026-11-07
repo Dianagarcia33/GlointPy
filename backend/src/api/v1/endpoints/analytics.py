@@ -466,7 +466,7 @@ async def get_accounting_analytics_dashboard(
             r.status = "approved"
             r.reviewed_at = matched_p.updated_at or datetime.utcnow()
             r.reference_number = matched_p.order_id or matched_p.payment_reference or r.reference_number
-            r.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({matched_p.order_id or matched_p.payment_reference})"
+            r.admin_notes = f"Aprobada automáticamente por la pasarela de pagos ({matched_p.order_id or matched_p.payment_reference})"
             if not matched_p.wallet_recharge_id:
                 matched_p.wallet_recharge_id = r.id
                 db.add(matched_p)

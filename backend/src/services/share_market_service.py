@@ -878,6 +878,140 @@ class ShareMarketService:
         return order
 
     @staticmethod
+    async def create_online_trade_order(
+        db: AsyncSession,
+        buyer_id: int,
+        listing_id: int,
+        shares_quantity: int,
+        wallet_amount_used: float = 0.0,
+        actor=None
+    ) -> ShareTradeOrder:
+        """Reserva las acciones para un pago en línea. Queda 'pending_payment' hasta que el pago se confirme.
+        El monto a pagar en línea lo calcula el servidor: total - saldo de billetera usado."""
+        if shares_quantity <= 0:
+            raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a 0.")
+        if wallet_amount_used < 0:
+            raise HTTPException(status_code=400, detail="El saldo de billetera a usar no es válido.")
+
+        result = await db.execute(
+            select(ShareListing)
+            .options(selectinload(ShareListing.seller))
+            .where(ShareListing.id == listing_id, ShareListing.status == "active")
+        )
+        listing = result.scalar_one_or_none()
+        if not listing:
+            raise HTTPException(status_code=404, detail="La oferta no está disponible.")
+        if listing.seller_id == buyer_id:
+            raise HTTPException(status_code=400, detail="No puedes comprar tus propias acciones.")
+        if listing.shares_available < shares_quantity:
+            raise HTTPException(status_code=400, detail=f"Solo hay {listing.shares_available} acciones disponibles.")
+
+        unit_price = float(listing.price_per_share)
+        total_cost = unit_price * shares_quantity
+        wallet_amount_used = round(min(wallet_amount_used, total_cost), 2)
+        online_amount = round(total_cost - wallet_amount_used, 2)
+        if online_amount < 5000:
+            raise HTTPException(status_code=400, detail="El monto mínimo para pagar en línea es de $5.000 COP.")
+
+        if wallet_amount_used > 0:
+            w_res = await db.execute(select(Wallet).where(Wallet.user_id == buyer_id))
+            buyer_wallet = w_res.scalar_one_or_none()
+            if not buyer_wallet or float(buyer_wallet.balance) < wallet_amount_used:
+                raise HTTPException(status_code=400, detail="Saldo insuficiente en billetera para cubrir la porción de saldo.")
+            buyer_wallet.balance = Decimal(str(float(buyer_wallet.balance) - wallet_amount_used))
+            db.add(WalletTransaction(
+                wallet_id=buyer_wallet.id,
+                amount=Decimal(str(-wallet_amount_used)),
+                type="share_purchase_hold",
+                description=f"Retención por compra de {shares_quantity} acción(es) (Pendiente de pago)",
+                balance_after=buyer_wallet.balance
+            ))
+
+        # Reservar las acciones (custodia) mientras se completa el pago
+        listing.shares_available -= shares_quantity
+        listing.shares_locked += shares_quantity
+
+        order = ShareTradeOrder(
+            listing_id=listing.id,
+            seller_id=listing.seller_id,
+            buyer_id=buyer_id,
+            shares_quantity=shares_quantity,
+            price_per_share=Decimal(str(unit_price)),
+            total_amount=Decimal(str(total_cost)),
+            wallet_amount_used=Decimal(str(wallet_amount_used)),
+            surplus_amount=Decimal(str(online_amount)),
+            payment_method="online_payment",
+            status="pending_payment"
+        )
+        db.add(order)
+        await db.flush()
+        await audit_in_tx(
+            db, "SHARE_BUY_ONLINE_INIT", "shares", actor, "ShareTradeOrder", order.id,
+            f"Orden de compra #{order.id} de {shares_quantity} acción(es) pendiente de pago en línea",
+            {"order_id": order.id, "listing_id": listing.id, "comprador_id": buyer_id, "cantidad": shares_quantity,
+             "total": float(total_cost), "saldo_billetera_usado": float(wallet_amount_used), "pago_en_linea": float(online_amount)},
+        )
+        await db.commit()
+        await db.refresh(order)
+        return order
+
+    @staticmethod
+    async def settle_online_trade(db: AsyncSession, order_id: int, paid: bool, note: Optional[str] = None) -> Optional[ShareTradeOrder]:
+        """Cierra una orden de pago en línea: si el pago se confirmó completa la compra, si no devuelve acciones y saldo.
+        Es idempotente: si la orden ya no está 'pending_payment' no hace nada."""
+        res = await db.execute(select(ShareTradeOrder).where(ShareTradeOrder.id == order_id))
+        order = res.scalar_one_or_none()
+        if not order or order.status != "pending_payment":
+            return None
+        return await ShareMarketService.admin_decide_trade(
+            db=db, order_id=order_id, admin_id=None,
+            action="approve" if paid else "reject",
+            notes=note, actor=None, allowed_status="pending_payment"
+        )
+
+    @staticmethod
+    async def cancel_online_order(db: AsyncSession, order_id: int, buyer_id: int) -> ShareTradeOrder:
+        """El comprador abandona un pago en línea que no ha completado: libera las acciones y el saldo retenido."""
+        from src.models.yoint_payin import YointPayin
+        res = await db.execute(select(ShareTradeOrder).where(ShareTradeOrder.id == order_id, ShareTradeOrder.buyer_id == buyer_id))
+        order = res.scalar_one_or_none()
+        if not order:
+            raise HTTPException(status_code=404, detail="Orden no encontrada.")
+        if order.status != "pending_payment":
+            raise HTTPException(status_code=400, detail=f"La orden ya se encuentra en estado '{order.status}'.")
+        live = await db.execute(
+            select(YointPayin.id).where(
+                YointPayin.share_trade_order_id == order_id,
+                YointPayin.status.in_(["SUCCESS", "PENDING", "IN_PROGRESS", "PROCESSING", "WAITING", "CREATED", "INITIATED", "EN_PROCESO", "PENDIENTE"]),
+                YointPayin.order_id.isnot(None)
+            ).limit(1)
+        )
+        if live.scalar_one_or_none() is not None:
+            raise HTTPException(status_code=400, detail="Tu pago está en proceso. Espera la confirmación antes de cancelar.")
+        return await ShareMarketService.settle_online_trade(db, order_id, paid=False, note="Pago en línea cancelado por el comprador")
+
+    @staticmethod
+    async def reconcile_online_orders(db: AsyncSession, stale_minutes: int = 45) -> int:
+        """Concilia órdenes 'pending_payment': completa las ya pagadas y libera las abandonadas. Lo llama el worker."""
+        from src.models.yoint_payin import YointPayin
+        live_statuses = ["PENDING", "IN_PROGRESS", "PROCESSING", "WAITING", "CREATED", "INITIATED", "EN_PROCESO", "PENDIENTE"]
+        res = await db.execute(select(ShareTradeOrder).where(ShareTradeOrder.status == "pending_payment").limit(50))
+        handled = 0
+        for order in res.scalars().all():
+            payins = (await db.execute(
+                select(YointPayin).where(YointPayin.share_trade_order_id == order.id)
+            )).scalars().all()
+            if any(p.status == "SUCCESS" for p in payins):
+                await ShareMarketService.settle_online_trade(db, order.id, paid=True, note="Pago en línea confirmado")
+                handled += 1
+            elif any((p.status or "").upper() in live_statuses and p.order_id for p in payins):
+                continue  # el pago sigue en curso
+            elif order.created_at and order.created_at < datetime.utcnow() - timedelta(minutes=stale_minutes):
+                await ShareMarketService.settle_online_trade(db, order.id, paid=False, note="Pago en línea no completado")
+                handled += 1
+        return handled
+
+    @staticmethod
     async def get_all_trade_orders(db: AsyncSession, status_filter: Optional[str] = None, user_id: Optional[int] = None) -> List[dict]:
         """Obtiene el historial o bandeja de órdenes de compra."""
         query = (
@@ -927,8 +1061,9 @@ class ShareMarketService:
         ]
 
     @staticmethod
-    async def admin_decide_trade(db: AsyncSession, order_id: int, admin_id: int, action: str, notes: Optional[str] = None, actor=None) -> ShareTradeOrder:
-        """Aprueba o rechaza una orden de compra con excedente pendiente de verificación."""
+    async def admin_decide_trade(db: AsyncSession, order_id: int, admin_id: Optional[int], action: str, notes: Optional[str] = None, actor=None, allowed_status: str = "pending_admin_approval") -> ShareTradeOrder:
+        """Aprueba o rechaza una orden de compra pendiente. Por defecto la decide un admin (transferencia manual);
+        el pago en línea la liquida el sistema (admin_id=None, allowed_status="pending_payment")."""
         result = await db.execute(
             select(ShareTradeOrder)
             .options(selectinload(ShareTradeOrder.listing))
@@ -937,10 +1072,11 @@ class ShareMarketService:
         order = result.scalar_one_or_none()
         if not order:
             raise HTTPException(status_code=404, detail="Orden no encontrada.")
-        if order.status != "pending_admin_approval":
+        if order.status != allowed_status:
             raise HTTPException(status_code=400, detail=f"La orden ya se encuentra en estado '{order.status}'.")
 
         listing = order.listing
+        by = "Admin" if admin_id else "pago en línea"
 
         if action == "approve":
             # 1. Liberar acciones de custodia al comprador
@@ -963,7 +1099,7 @@ class ShareMarketService:
                     wallet_id=seller_wallet.id,
                     amount=order.total_amount,
                     type="share_sale",
-                    description=f"Venta de {order.shares_quantity} acción(es) Gloint (Aprobada por Admin)",
+                    description=f"Venta de {order.shares_quantity} acción(es) Gloint (Aprobada por {by})",
                     balance_after=seller_wallet.balance
                 ))
 
@@ -979,7 +1115,7 @@ class ShareMarketService:
                     user_id=order.seller_id,
                     movement_type="market_sell",
                     quantity=-order.shares_quantity,
-                    description=f"Venta de {order.shares_quantity} acción(es) (Orden #{order.id} aprobada por Admin)",
+                    description=f"Venta de {order.shares_quantity} acción(es) (Orden #{order.id} aprobada por {by})",
                     trade_order_id=order.id,
                     listing_id=order.listing_id
                 )
@@ -989,7 +1125,7 @@ class ShareMarketService:
                 user_id=order.buyer_id,
                 movement_type="market_buy",
                 quantity=order.shares_quantity,
-                description=f"Compra de {order.shares_quantity} acción(es) aprobada por Admin (Orden #{order.id})",
+                description=f"Compra de {order.shares_quantity} acción(es) aprobada por {by} (Orden #{order.id})",
                 trade_order_id=order.id,
                 listing_id=order.listing_id
             )
@@ -1017,7 +1153,7 @@ class ShareMarketService:
             order.status = "rejected"
             order.approved_by = admin_id
             order.approved_at = datetime.utcnow()
-            order.admin_notes = notes or "Rechazado por verificación de comprobante"
+            order.admin_notes = notes or ("Rechazado por verificación de comprobante" if admin_id else "Pago en línea no completado")
 
             # 3. Registrar desbloqueo en vendedor si aplica
             if order.seller_id:

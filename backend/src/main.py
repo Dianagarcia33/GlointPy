@@ -127,6 +127,17 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Pago en línea de compras de acciones del mercado secundario
+            try:
+                await conn.execute(text("ALTER TABLE yoint_payins ADD COLUMN share_trade_order_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("CREATE INDEX idx_yoint_payins_share_trade_order_id ON yoint_payins(share_trade_order_id)"))
+            except Exception:
+                pass
+
             # H-192: acciones congeladas por compra (NULL = desconocido)
             try:
                 await conn.execute(text("ALTER TABLE investors ADD COLUMN shares_granted_frozen INT NULL"))

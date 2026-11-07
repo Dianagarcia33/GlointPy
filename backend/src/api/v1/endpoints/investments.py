@@ -424,7 +424,7 @@ async def create_investment_request(
             if p_obj:
                 period_str = f"{p_obj.months} meses ({p_obj.percentage}% mensual)"
 
-            pay_method_desc = "Pasarela en línea Yoint (PSE / Bancolombia / Nequi)" if not comprobante_path else "Transferencia bancaria con soporte adjunto"
+            pay_method_desc = "Pago en línea (PSE / Bancolombia / Nequi)" if not comprobante_path else "Transferencia bancaria con soporte adjunto"
             if monto_billetera_usado > 0:
                 pay_method_desc += f" + Saldo de Billetera (${monto_billetera_usado:,.0f} COP)"
 

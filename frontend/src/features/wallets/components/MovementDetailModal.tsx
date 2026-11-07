@@ -84,7 +84,7 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
             'CASH': 'Efectivo',
             'WALLET': 'Billetera Gloint',
             'BILLETERA': 'Billetera Gloint',
-            'YOINT': 'Yoint en Línea',
+            'YOINT': 'Pago en Línea',
             'GATEWAY': 'Pasarela de Pago',
             'MANUAL': 'Consignación Directa',
             'CONSIGNACION': 'Consignación Bancaria',

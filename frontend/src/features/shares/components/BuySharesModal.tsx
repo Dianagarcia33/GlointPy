@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { X, ShoppingBag, Wallet, Building2, UploadCloud, AlertCircle, CheckCircle2, ShieldAlert, Copy, Check } from 'lucide-react';
 import { shareMarketService, ShareListing } from '../../../services/shareMarket';
 import { GLOINT_BANK_INFO } from '../../../constants/contactInfo';
+import { ONLINE_PAYMENTS_ENABLED } from '../../../constants/features';
+import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
+import { useAuthStore } from '../../../store/authStore';
 
 interface BuySharesModalProps {
     isOpen: boolean;
@@ -20,12 +23,15 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
     onSuccess
 }) => {
     const [quantity, setQuantity] = useState<number>(1);
-    const [useAllWallet, setUseAllWallet] = useState<boolean>(true);
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    // Solo se usa cuando el saldo es desconocido: el servidor valida el saldo real al comprar
-    const [unknownBalanceMethod, setUnknownBalanceMethod] = useState<'wallet' | 'surplus'>('wallet');
+    // Medio de pago elegido. Con saldo oculto el servidor valida el saldo real al comprar
+    const [payMethod, setPayMethod] = useState<'wallet' | 'online' | 'transfer'>('wallet');
+    // Orden reservada para el pago en línea (las acciones quedan apartadas hasta que se pague o se cancele)
+    const [onlineOrderId, setOnlineOrderId] = useState<number | null>(null);
+    const [onlineDone, setOnlineDone] = useState(false);
+    const { user } = useAuthStore();
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
     const handleCopy = (text: string, field: string) => {
@@ -43,11 +49,43 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
     // Cálculo de saldo vs excedente
     const balanceKnown = userWalletBalance !== null && userWalletBalance !== undefined;
     const knownBalance = balanceKnown ? (userWalletBalance as number) : 0;
-    const canPayFullWallet = balanceKnown ? knownBalance >= totalCost : unknownBalanceMethod === 'wallet';
-    const walletToUse = canPayFullWallet 
-        ? totalCost 
-        : (balanceKnown && useAllWallet ? Math.min(knownBalance, totalCost) : 0);
+    const walletAvailable = !balanceKnown || knownBalance >= totalCost;
+    // Si la billetera ya no alcanza para la cantidad elegida, pasar al primer medio externo disponible
+    const effectiveMethod: 'wallet' | 'online' | 'transfer' =
+        payMethod === 'wallet' && !walletAvailable
+            ? (ONLINE_PAYMENTS_ENABLED ? 'online' : 'transfer')
+            : (payMethod === 'online' && !ONLINE_PAYMENTS_ENABLED ? 'transfer' : payMethod);
+    const canPayFullWallet = effectiveMethod === 'wallet';
+    // Fuera de billetera se usa el saldo disponible y se paga solo el excedente; si el saldo alcanza para todo, se paga el total aparte
+    const walletToUse = canPayFullWallet
+        ? totalCost
+        : (balanceKnown && knownBalance < totalCost ? knownBalance : 0);
     const surplusToPay = Math.max(0, totalCost - walletToUse);
+    const isOnline = effectiveMethod === 'online';
+    const onlineTooLow = isOnline && surplusToPay < 5000;
+
+    const releaseOnlineOrder = async () => {
+        if (onlineOrderId && !onlineDone) {
+            try { await shareMarketService.cancelOnlineOrder(onlineOrderId); } catch { /* el servidor la libera sola si no se pudo */ }
+        }
+        setOnlineOrderId(null);
+    };
+
+    const handleClose = async () => {
+        await releaseOnlineOrder();
+        onClose();
+    };
+
+    // Reserva las acciones una sola vez; si el usuario vuelve a intentar el pago se reutiliza la misma orden
+    const createOnlineOrder = async (): Promise<number> => {
+        if (onlineOrderId) return onlineOrderId;
+        if (quantity <= 0 || quantity > maxAvailable) {
+            throw new Error(`La cantidad debe estar entre 1 y ${maxAvailable} acciones.`);
+        }
+        const order = await shareMarketService.buySharesOnline(listing.id, quantity, walletToUse);
+        setOnlineOrderId(order.id);
+        return order.id;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -103,7 +141,7 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                         </div>
                     </div>
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center transition-all cursor-pointer"
                     >
                         <X className="w-4 h-4" />
@@ -151,6 +189,7 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                             min={1}
                             max={maxAvailable}
                             value={quantity || ''}
+                            disabled={!!onlineOrderId}
                             onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono"
                             placeholder="Ej. 5"
@@ -177,23 +216,69 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                         </div>
                     </div>
 
-                    {/* Saldo oculto: el usuario elige el medio de pago; el servidor valida el saldo real */}
-                    {!balanceKnown && (
-                        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Medio de pago">
+                    {/* Medio de pago */}
+                    <div className={`grid gap-2 ${ONLINE_PAYMENTS_ENABLED ? 'grid-cols-3' : 'grid-cols-2'}`} role="radiogroup" aria-label="Medio de pago">
+                        {walletAvailable && (
                             <button
                                 type="button"
-                                onClick={() => setUnknownBalanceMethod('wallet')}
-                                className={`px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${unknownBalanceMethod === 'wallet' ? 'bg-emerald-50 border-emerald-400 text-emerald-800' : 'bg-white border-slate-200 text-slate-600'}`}
+                                disabled={!!onlineOrderId}
+                                onClick={() => setPayMethod('wallet')}
+                                className={`px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${effectiveMethod === 'wallet' ? 'bg-emerald-50 border-emerald-400 text-emerald-800' : 'bg-white border-slate-200 text-slate-600'}`}
                             >
-                                Pagar con mi billetera
+                                Mi billetera
                             </button>
+                        )}
+                        {ONLINE_PAYMENTS_ENABLED && (
                             <button
                                 type="button"
-                                onClick={() => setUnknownBalanceMethod('surplus')}
-                                className={`px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${unknownBalanceMethod === 'surplus' ? 'bg-amber-50 border-amber-400 text-amber-800' : 'bg-white border-slate-200 text-slate-600'}`}
+                                disabled={!!onlineOrderId}
+                                onClick={() => setPayMethod('online')}
+                                className={`px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${effectiveMethod === 'online' ? 'bg-brand-50 border-brand-400 text-brand-800' : 'bg-white border-slate-200 text-slate-600'}`}
                             >
-                                Pagar por transferencia
+                                Pago en línea
                             </button>
+                        )}
+                        <button
+                            type="button"
+                            disabled={!!onlineOrderId}
+                            onClick={() => setPayMethod('transfer')}
+                            className={`px-3 py-2.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${effectiveMethod === 'transfer' ? 'bg-amber-50 border-amber-400 text-amber-800' : 'bg-white border-slate-200 text-slate-600'}`}
+                        >
+                            Transferencia
+                        </button>
+                    </div>
+
+                    {isOnline && (
+                        <div className="space-y-3">
+                            <div className="p-4 bg-brand-50/60 border border-brand-200 rounded-2xl text-[11px] text-brand-900 font-medium">
+                                {walletToUse > 0
+                                    ? <>Se usarán <strong className="font-mono">${walletToUse.toLocaleString('es-CO')} COP</strong> de tu billetera y pagarás en línea el excedente de <strong className="font-mono">${surplusToPay.toLocaleString('es-CO')} COP</strong>.</>
+                                    : <>Pagarás en línea el total de <strong className="font-mono">${surplusToPay.toLocaleString('es-CO')} COP</strong>.</>}
+                                {' '}Las acciones se acreditan solas apenas se confirma el pago.
+                            </div>
+                            {onlineTooLow ? (
+                                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700">
+                                    El monto mínimo para pagar en línea es de $5.000 COP. Aumenta la cantidad o elige otro medio de pago.
+                                </div>
+                            ) : (
+                                <YointPaymentWidget
+                                    amount={surplusToPay}
+                                    payinType="SHARE_PURCHASE"
+                                    userPhone={user?.phone_number || ''}
+                                    submitButtonText="Pagar y Comprar Acciones"
+                                    onRequestCreate={createOnlineOrder}
+                                    onSuccess={() => {
+                                        setOnlineDone(true);
+                                        onSuccess();
+                                        onClose();
+                                    }}
+                                    onFailed={(_status, msg) => {
+                                        // El servidor libera la orden cuando el pago falla; permitir un intento nuevo
+                                        setOnlineOrderId(null);
+                                        if (msg) setError(msg);
+                                    }}
+                                />
+                            )}
                         </div>
                     )}
 
@@ -208,15 +293,18 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                                 </p>
                             </div>
                         </div>
-                    ) : (
+                    ) : effectiveMethod === 'transfer' ? (
                         <div className="space-y-4">
                             {/* Surplus breakdown alert */}
                             <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
                                 <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                                 <div>
-                                    <h4 className="text-xs font-bold text-amber-900 font-montserrat">Pago con Excedente Bancario</h4>
+                                    <h4 className="text-xs font-bold text-amber-900 font-montserrat">Pago por Transferencia Bancaria</h4>
                                     <p className="text-[11px] text-amber-800 font-medium mt-0.5">
-                                        Se usarán <strong className="font-mono">${walletToUse.toLocaleString('es-CO')} COP</strong> de tu billetera y deberás consignar un excedente de <strong className="font-mono">${surplusToPay.toLocaleString('es-CO')} COP</strong>.
+                                        {walletToUse > 0
+                                            ? <>Se usarán <strong className="font-mono">${walletToUse.toLocaleString('es-CO')} COP</strong> de tu billetera y deberás consignar un excedente de <strong className="font-mono">${surplusToPay.toLocaleString('es-CO')} COP</strong>.</>
+                                            : <>Deberás consignar <strong className="font-mono">${surplusToPay.toLocaleString('es-CO')} COP</strong>.</>}
+                                        {' '}Un administrador verificará tu comprobante antes de acreditar las acciones.
                                     </p>
                                 </div>
                             </div>
@@ -289,17 +377,18 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                                 </div>
                             </div>
                         </div>
-                    )}
+                    ) : null}
 
-                    {/* Submit Buttons */}
+                    {/* Submit Buttons (el pago en línea tiene su propio botón) */}
                     <div className="flex items-center justify-end gap-3 pt-2">
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleClose}
                             className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
                         >
                             Cancelar
                         </button>
+                        {!isOnline && (
                         <button
                             type="submit"
                             disabled={loading || quantity <= 0}
@@ -307,6 +396,7 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                         >
                             {loading ? "Procesando..." : (canPayFullWallet ? "Comprar Inmediatamente con Saldo" : "Enviar Comprobante y Reservar Acciones")}
                         </button>
+                        )}
                     </div>
                 </form>
 

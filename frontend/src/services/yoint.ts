@@ -6,10 +6,11 @@ export interface YointBank {
 }
 
 export interface InitPayinPayload {
-  payin_type: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST' | 'CREDIT_INSTALLMENT';
+  payin_type: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST' | 'CREDIT_INSTALLMENT' | 'SHARE_PURCHASE';
   amount: number;
   payment_method: 'NEQUI' | 'BOTON_BANCOLOMBIA' | 'PSE';
   investment_request_id?: number;
+  share_trade_order_id?: number;
   phone_nequi?: string;
   bank_id?: string;
   redirect_url?: string;
@@ -38,6 +39,8 @@ export interface PayinStatusResponse {
   investment_approved: boolean;
   wallet_recharge_id?: number;
   recharge_approved?: boolean;
+  share_trade_order_id?: number;
+  share_order_completed?: boolean;
   created_at: string;
   updated_at: string;
 }

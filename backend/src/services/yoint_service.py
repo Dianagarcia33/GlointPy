@@ -969,6 +969,41 @@ class YointService:
                     except Exception as app_err:
                         logger.error(f"[YointService] Error aprobando automáticamente solicitud #{inv_req.id}: {app_err}")
 
+            # 1b. Caso: Compra de acciones en el mercado secundario
+            elif payin.payin_type == "SHARE_PURCHASE" and payin.share_trade_order_id:
+                from src.services.share_market_service import ShareMarketService
+                from src.models.share_market import ShareTradeOrder
+                db.add(payin)
+                await db.flush()
+                try:
+                    settled = await ShareMarketService.settle_online_trade(
+                        db, payin.share_trade_order_id, paid=True,
+                        note=f"Pago en línea confirmado ({payin.order_id or payin.payment_reference})"
+                    )
+                    ord_status_res = await db.execute(
+                        select(ShareTradeOrder.status).where(ShareTradeOrder.id == payin.share_trade_order_id)
+                    )
+                    if settled is None and ord_status_res.scalar_one_or_none() in ("rejected", "cancelled"):
+                        # La orden se liberó antes de confirmarse el pago: no perder el dinero
+                        w_res = await db.execute(select(Wallet).where(Wallet.user_id == payin.user_id))
+                        wallet = w_res.scalars().first()
+                        if not wallet:
+                            wallet = Wallet(user_id=payin.user_id, balance=Decimal("0.00"), currency="COP")
+                            db.add(wallet)
+                            await db.flush()
+                        paid_amount = Decimal(str(payin.amount))
+                        wallet.balance = Decimal(str(wallet.balance)) + paid_amount
+                        db.add(WalletTransaction(
+                            wallet_id=wallet.id,
+                            amount=paid_amount,
+                            type="share_payment_refund",
+                            description=f"Abono a tu billetera: pago recibido de una compra de acciones que ya no estaba vigente (orden #{payin.share_trade_order_id})",
+                            balance_after=wallet.balance
+                        ))
+                        logger.warning(f"[YointService] Payin #{payin.id} SUCCESS sin orden de acciones vigente #{payin.share_trade_order_id}: se abonó a la billetera.")
+                except Exception as share_err:
+                    logger.error(f"[YointService] Error completando compra de acciones #{payin.share_trade_order_id}: {share_err}")
+
             # 2. Caso: Recarga de Billetera
             elif payin.payin_type == "WALLET_TOPUP":
                 # Buscar o crear billetera
@@ -1073,7 +1108,7 @@ class YointService:
                     wr.status = "approved"
                     wr.reviewed_at = datetime.utcnow()
                     wr.reference_number = payin.order_id or payin.payment_reference or wr.reference_number
-                    wr.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({payin.order_id or payin.payment_reference})"
+                    wr.admin_notes = f"Aprobada automáticamente por la pasarela de pagos ({payin.order_id or payin.payment_reference})"
                     db.add(wr)
                     db.add(payin)
                     logger.info(f"✅ [YointService] WalletRecharge #{wr.id} actualizada a APPROVED para usuario #{payin.user_id}")
@@ -1103,7 +1138,7 @@ class YointService:
                             user_name=u_obj.name or "Inversionista",
                             amount=float(payin_amount),
                             new_balance=float(wallet.balance),
-                            payment_method=f"Yoint ({payin.payment_method})",
+                            payment_method=f"Pago en línea ({payin.payment_method})",
                             reference_id=payin.order_id or payin.payment_reference or f"REC-{payin.id}"
                         )
                 except Exception as mail_err:
@@ -1137,6 +1172,19 @@ class YointService:
                     except Exception as rej_err:
                         logger.error(f"[YointService] Error rechazando automáticamente solicitud #{inv_req.id}: {rej_err}")
 
+            # 1b. Caso Compra de acciones: liberar acciones reservadas y devolver el saldo retenido
+            elif payin.payin_type == "SHARE_PURCHASE" and payin.share_trade_order_id:
+                from src.services.share_market_service import ShareMarketService
+                db.add(payin)
+                await db.flush()
+                try:
+                    await ShareMarketService.settle_online_trade(
+                        db, payin.share_trade_order_id, paid=False,
+                        note=f"Pago en línea no completado ({new_status})"
+                    )
+                except Exception as share_err:
+                    logger.error(f"[YointService] Error liberando orden de acciones #{payin.share_trade_order_id}: {share_err}")
+
             # 2. Caso Recarga de Billetera
             elif payin.payin_type == "WALLET_TOPUP" and payin.wallet_recharge_id:
                 wr_res = await db.execute(select(WalletRecharge).where(WalletRecharge.id == payin.wallet_recharge_id))
@@ -1144,7 +1192,7 @@ class YointService:
                 if wr and wr.status == "pending":
                     wr.status = "rejected"
                     wr.reviewed_at = datetime.utcnow()
-                    wr.admin_notes = f"Pago rechazado o expirado en Yoint ({new_status})"
+                    wr.admin_notes = f"Pago rechazado o expirado en la pasarela ({new_status})"
                     db.add(wr)
 
         await db.commit()
@@ -1157,9 +1205,10 @@ class YointService:
         user: User,
         amount: Decimal,
         payment_method: str, # "NEQUI", "BOTON_BANCOLOMBIA", "PSE"
-        payin_type: str,     # "WALLET_TOPUP", "INVESTMENT_REQUEST"
+        payin_type: str,     # "WALLET_TOPUP", "INVESTMENT_REQUEST", "SHARE_PURCHASE"
         investment_request_id: Optional[int] = None,
         wallet_recharge_id: Optional[int] = None,
+        share_trade_order_id: Optional[int] = None,
         phone_nequi: Optional[str] = None,
         redirect_url: Optional[str] = None,
         bank_id: Optional[str] = None,
@@ -1331,6 +1380,7 @@ class YointService:
             payin_type=payin_type,
             investment_request_id=investment_request_id,
             wallet_recharge_id=wallet_recharge_id,
+            share_trade_order_id=share_trade_order_id,
             payment_method=method_upper,
             order_id=order_id,
             transaction_id=transaction_id,

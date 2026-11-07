@@ -18,7 +18,7 @@ import { NequiLogo, BancolombiaLogo, PseLogo } from './PaymentLogos';
 
 interface YointPaymentWidgetProps {
   amount: number;
-  payinType: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST' | 'CREDIT_INSTALLMENT';
+  payinType: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST' | 'CREDIT_INSTALLMENT' | 'SHARE_PURCHASE';
   investmentRequestId?: number;
   onRequestCreate?: () => Promise<number>;
   userPhone?: string;
@@ -112,7 +112,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
       const currentStatus = (res.status || '').toUpperCase();
       setPollingStatus(currentStatus);
 
-      if (SUCCESS_STATUSES.includes(currentStatus) || res.investment_approved) {
+      if (SUCCESS_STATUSES.includes(currentStatus) || res.investment_approved || res.share_order_completed) {
         onSuccess(res);
         return true;
       } else if (FAILED_STATUSES.includes(currentStatus)) {
@@ -147,11 +147,17 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
       setPollingError(null);
 
       let reqId = investmentRequestId;
+      let shareOrderId: number | undefined;
       if (payinType === 'INVESTMENT_REQUEST' && !reqId) {
         if (!onRequestCreate) {
           throw new Error('No se pudo generar la solicitud de inversión previa al pago.');
         }
         reqId = await onRequestCreate();
+      } else if (payinType === 'SHARE_PURCHASE') {
+        if (!onRequestCreate) {
+          throw new Error('No se pudo reservar las acciones previo al pago.');
+        }
+        shareOrderId = await onRequestCreate();
       }
 
       const res = await yointService.initPayin({
@@ -159,6 +165,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
         amount,
         payment_method: method,
         investment_request_id: reqId,
+        share_trade_order_id: shareOrderId,
         phone_nequi: method === 'NEQUI' ? phone : undefined,
         bank_id: method === 'PSE' ? selectedBank : undefined,
         redirect_url: window.location.href
@@ -262,7 +269,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
                 <span>Activación 100% Automática en Segundo Plano</span>
               </div>
               <p className="text-[11px] text-amber-800/90 leading-relaxed font-normal">
-                Una vez autorices la transacción en tu banco o aplicación, el sistema activará tu {payinType === 'INVESTMENT_REQUEST' ? 'inversión' : 'recarga'} de forma inmediata sin que tengas que realizar ninguna acción adicional, incluso si cierras esta ventana o te sales de la plataforma.
+                Una vez autorices la transacción en tu banco o aplicación, el sistema activará tu {payinType === 'INVESTMENT_REQUEST' ? 'inversión' : payinType === 'SHARE_PURCHASE' ? 'compra de acciones' : 'recarga'} de forma inmediata sin que tengas que realizar ninguna acción adicional, incluso si cierras esta ventana o te sales de la plataforma.
               </p>
             </div>
 
@@ -280,6 +287,8 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
             <p className="text-xs text-emerald-700">
               {payinType === 'INVESTMENT_REQUEST'
                 ? 'Tu inversión ha sido aprobada y tu contrato fue activado de inmediato.'
+                : payinType === 'SHARE_PURCHASE'
+                ? 'Tu compra fue confirmada y las acciones ya están en tu portafolio.'
                 : 'El saldo ha sido acreditado en tu billetera de forma instantánea.'}
             </p>
           </div>

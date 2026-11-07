@@ -923,11 +923,11 @@ class EmailTemplateService:
 
         intro_text = (
             f"Hemos recibido y radicado con éxito tu solicitud de <strong>Aumento de Capital</strong>. "
-            f"Si iniciaste el pago en línea mediante la pasarela <strong>Yoint</strong> (PSE, Botón Bancolombia o Nequi), "
+            f"Si iniciaste el pago en línea mediante la pasarela de pagos (PSE, Botón Bancolombia o Nequi), "
             f"tu contrato se actualizará y activará automáticamente una vez tu entidad bancaria confirme los fondos."
             if is_upgrade else
             f"Hemos recibido y radicado con éxito tu solicitud de <strong>Nueva Inversión</strong>. "
-            f"Si iniciaste el pago en línea mediante la pasarela <strong>Yoint</strong> (PSE, Botón Bancolombia o Nequi), "
+            f"Si iniciaste el pago en línea mediante la pasarela de pagos (PSE, Botón Bancolombia o Nequi), "
             f"tu contrato se activará automáticamente una vez tu entidad bancaria confirme los fondos."
         )
 
@@ -964,7 +964,7 @@ class EmailTemplateService:
 
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #166534; line-height: 1.6;">
             <strong>ℹ️ Información importante:</strong><br>
-            • Si realizaste tu pago en línea a través de <strong>Yoint (PSE, Bancolombia o Nequi)</strong>, el sistema concilia de forma continua y activará tu contrato de inmediato al recibir la confirmación de la pasarela.<br>
+            • Si realizaste tu pago en línea a través de <strong>pago en línea (PSE, Bancolombia o Nequi)</strong>, el sistema concilia de forma continua y activará tu contrato de inmediato al recibir la confirmación de la pasarela.<br>
             • Si realizaste una transferencia bancaria con soporte adjunto, nuestro equipo administrativo validará la consignación y activará tu inversión en horario hábil.
         </div>
         """

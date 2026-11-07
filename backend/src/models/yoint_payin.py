@@ -9,13 +9,15 @@ class YointPayin(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
-    # Tipo de recaudo: 'WALLET_TOPUP' o 'INVESTMENT_REQUEST'
+    # Tipo de recaudo: 'WALLET_TOPUP', 'INVESTMENT_REQUEST' o 'SHARE_PURCHASE'
     payin_type = Column(String(50), nullable=False, index=True)
     
     # Relaciones contextuales
     investment_request_id = Column(BigInteger, ForeignKey("investment_requests.id", ondelete="SET NULL"), nullable=True, index=True)
     wallet_recharge_id = Column(BigInteger, ForeignKey("wallet_recharges.id", ondelete="SET NULL"), nullable=True, index=True)
     wallet_id = Column(BigInteger, ForeignKey("wallets.id", ondelete="SET NULL"), nullable=True)
+    # Compra de acciones en el mercado secundario (payin_type = 'SHARE_PURCHASE')
+    share_trade_order_id = Column(BigInteger, ForeignKey("share_trade_orders.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Método de pago: 'NEQUI', 'BOTON_BANCOLOMBIA', 'PSE', 'BREB'
     payment_method = Column(String(50), nullable=False, index=True)

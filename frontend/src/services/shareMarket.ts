@@ -57,7 +57,7 @@ export interface ShareTradeOrder {
     surplus_amount: number;
     receipt_url?: string;
     payment_method: string;
-    status: 'completed' | 'pending_admin_approval' | 'rejected' | 'cancelled';
+    status: 'completed' | 'pending_admin_approval' | 'pending_payment' | 'rejected' | 'cancelled';
     admin_notes?: string;
     approved_by?: number;
     approver_name?: string;
@@ -139,6 +139,18 @@ export const shareMarketService = {
             body: formData
         });
     },
+    buySharesOnline: (listingId: number, sharesQuantity: number, walletAmountUsed: number) => {
+        const formData = new FormData();
+        formData.append('listing_id', listingId.toString());
+        formData.append('shares_quantity', sharesQuantity.toString());
+        formData.append('wallet_amount_used', walletAmountUsed.toString());
+        return fetchApi<ShareTradeOrder>('/shares-market/buy-online', {
+            method: 'POST',
+            body: formData
+        });
+    },
+    cancelOnlineOrder: (orderId: number) =>
+        fetchApi<ShareTradeOrder>(`/shares-market/orders/${orderId}/cancel-online`, { method: 'POST' }),
     getMyOrders: () => fetchApi<ShareTradeOrder[]>('/shares-market/my-orders'),
     getMyMovements: () => fetchApi<ShareMovement[]>('/shares-market/movements'),
 

@@ -649,7 +649,7 @@ async def send_test_email(
             package_name="Paquete Empresarial $10,000,000 COP",
             period_months="12 meses (2.5% mensual)",
             is_upgrade=False,
-            payment_method="Pasarela Yoint (PSE / Bancolombia / Nequi)"
+            payment_method="Pago en línea (PSE / Bancolombia / Nequi)"
         )
     elif email_type == "investment_activated":
         template_label = "Inversión Activada y Confirmada"
@@ -662,7 +662,7 @@ async def send_test_email(
             period_info="12 meses (2.5% mensual)",
             is_upgrade=False,
             granted_shares=150,
-            payment_method="Pasarela Yoint (PSE Bancolombia)"
+            payment_method="Pago en línea (PSE Bancolombia)"
         )
     elif email_type == "capital_upgrade_activated":
         template_label = "Aumento de Capital Activado"
@@ -676,7 +676,7 @@ async def send_test_email(
             is_upgrade=True,
             granted_shares=200,
             accrued_yield_paid=1250000.0,
-            payment_method="Pasarela Yoint (PSE)"
+            payment_method="Pago en línea (PSE)"
         )
     elif email_type == "wallet_recharge_confirmed":
         template_label = "Recarga de Billetera Confirmada"
@@ -685,7 +685,7 @@ async def send_test_email(
             user_name=user_name,
             amount=2000000.0,
             new_balance=3500000.0,
-            payment_method="Yoint (PSE Bancolombia)",
+            payment_method="Pago en línea (PSE Bancolombia)",
             reference_id="ORD-YOINT-994821"
         )
     elif email_type == "event_registration_in_person":
