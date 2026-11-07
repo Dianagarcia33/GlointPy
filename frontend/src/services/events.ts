@@ -41,6 +41,7 @@ export interface AttendeeData {
   seats_reserved: number;
   status: 'confirmed' | 'cancelled';
   created_at?: string;
+  access_token?: string | null; // solo la respuesta del admin lo incluye
 }
 
 export interface AdminEventSummary {

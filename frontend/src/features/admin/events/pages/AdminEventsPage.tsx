@@ -32,7 +32,9 @@ import {
   MessagesSquare,
   Ticket,
   QrCode,
-  Pencil
+  Pencil,
+  Link2,
+  Share2
 } from 'lucide-react';
 import { 
   getAdminEventSummary, 
@@ -240,6 +242,32 @@ export const AdminEventsPage: React.FC = () => {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isConfigOpen, savingConfig]);
+
+  // Enlace personal de la sala en vivo de un inscrito virtual
+  const liveLinkOf = (att: { access_token?: string | null }) =>
+    att.access_token ? `${window.location.origin}/evento/en-vivo/${encodeURIComponent(att.access_token)}` : null;
+
+  const copyLiveLink = async (att: { full_name: string; access_token?: string | null }) => {
+    const link = liveLinkOf(att);
+    if (!link) {
+      setFeedbackMsg({ type: 'error', text: 'Este inscrito aún no tiene enlace personal.' });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setFeedbackMsg({ type: 'success', text: `Enlace virtual de ${att.full_name} copiado.` });
+    } catch {
+      window.prompt('Copia el enlace virtual:', link);
+    }
+  };
+
+  const shareLiveLinkWhatsApp = (att: { full_name: string; phone?: string | null; access_token?: string | null }) => {
+    const link = liveLinkOf(att);
+    if (!link) return;
+    const text = `Hola ${att.full_name}, este es tu enlace personal para entrar al evento en vivo (no lo compartas): ${link}`;
+    const digits = (att.phone || '').replace(/\D/g, '');
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  };
 
   const handleSendAttendanceEmail = async (id: number, name: string, email: string) => {
     if (!window.confirm(`Se enviará el correo de confirmación de asistencia a "${name}" (${email}). ¿Continuar?`)) {
@@ -867,6 +895,28 @@ export const AdminEventsPage: React.FC = () => {
                             <QrCode className="w-4 h-4" />
                           </button>
                         )}
+                        {att.status === 'confirmed' && att.attendance_mode === 'virtual' && att.access_token && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => copyLiveLink(att)}
+                              className="p-1.5 hover:bg-brand-50 text-slate-400 hover:text-brand-700 rounded-xl transition-all border border-transparent hover:border-brand-100 shadow-2xs cursor-pointer"
+                              title="Copiar enlace virtual personal"
+                              aria-label="Copiar enlace virtual personal"
+                            >
+                              <Link2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => shareLiveLinkWhatsApp(att)}
+                              className="p-1.5 hover:bg-brand-50 text-slate-400 hover:text-brand-700 rounded-xl transition-all border border-transparent hover:border-brand-100 shadow-2xs cursor-pointer"
+                              title="Compartir enlace virtual por WhatsApp"
+                              aria-label="Compartir enlace virtual por WhatsApp"
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                         {att.status === 'confirmed' ? (
                           <button
                             type="button"
@@ -1004,6 +1054,22 @@ export const AdminEventsPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+                {selectedAttendee.status === 'confirmed' && selectedAttendee.attendance_mode === 'virtual' && selectedAttendee.access_token && (
+                  <div className="sm:col-span-2">
+                    <span className="text-[11px] text-slate-400 block">Enlace virtual personal:</span>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <span className="font-mono text-[11px] text-slate-600 break-all">{liveLinkOf(selectedAttendee)}</span>
+                      <button type="button" onClick={() => copyLiveLink(selectedAttendee)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 text-[11px] font-bold hover:bg-white cursor-pointer">
+                        <Link2 className="w-3.5 h-3.5" /> Copiar
+                      </button>
+                      <button type="button" onClick={() => shareLiveLinkWhatsApp(selectedAttendee)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold cursor-pointer">
+                        <Share2 className="w-3.5 h-3.5" /> WhatsApp
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <span className="text-[11px] text-slate-400 block">Teléfono / WhatsApp:</span>
                   <div className="flex items-center gap-2 mt-0.5">
