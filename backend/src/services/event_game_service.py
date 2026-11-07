@@ -1,14 +1,16 @@
 """
 Dinámica en vivo del evento Gloint Power Tech: «¿quién respondió primero?».
 
-- Las personas escanean un QR y entran a una URL pública, sin sesión y sin dar datos: reciben un código corto
-  (ej. «Colibrí 47») que ven en su celular. Si ganan, lo ven también en la pantalla del presentador, levantan el celular
-  y dicen «fui yo».
+- Las personas escanean un QR y entran a una URL pública, sin sesión y sin dar datos: reciben un código numérico corto
+  (ej. «4827») que ven en su celular. Si ganan, lo ven también en la pantalla del presentador, levantan el celular y
+  dicen «fui yo».
 - El equipo crea rondas (pregunta de opción múltiple con una respuesta correcta) y abre una a la vez.
+- Cada ronda dura ROUND_SECONDS (1 minuto) desde que se abre y TODOS pueden responder durante ese tiempo: una respuesta
+  correcta no cierra la ronda. Pasado el minuto se cierra sola (o cuando el equipo la cierra) y las respuestas tardías se
+  rechazan. El cierre lo hace el servidor (en la siguiente consulta o respuesta), no el celular.
 - Gana la PRIMERA respuesta correcta. La decide el servidor con una actualización atómica (no la hora del celular), así que
-  dos respuestas casi simultáneas nunca dan dos ganadores. Al haber ganador la ronda se cierra sola.
-- Cada ronda dura ROUND_SECONDS (1 minuto) desde que se abre: pasado ese tiempo se cierra sola, sin ganador si nadie acertó,
-  y las respuestas tardías se rechazan. El cierre lo hace el servidor (en la siguiente consulta o respuesta), no el celular.
+  dos respuestas casi simultáneas nunca dan dos ganadores. El ganador no se revela a nadie (ni a quien ganó) hasta que la
+  ronda cierra.
 - Las OPCIONES y la respuesta correcta solo se envían a quien participa (con su código): la pantalla del presentador y
   cualquier consulta sin código reciben la pregunta, pero no las opciones ni cuál era la correcta. Quien presenta las dice
   en voz alta. Al cerrar la ronda la pantalla muestra estadísticas: cuántas personas eligieron cada opción (sin nombres).
@@ -33,10 +35,6 @@ from src.services.event_service import EventService
 
 logger = logging.getLogger(__name__)
 
-ANIMALS = [
-    "Colibrí", "Jaguar", "Cóndor", "Delfín", "Tucán", "Puma", "Oso", "Búho", "Lobo", "Zorro",
-    "Halcón", "Tigre", "Panda", "Koala", "Lince", "Ocelote", "Manatí", "Capibara", "Guacamaya", "Mono",
-]
 ROUND_SECONDS = 60   # tiempo para responder desde que se abre la ronda
 MAX_QUESTION = 300
 MAX_OPTION = 120
@@ -112,9 +110,12 @@ def _seconds_left(r: EventGameRound) -> Optional[float]:
 
 
 def _round_public(r: EventGameRound, answers: int, include_options: bool = False,
-                  reveal_correct: bool = False, distribution: Optional[List[int]] = None) -> dict:
+                  reveal_correct: bool = False, distribution: Optional[List[int]] = None,
+                  show_winner_now: bool = False) -> dict:
     options = list(r.options or [])
     show_correct = reveal_correct and r.status == "closed"
+    # El ganador se anuncia al cerrar la ronda (solo el panel del equipo lo ve antes)
+    show_winner = r.status == "closed" or show_winner_now
     return {
         "id": r.id,
         "question": r.question,
@@ -129,8 +130,8 @@ def _round_public(r: EventGameRound, answers: int, include_options: bool = False
         "duration_seconds": ROUND_SECONDS,
         "seconds_left": _seconds_left(r),
         "answers": answers,
-        "winner_alias": r.winner_alias,
-        "winner_ms": r.winner_ms,
+        "winner_alias": r.winner_alias if show_winner else None,
+        "winner_ms": r.winner_ms if show_winner else None,
         # La respuesta correcta solo se conoce cuando la ronda cierra
         "correct_index": r.correct_index if show_correct else None,
     }
@@ -187,7 +188,7 @@ class EventGameService:
     async def join(cls, db: AsyncSession) -> dict:
         """Crea un participante anónimo con un código corto único."""
         for _ in range(12):
-            alias = f"{random.choice(ANIMALS)} {random.randint(10, 99)}"
+            alias = str(random.randint(1000, 9999))   # código numérico corto, fácil de leer y de decir en voz alta
             exists = (await db.execute(select(EventGameParticipant.id).where(EventGameParticipant.alias == alias))).first()
             if exists:
                 continue
@@ -223,7 +224,8 @@ class EventGameService:
                 if mine:
                     me["answered"] = True
                     me["option_index"] = mine.option_index
-                me["is_winner"] = current.winner_participant_id == participant.id
+                # Solo se sabe quién ganó cuando la ronda cierra
+                me["is_winner"] = current.status == "closed" and current.winner_participant_id == participant.id
             state["me"] = me
         return state
 
@@ -253,18 +255,17 @@ class EventGameService:
             await db.rollback()
             raise HTTPException(status_code=409, detail="Ya respondiste esta pregunta.")
 
-        winner = False
         if is_correct:
-            # Reclamo atómico: solo una respuesta correcta consigue actualizar la fila mientras la ronda sigue abierta y sin ganador
-            claim = await db.execute(
+            # Reclamo atómico: solo la primera respuesta correcta consigue anotarse como ganadora. La ronda sigue abierta
+            # hasta que se acabe el minuto: el resto de la gente todavía puede responder.
+            await db.execute(
                 update(EventGameRound)
                 .where(EventGameRound.id == rnd.id, EventGameRound.status == "open", EventGameRound.winner_participant_id.is_(None))
-                .values(winner_participant_id=participant.id, winner_alias=participant.alias, winner_ms=elapsed_ms,
-                        status="closed", closed_at=now))
+                .values(winner_participant_id=participant.id, winner_alias=participant.alias, winner_ms=elapsed_ms))
             await db.commit()
-            winner = claim.rowcount == 1
         await game_hub.notify()
-        return {"accepted": True, "correct": is_correct, "winner": winner}
+        # No se dice si acertó ni si fue el primero: eso se sabe al cerrar la ronda
+        return {"accepted": True}
 
     # ------------------------------------------------------------------ admin
     @classmethod
@@ -279,7 +280,7 @@ class EventGameService:
         participants = int((await db.execute(select(func.count(EventGameParticipant.id)))).scalar() or 0)
         return {
             "participants": participants,
-            "rounds": [{**_round_public(r, counts.get(r.id, 0), include_options=True, reveal_correct=True,
+            "rounds": [{**_round_public(r, counts.get(r.id, 0), include_options=True, reveal_correct=True, show_winner_now=True,
                                         distribution=await cls._distribution(db, r) if r.status == "closed" else None),
                         "correct_index": r.correct_index} for r in rounds],
         }

@@ -17,7 +17,7 @@ const seconds = (ms: number | null) => (ms === null || ms === undefined ? '' : `
 
 /**
  * Dinámica «¿quién respondió primero?» desde el celular. Se llega escaneando el QR: no hay sesión ni se piden datos.
- * Cada persona recibe un código corto (ej. «Colibrí 47»); si gana, lo ve aquí y en la pantalla del presentador.
+ * Cada persona recibe un código numérico corto (ej. «4827»); si gana, se anuncia al cerrar la ronda y lo ve aquí y en la pantalla del presentador.
  */
 export function EventGamePage() {
   const [token, setToken] = useState<string | null>(storedToken());

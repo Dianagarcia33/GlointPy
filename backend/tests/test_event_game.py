@@ -42,33 +42,51 @@ async def _ronda_abierta(db, correct=1):
     return rid
 
 
-def test_cada_persona_recibe_un_codigo_corto_unico_sin_datos_personales():
+def test_cada_persona_recibe_un_codigo_numerico_corto_y_unico_sin_datos_personales():
     async def scenario(db, event):
-        a, b = await Svc.join(db), await Svc.join(db)
-        assert a["token"] != b["token"] and a["alias"] != b["alias"]
-        assert len(a["alias"].split(" ")) == 2 and a["alias"].split(" ")[1].isdigit()
+        codigos = [await Svc.join(db) for _ in range(30)]
+        assert len({c["token"] for c in codigos}) == 30 and len({c["alias"] for c in codigos}) == 30
+        assert all(c["alias"].isdigit() and len(c["alias"]) == 4 for c in codigos)     # sin nombres de animales
     _run(scenario)
 
 
-def test_gana_la_primera_respuesta_correcta_y_la_ronda_se_cierra_sola():
+def test_una_respuesta_correcta_no_cierra_la_ronda_y_el_ganador_se_anuncia_al_cerrar():
     async def scenario(db, event):
         rid = await _ronda_abierta(db)
         ana, beto, caro = await Svc.join(db), await Svc.join(db), await Svc.join(db)
 
-        mal = await Svc.answer(db, ana["token"], rid, 0)                      # incorrecta: no gana
-        assert mal == {"accepted": True, "correct": False, "winner": False}
-        assert (await Svc.get_state(db))["round"]["status"] == "open"
+        assert await Svc.answer(db, ana["token"], rid, 0) == {"accepted": True}          # incorrecta
+        assert await Svc.answer(db, beto["token"], rid, 1) == {"accepted": True}         # primera correcta: no se le dice nada
+        abierta = (await Svc.get_state(db, beto["token"]))
+        assert abierta["round"]["status"] == "open"                                       # la ronda SIGUE abierta
+        assert abierta["round"]["winner_alias"] is None and abierta["me"]["is_winner"] is False   # y nadie sabe quién ganó aún
 
-        primero = await Svc.answer(db, beto["token"], rid, 1)                 # primera correcta
-        assert primero["winner"] is True
+        assert await Svc.answer(db, caro["token"], rid, 1) == {"accepted": True}         # otra persona todavía puede responder
+        assert (await Svc.get_state(db))["round"]["answers"] == 3
+
+        await Svc.close_round(db, rid)                                                    # al cerrar se anuncia al primero en acertar
         estado = await Svc.get_state(db, beto["token"])
         assert estado["round"]["status"] == "closed" and estado["round"]["winner_alias"] == beto["alias"]
         assert estado["me"]["is_winner"] is True
-
-        with pytest.raises(HTTPException) as exc:                             # la ronda ya cerró: nadie más puede ganar
-            await Svc.answer(db, caro["token"], rid, 1)
+        assert (await Svc.get_state(db, caro["token"]))["me"]["is_winner"] is False      # caro también acertó, pero llegó segundo
+        with pytest.raises(HTTPException) as exc:                                         # cerrada: ya no se responde
+            await Svc.answer(db, await _nuevo_token(db), rid, 1)
         assert exc.value.status_code == 409
-        assert (await Svc.get_state(db, caro["token"]))["me"]["is_winner"] is False
+    _run(scenario)
+
+
+async def _nuevo_token(db):
+    return (await Svc.join(db))["token"]
+
+
+def test_si_nadie_acierta_la_ronda_cierra_sin_ganador():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db)
+        ana = await Svc.join(db)
+        await Svc.answer(db, ana["token"], rid, 0)
+        await Svc.close_round(db, rid)
+        cerrada = (await Svc.get_state(db, ana["token"]))["round"]
+        assert cerrada["winner_alias"] is None and cerrada["status"] == "closed"
     _run(scenario)
 
 
@@ -224,12 +242,14 @@ def test_al_cerrar_la_pantalla_recibe_estadisticas_por_opcion_sin_nombres():
         await Svc.answer(db, a["token"], rid, 0)
         await Svc.answer(db, b["token"], rid, 2)
         await Svc.answer(db, c["token"], rid, 2)
-        await Svc.answer(db, d["token"], rid, 1)                                  # acierta: gana y cierra
+        await Svc.answer(db, d["token"], rid, 1)                                  # acierta primero, pero la ronda sigue abierta
+        assert (await Svc.get_state(db))["round"]["status"] == "open"
+        await Svc.close_round(db, rid)
 
         cerrada = (await Svc.get_state(db))["round"]                              # lo que ve la pantalla
         assert cerrada["distribution"] == [1, 1, 2] and cerrada["answers"] == 4
         assert cerrada["correct_index"] is None and cerrada["options"] == []
-        for alias in (a["alias"], b["alias"], c["alias"]):
-            assert alias not in str(cerrada)                                       # solo cifras, sin nombres
-        assert d["alias"] in str(cerrada)                                          # salvo el ganador, que sí se anuncia
+        assert cerrada["winner_alias"] == d["alias"]                               # el único código visible es el del ganador
+        assert not any(isinstance(v, list) and v and isinstance(v[0], str) and v[0] in (a["alias"], b["alias"], c["alias"])
+                       for v in cerrada.values())                                  # las estadísticas son solo cifras
     _run(scenario)

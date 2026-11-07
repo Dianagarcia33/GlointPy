@@ -8,7 +8,7 @@ const seconds = (ms: number | null) => (ms === null || ms === undefined ? '' : `
 
 /**
  * Pantalla del presentador para proyectar: el QR para entrar, la pregunta en curso con cuántos han respondido y, apenas
- * alguien acierta primero, su código en grande («Colibrí 47»). No requiere sesión y no muestra la respuesta correcta
+ * la ronda cierra (al terminar el minuto), el código de quien acertó primero en grande («4827»). Una respuesta correcta no cierra la ronda: todos pueden responder el minuto completo. No requiere sesión y no muestra la respuesta correcta
  * hasta que la ronda cierra. Se actualiza en vivo por WebSocket.
  */
 export function EventGameScreenPage() {

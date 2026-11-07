@@ -21,7 +21,7 @@ const STATUS_STYLE: Record<GameRound['status'], string> = {
 
 /**
  * Dinámica «¿quién respondió primero?»: el equipo crea preguntas de opción múltiple, abre una a la vez y proyecta la
- * pantalla con el QR. Gana la primera respuesta correcta; la ronda se cierra sola y el código del ganador sale en pantalla.
+ * pantalla con el QR. Cada ronda dura 1 minuto y todos pueden responder; al terminar se anuncia el código de quien acertó primero.
  */
 export function GameCard() {
   const [data, setData] = useState<GameAdminData | null>(null);
@@ -100,7 +100,7 @@ export function GameCard() {
           <div>
             <h2 className="text-sm font-bold text-slate-900">Dinámica: ¿quién respondió primero?</h2>
             <p className="text-xs text-slate-500">
-              La gente escanea un QR y responde sin iniciar sesión. Cada ronda dura 1 minuto: gana la primera respuesta correcta y su código sale en la pantalla; si nadie acierta, se cierra sola al acabarse el tiempo.
+              La gente escanea un QR y responde sin iniciar sesión. Cada ronda dura 1 minuto y todos pueden responder: al terminar se cierra sola y la pantalla muestra el código de quien acertó primero y las estadísticas.
               {data ? ` Participantes: ${data.participants}.` : ''}
             </p>
           </div>
@@ -165,7 +165,7 @@ export function GameCard() {
                 )}
                 {r.status === 'open' && (
                   <button onClick={() => run(() => closeGameRound(r.id))} disabled={busy}
-                    className="rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50">Cerrar sin ganador</button>
+                    className="rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 disabled:opacity-50">Cerrar ahora</button>
                 )}
                 {r.status !== 'open' && (
                   <button onClick={() => { if (window.confirm('¿Eliminar esta pregunta y sus respuestas?')) run(() => deleteGameRound(r.id)); }} disabled={busy}
@@ -182,7 +182,7 @@ export function GameCard() {
             </ul>
             <p className="text-xs text-slate-500">
               {r.answers} {r.answers === 1 ? 'respuesta' : 'respuestas'}
-              {r.winner_alias ? <> · Ganó <strong className="text-slate-900">{r.winner_alias}</strong> en {((r.winner_ms ?? 0) / 1000).toFixed(1)} s</> : r.status === 'closed' ? ' · Sin ganador' : ''}
+              {r.winner_alias ? <> · {r.status === 'open' ? 'Va ganando' : 'Ganó'} <strong className="text-slate-900">{r.winner_alias}</strong> en {((r.winner_ms ?? 0) / 1000).toFixed(1)} s</> : r.status === 'closed' ? ' · Sin ganador' : ''}
             </p>
           </li>
         ))}
