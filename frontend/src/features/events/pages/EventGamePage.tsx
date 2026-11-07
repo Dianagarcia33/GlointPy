@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameState, gameAnswer, gameJoin, getEventsWebSocketUrl, getGameState } from '../../../services/events';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
 import { formatCountdown, useRoundCountdown } from '../hooks/useRoundCountdown';
+import { GameStats } from '../components/GameStats';
 
 const TOKEN_KEY = 'gloint_game_token';
 const LETTERS = ['A', 'B', 'C', 'D'];
@@ -10,14 +11,13 @@ function storedToken(): string | null {
   try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
 }
 function saveToken(token: string) {
-  try { localStorage.setItem(TOKEN_KEY, token); } catch { /* sin almacenamiento: se pedirá un código nuevo al recargar */ }
+  try { localStorage.setItem(TOKEN_KEY, token); } catch { /* sin almacenamiento: se pedirá un token nuevo al recargar */ }
 }
 
-const seconds = (ms: number | null) => (ms === null || ms === undefined ? '' : `${(ms / 1000).toFixed(1)} s`);
-
 /**
- * Dinámica «¿quién respondió primero?» desde el celular. Se llega escaneando el QR: no hay sesión ni se piden datos.
- * Cada persona recibe un código numérico corto (ej. «4827»); si gana, se anuncia al cerrar la ronda y lo ve aquí y en la pantalla del presentador.
+ * Dinámica desde el celular. Se llega escaneando el QR: no hay sesión ni se piden datos, y no se muestra ningún código.
+ * El presentador hace la pregunta, aquí aparecen las opciones y hay un minuto para responder (una vez). Al cerrar la
+ * ronda se ven las estadísticas de lo que respondió la gente.
  */
 export function EventGamePage() {
   const [token, setToken] = useState<string | null>(storedToken());
@@ -30,7 +30,7 @@ export function EventGamePage() {
     try {
       const s = await getGameState(token);
       if (token && !s.me && !joining.current) {
-        // Código guardado que el servidor no reconoce: se pide uno nuevo
+        // Token guardado que el servidor no reconoce: se pide uno nuevo
         joining.current = true;
         const j = await gameJoin();
         saveToken(j.token);
@@ -46,7 +46,7 @@ export function EventGamePage() {
     }
   }, [token]);
 
-  // Primera visita: pedir un código
+  // Primera visita: pedir un token anónimo
   useEffect(() => {
     if (token || joining.current) return;
     joining.current = true;
@@ -77,18 +77,11 @@ export function EventGamePage() {
   const timeLeft = useRoundCountdown(round, load);
   const urgent = timeLeft !== null && timeLeft <= 10;
   const me = state?.me ?? null;
-  const won = !!me?.is_winner && round?.status === 'closed';
 
   return (
-    <div className={`min-h-screen px-4 py-6 flex flex-col items-center transition-colors duration-500 ${won ? 'bg-green-600' : 'bg-slate-950'} text-white`}>
+    <div className="min-h-screen px-4 py-6 flex flex-col items-center bg-slate-950 text-white">
       <div className="w-full max-w-md flex-1 flex flex-col">
         <p className="text-center text-xs font-bold tracking-widest text-orange-400 uppercase">Gloint Power Tech</p>
-
-        {/* Mi código: es lo que se levanta para decir «fui yo» */}
-        <div className="mt-4 rounded-2xl bg-white/10 border border-white/15 py-3 text-center">
-          <p className="text-[11px] uppercase tracking-wider text-slate-300">Tu código</p>
-          <p className="text-3xl font-extrabold" data-testid="my-alias">{me?.alias ?? '…'}</p>
-        </div>
 
         {error && <p role="alert" className="mt-4 rounded-lg bg-red-500/20 border border-red-400/40 text-red-200 text-sm p-3">{error}</p>}
 
@@ -114,7 +107,7 @@ export function EventGamePage() {
               {me?.answered ? (
                 <div className="mt-8 rounded-2xl bg-white/10 border border-white/15 p-6 text-center">
                   <p className="text-xl font-bold">¡Respuesta enviada!</p>
-                  <p className="mt-1 text-slate-300">Tu opción: <strong>{LETTERS[me.option_index ?? 0]}</strong>. Atento a la pantalla.</p>
+                  <p className="mt-1 text-slate-300">Tu opción: <strong>{LETTERS[me.option_index ?? 0]}</strong>. Al terminar el tiempo verás lo que respondió la gente.</p>
                 </div>
               ) : (
                 <div className="mt-6 space-y-3">
@@ -131,29 +124,23 @@ export function EventGamePage() {
           )}
 
           {round && round.status === 'closed' && (
-            <div className="text-center space-y-4">
-              {won ? (
+            <div className="space-y-5">
+              <div className="text-center">
+                <p className="text-xs uppercase tracking-wider text-slate-400">Resultados</p>
+                <h1 className="mt-1 text-xl font-extrabold leading-snug">{round.question}</h1>
+              </div>
+              {round.distribution && round.answers > 0 ? (
                 <>
-                  <p className="text-5xl">🏆</p>
-                  <h1 className="text-3xl font-extrabold">¡Fuiste el primero!</h1>
-                  <p className="text-lg">Respondiste bien en {seconds(round.winner_ms)}. Levanta tu celular y dile al presentador: «¡fui yo!»</p>
-                </>
-              ) : round.winner_alias ? (
-                <>
-                  <p className="text-slate-300">Respondió primero</p>
-                  <h1 className="text-4xl font-extrabold text-orange-400">{round.winner_alias}</h1>
-                  <p className="text-slate-300">en {seconds(round.winner_ms)}</p>
+                  <GameStats distribution={round.distribution} options={round.options} variant="phone" />
+                  <p className="text-center text-sm text-slate-400">
+                    {round.answers} {round.answers === 1 ? 'respuesta' : 'respuestas'}
+                    {me?.answered && me.option_index !== null ? ` · Tú elegiste ${LETTERS[me.option_index]}` : ''}
+                  </p>
                 </>
               ) : (
-                <h1 className="text-2xl font-extrabold">Se acabó el tiempo: nadie acertó</h1>
+                <p className="text-center text-slate-300">Nadie respondió esta pregunta.</p>
               )}
-              {round.correct_index !== null && (
-                <p className="text-sm text-slate-200">
-                  Respuesta correcta: <strong>{LETTERS[round.correct_index]}{round.correct_text ? `. ${round.correct_text}` : ''}</strong>
-                  {!won && me?.answered && (me.option_index === round.correct_index ? ' · Tú también acertaste' : ' · Esta vez no acertaste')}
-                </p>
-              )}
-              <p className="text-xs text-slate-400">Cuando el presentador abra otra pregunta aparecerá aquí.</p>
+              <p className="text-center text-xs text-slate-500">Cuando el presentador abra otra pregunta aparecerá aquí.</p>
             </div>
           )}
         </div>

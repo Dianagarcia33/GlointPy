@@ -639,8 +639,6 @@ export interface GameRound {
   /** Solo llegan al celular de quien participa (con su código) y al panel del equipo; la pantalla recibe []. */
   options: string[];
   options_count: number;
-  /** Texto de la respuesta correcta: solo para participantes y el equipo, y solo con la ronda cerrada (la pantalla no la recibe) */
-  correct_text: string | null;
   /** Cuántas personas eligieron cada opción (A, B, C…): solo con la ronda cerrada */
   distribution: number[] | null;
   status: 'draft' | 'open' | 'closed';
@@ -648,15 +646,11 @@ export interface GameRound {
   duration_seconds: number;
   seconds_left: number | null;
   answers: number;
-  winner_alias: string | null;
-  winner_ms: number | null;
-  /** Solo viene cuando la ronda cerró (en el panel del equipo siempre viene) */
-  correct_index: number | null;
 }
 
 export interface GameState {
   round: GameRound | null;
-  me: { alias: string; answered: boolean; option_index: number | null; is_winner: boolean } | null;
+  me: { answered: boolean; option_index: number | null } | null;
 }
 
 export interface GameAdminData {
@@ -664,7 +658,7 @@ export interface GameAdminData {
   rounds: GameRound[];
 }
 
-export const gameJoin = async (): Promise<{ token: string; alias: string }> => {
+export const gameJoin = async (): Promise<{ token: string }> => {
   return await fetchApi('/events/game/join', { method: 'POST' });
 };
 
@@ -672,7 +666,7 @@ export const getGameState = async (token?: string | null): Promise<GameState> =>
   return await fetchApi(`/events/game/state${token ? `?token=${encodeURIComponent(token)}` : ''}`);
 };
 
-export const gameAnswer = async (token: string, roundId: number, optionIndex: number): Promise<{ accepted: boolean; correct: boolean; winner: boolean }> => {
+export const gameAnswer = async (token: string, roundId: number, optionIndex: number): Promise<{ accepted: boolean }> => {
   return await fetchApi('/events/game/answer', {
     method: 'POST',
     body: JSON.stringify({ token, round_id: roundId, option_index: optionIndex }),
@@ -689,10 +683,10 @@ export const getAdminGame = async (): Promise<GameAdminData> => {
   return await fetchApi('/events/admin/game');
 };
 
-export const createGameRound = async (question: string, options: string[], correctIndex: number): Promise<GameAdminData> => {
+export const createGameRound = async (question: string, options: string[]): Promise<GameAdminData> => {
   return await fetchApi('/events/admin/game/rounds', {
     method: 'POST',
-    body: JSON.stringify({ question, options, correct_index: correctIndex }),
+    body: JSON.stringify({ question, options }),
   });
 };
 

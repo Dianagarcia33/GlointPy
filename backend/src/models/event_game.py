@@ -10,30 +10,31 @@ _TS = DateTime(timezone=True).with_variant(mysql.DATETIME(fsp=6), "mysql")
 
 
 class EventGameParticipant(Base):
-    """Participante anónimo de la dinámica: sin sesión ni datos personales. Solo un código corto (ej. «Colibrí 47»)."""
+    """Participante anónimo de la dinámica: sin sesión ni datos personales. Solo un token que guarda su navegador."""
     __tablename__ = "event_game_participants"
 
     id = Column(_ID, primary_key=True, autoincrement=True, index=True)
     token = Column(String(64), nullable=False, unique=True, index=True)   # lo guarda el navegador de la persona
-    alias = Column(String(40), nullable=False, unique=True)              # lo que se muestra en pantalla
+    alias = Column(String(40), nullable=False, unique=True)              # identificador interno único (no se muestra)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class EventGameRound(Base):
-    """Una pregunta de la dinámica: opción múltiple con una respuesta correcta. Gana la primera respuesta correcta."""
+    """Una pregunta de la dinámica: opción múltiple, un minuto para responder y estadísticas al cerrar."""
     __tablename__ = "event_game_rounds"
 
     id = Column(_ID, primary_key=True, autoincrement=True, index=True)
     event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
     question = Column(String(300), nullable=False)
     options = Column(JSON, nullable=False)                    # lista de textos (2 a 4)
-    correct_index = Column(Integer, nullable=False)
+    correct_index = Column(Integer, nullable=False, default=0)   # sin uso: la dinámica ya no tiene respuesta correcta
     status = Column(String(10), nullable=False, default="draft")   # draft | open | closed
     opened_at = Column(_TS, nullable=True)
     closed_at = Column(_TS, nullable=True)
+    # Sin uso: ya no se anuncia quién respondió primero (se conservan las columnas de la versión anterior)
     winner_participant_id = Column(BigInteger, ForeignKey("event_game_participants.id", ondelete="SET NULL"), nullable=True)
     winner_alias = Column(String(40), nullable=True)
-    winner_ms = Column(Integer, nullable=True)                # milisegundos desde que se abrió la ronda
+    winner_ms = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -46,6 +47,6 @@ class EventGameAnswer(Base):
     round_id = Column(BigInteger, ForeignKey("event_game_rounds.id", ondelete="CASCADE"), nullable=False, index=True)
     participant_id = Column(BigInteger, ForeignKey("event_game_participants.id", ondelete="CASCADE"), nullable=False, index=True)
     option_index = Column(Integer, nullable=False)
-    is_correct = Column(Boolean, nullable=False, default=False)
+    is_correct = Column(Boolean, nullable=False, default=False)   # sin uso
     elapsed_ms = Column(Integer, nullable=True)
     created_at = Column(_TS, server_default=func.now())

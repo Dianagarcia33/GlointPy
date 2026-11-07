@@ -2,14 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { GameState, getEventsWebSocketUrl, getGameQrUrl, getGameState } from '../../../services/events';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
 import { formatCountdown, useRoundCountdown } from '../hooks/useRoundCountdown';
-
-const LETTERS = ['A', 'B', 'C', 'D'];
-const seconds = (ms: number | null) => (ms === null || ms === undefined ? '' : `${(ms / 1000).toFixed(1)} s`);
+import { GameStats } from '../components/GameStats';
 
 /**
- * Pantalla del presentador para proyectar: el QR para entrar, la pregunta en curso con cuántos han respondido y, apenas
- * la ronda cierra (al terminar el minuto), el código de quien acertó primero en grande («4827»). Una respuesta correcta no cierra la ronda: todos pueden responder el minuto completo. No requiere sesión y no muestra la respuesta correcta
- * hasta que la ronda cierra. Se actualiza en vivo por WebSocket.
+ * Pantalla del presentador para proyectar: el QR para entrar, la pregunta en curso con el contador de un minuto y cuántos
+ * han respondido y, al cerrar la ronda, las estadísticas de lo que respondió la gente (barras por opción, sin nombres).
+ * No requiere sesión y no recibe las opciones (solo llegan a los celulares). Se actualiza en vivo por WebSocket.
  */
 export function EventGameScreenPage() {
   const [state, setState] = useState<GameState | null>(null);
@@ -49,8 +47,8 @@ export function EventGameScreenPage() {
         {!round && (
           <div className="grid gap-10 md:grid-cols-[1fr_auto] items-center max-w-5xl w-full">
             <div>
-              <h1 className="text-4xl sm:text-6xl font-extrabold leading-tight">¿Quién responderá primero?</h1>
-              <p className="mt-4 text-xl sm:text-2xl text-slate-300">Escanea el QR y prepárate: la pregunta aparece en tu celular.</p>
+              <h1 className="text-4xl sm:text-6xl font-extrabold leading-tight">Prepárate para responder</h1>
+              <p className="mt-4 text-xl sm:text-2xl text-slate-300">Escanea el QR: la pregunta y las opciones aparecen en tu celular.</p>
             </div>
             {qr('w-64 sm:w-80')}
           </div>
@@ -81,37 +79,19 @@ export function EventGameScreenPage() {
         )}
 
         {round && round.status === 'closed' && (
-          <div className="text-center max-w-5xl w-full">
-            {round.winner_alias ? (
-              <>
-                <p className="text-3xl sm:text-4xl text-slate-300">🏆 Respondió primero</p>
-                <h1 className="mt-4 text-6xl sm:text-9xl font-extrabold text-orange-400 break-words" data-testid="winner-alias">{round.winner_alias}</h1>
-                <p className="mt-4 text-3xl sm:text-4xl text-slate-200">en {seconds(round.winner_ms)}</p>
-                <p className="mt-6 text-xl sm:text-2xl text-slate-400">Levanta tu celular y dinos: «¡fui yo!»</p>
-              </>
-            ) : (
-              <h1 className="text-5xl sm:text-7xl font-extrabold">Se acabó el tiempo: nadie acertó</h1>
-            )}
-            {round.distribution && round.answers > 0 && (
-              <div className="mt-10 mx-auto max-w-3xl text-left" data-testid="stats">
-                <p className="text-lg sm:text-xl font-bold text-slate-300 mb-4">¿Qué respondió la gente? ({round.answers} {round.answers === 1 ? 'respuesta' : 'respuestas'})</p>
-                <ul className="space-y-3">
-                  {round.distribution.map((count, i) => {
-                    const pct = round.answers > 0 ? Math.round((count * 100) / round.answers) : 0;
-                    return (
-                      <li key={i} className="grid grid-cols-[3rem_1fr_9rem] items-center gap-4">
-                        <span className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-xl font-extrabold">{LETTERS[i]}</span>
-                        <div className="h-8 rounded-full bg-white/10 overflow-hidden" aria-hidden="true">
-                          <div className="h-full bg-orange-500 transition-all duration-700" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-xl sm:text-2xl font-bold tabular-nums text-right">{count} <span className="text-slate-400 text-base">({pct} %)</span></span>
-                      </li>
-                    );
-                  })}
-                </ul>
+          <div className="w-full max-w-4xl">
+            <p className="text-xl sm:text-2xl text-slate-400 text-center">Resultados</p>
+            <h1 className="mt-2 text-3xl sm:text-5xl font-extrabold leading-tight text-center">{round.question}</h1>
+            {round.distribution && round.answers > 0 ? (
+              <div className="mt-10">
+                <GameStats distribution={round.distribution} variant="screen" />
+                <p className="mt-6 text-lg sm:text-xl text-slate-300 text-center">
+                  {round.answers} {round.answers === 1 ? 'respuesta' : 'respuestas'}
+                </p>
               </div>
+            ) : (
+              <p className="mt-10 text-3xl sm:text-4xl text-slate-300 text-center">Nadie respondió esta pregunta.</p>
             )}
-            <p className="mt-8 text-sm text-slate-500">{round.question}</p>
           </div>
         )}
       </div>

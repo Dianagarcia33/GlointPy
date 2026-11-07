@@ -460,22 +460,21 @@ class GameAnswerRequest(BaseModel):
 class GameRoundCreateRequest(BaseModel):
     question: str
     options: List[str]
-    correct_index: int
 
 @router.post("/game/join")
 async def game_join(db: AsyncSession = Depends(get_db)):
-    """Entrega un código corto anónimo (ej. «Colibrí 47») a quien escanea el QR. El navegador guarda el token."""
+    """Entrega un token anónimo a quien escanea el QR (una respuesta por persona). El navegador lo guarda."""
     return await EventGameService.join(db)
 
 @router.get("/game/state")
 async def game_state(response: Response, token: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    """Estado público de la dinámica (pantalla del presentador y celulares). La respuesta correcta solo sale al cerrar la ronda."""
+    """Estado público de la dinámica (pantalla del presentador y celulares). Las opciones solo salen con el token de un participante."""
     response.headers["Cache-Control"] = "no-store"
     return await EventGameService.get_state(db, token)
 
 @router.post("/game/answer")
 async def game_answer(body: GameAnswerRequest, db: AsyncSession = Depends(get_db)):
-    """Responde la ronda abierta (una vez por persona). La primera respuesta correcta gana y cierra la ronda."""
+    """Responde la ronda abierta (una vez por persona, durante el minuto)."""
     return await EventGameService.answer(db, body.token, body.round_id, body.option_index)
 
 @router.get("/game/qr.png")
@@ -518,13 +517,13 @@ async def game_ws(websocket: WebSocket):
 
 @router.get("/admin/game", dependencies=event_admin)
 async def admin_game_list(db: AsyncSession = Depends(get_db)):
-    """Rondas de la dinámica (con la respuesta correcta y el ganador de cada una)."""
+    """Rondas de la dinámica (con sus estadísticas al cerrar)."""
     return await EventGameService.admin_list(db)
 
 @router.post("/admin/game/rounds", dependencies=event_admin)
 async def admin_game_create(body: GameRoundCreateRequest, db: AsyncSession = Depends(get_db)):
-    """Crea una pregunta (opción múltiple, una correcta)."""
-    return await EventGameService.create_round(db, body.question, body.options, body.correct_index)
+    """Crea una pregunta (opción múltiple, sin respuesta correcta)."""
+    return await EventGameService.create_round(db, body.question, body.options)
 
 @router.put("/admin/game/rounds/{round_id}/open", dependencies=event_admin)
 async def admin_game_open(round_id: int, db: AsyncSession = Depends(get_db)):
