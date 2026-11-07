@@ -636,8 +636,17 @@ export const revokeCoupons = async (attendeeIds: number[]): Promise<AdminCoupons
 export interface GameRound {
   id: number;
   question: string;
+  /** Solo llegan al celular de quien participa (con su código) y al panel del equipo; la pantalla recibe []. */
   options: string[];
+  options_count: number;
+  /** Texto de la respuesta correcta: solo para participantes y el equipo, y solo con la ronda cerrada (la pantalla no la recibe) */
+  correct_text: string | null;
+  /** Cuántas personas eligieron cada opción (A, B, C…): solo con la ronda cerrada */
+  distribution: number[] | null;
   status: 'draft' | 'open' | 'closed';
+  /** Tiempo para responder desde que se abre la ronda, y segundos que le quedan (solo si está abierta) */
+  duration_seconds: number;
+  seconds_left: number | null;
   answers: number;
   winner_alias: string | null;
   winner_ms: number | null;
@@ -670,7 +679,11 @@ export const gameAnswer = async (token: string, roundId: number, optionIndex: nu
   });
 };
 
-export const getGameQrUrl = (): string => `${API_URL}/events/game/qr.png`;
+// El QR apunta al mismo sitio desde el que se abre la pantalla (staging o producción)
+export const getGameQrUrl = (): string => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${API_URL}/events/game/qr.png${origin ? `?origin=${encodeURIComponent(origin)}` : ''}`;
+};
 
 export const getAdminGame = async (): Promise<GameAdminData> => {
   return await fetchApi('/events/admin/game');

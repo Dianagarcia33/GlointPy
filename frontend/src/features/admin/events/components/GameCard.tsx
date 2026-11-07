@@ -100,7 +100,7 @@ export function GameCard() {
           <div>
             <h2 className="text-sm font-bold text-slate-900">Dinámica: ¿quién respondió primero?</h2>
             <p className="text-xs text-slate-500">
-              La gente escanea un QR y responde sin iniciar sesión. Gana la primera respuesta correcta y su código sale en la pantalla.
+              La gente escanea un QR y responde sin iniciar sesión. Cada ronda dura 1 minuto: gana la primera respuesta correcta y su código sale en la pantalla; si nadie acierta, se cierra sola al acabarse el tiempo.
               {data ? ` Participantes: ${data.participants}.` : ''}
             </p>
           </div>

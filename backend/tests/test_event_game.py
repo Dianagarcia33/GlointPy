@@ -1,10 +1,11 @@
 """Dinámica en vivo «¿quién respondió primero?»: participantes anónimos, ganador único y correcta oculta hasta cerrar."""
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 for _k, _v in {"DB_HOST": "x", "DB_USER": "x", "DB_PASSWORD": "x", "DB_NAME": "x", "SECRET_KEY": "x"}.items():
@@ -13,7 +14,7 @@ for _k, _v in {"DB_HOST": "x", "DB_USER": "x", "DB_PASSWORD": "x", "DB_NAME": "x
 from src.core.database import Base  # noqa: E402
 from src.models.event import Event  # noqa: E402
 from src.models.event_game import EventGameAnswer, EventGameParticipant, EventGameRound  # noqa: E402
-from src.services.event_game_service import EventGameService as Svc, game_hub  # noqa: E402
+from src.services.event_game_service import EventGameService as Svc, ROUND_SECONDS, game_hub  # noqa: E402
 
 
 def _run(coro_factory):
@@ -88,8 +89,10 @@ def test_la_respuesta_correcta_no_se_publica_hasta_que_la_ronda_cierra():
         abierta = (await Svc.get_state(db))["round"]
         assert abierta["status"] == "open" and abierta["correct_index"] is None
         assert "correct" not in str(abierta["options"]).lower()
+        ana = await Svc.join(db)
         await Svc.close_round(db, rid)
-        assert (await Svc.get_state(db))["round"]["correct_index"] == 2
+        assert (await Svc.get_state(db, ana["token"]))["round"]["correct_index"] == 2   # participante: ya la ve
+        assert (await Svc.get_state(db))["round"]["correct_index"] is None                # pantalla: nunca
     _run(scenario)
 
 
@@ -148,4 +151,85 @@ def test_los_avisos_en_vivo_llegan_a_pantalla_y_celulares():
             assert ws.sent and ws.sent[0]["type"] == "changed"
         finally:
             game_hub.disconnect(ws)
+    _run(scenario)
+
+
+def test_la_ronda_dura_un_minuto_y_se_cierra_sola_sin_ganador():
+    async def scenario(db, event):
+        assert ROUND_SECONDS == 60
+        rid = await _ronda_abierta(db)
+        ana, beto = await Svc.join(db), await Svc.join(db)
+
+        abierta = (await Svc.get_state(db))["round"]
+        assert abierta["status"] == "open" and abierta["duration_seconds"] == 60
+        assert 55 < abierta["seconds_left"] <= 60
+
+        rnd = (await db.execute(select(EventGameRound).where(EventGameRound.id == rid))).scalar_one()
+        rnd.opened_at = datetime.now(timezone.utc) - timedelta(seconds=ROUND_SECONDS + 5)   # ya pasó el minuto
+        await db.commit()
+
+        with pytest.raises(HTTPException) as exc:                             # respuesta tardía: se rechaza
+            await Svc.answer(db, ana["token"], rid, 1)
+        assert exc.value.status_code == 409 and "tiempo" in exc.value.detail
+
+        cerrada = (await Svc.get_state(db, beto["token"]))["round"]           # y la ronda queda cerrada, sin ganador
+        assert cerrada["status"] == "closed" and cerrada["winner_alias"] is None
+        assert cerrada["seconds_left"] is None and cerrada["correct_index"] == 1
+    _run(scenario)
+
+
+def test_si_se_acaba_el_tiempo_nadie_gana_aunque_alguien_llegue_justo_despues():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db)
+        ana = await Svc.join(db)
+        rnd = (await db.execute(select(EventGameRound).where(EventGameRound.id == rid))).scalar_one()
+        rnd.opened_at = datetime.now(timezone.utc) - timedelta(seconds=ROUND_SECONDS + 1)
+        await db.commit()
+        with pytest.raises(HTTPException):
+            await Svc.answer(db, ana["token"], rid, 1)                       # era la correcta, pero llegó tarde
+        estado = (await Svc.get_state(db, ana["token"]))
+        assert estado["round"]["winner_alias"] is None and estado["me"]["is_winner"] is False
+    _run(scenario)
+
+
+def test_las_opciones_solo_las_ve_quien_participa_no_la_pantalla():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db, correct=1)
+        ana = await Svc.join(db)
+
+        pantalla = (await Svc.get_state(db))["round"]                         # sin código: la pantalla del presentador
+        assert pantalla["question"] and pantalla["options"] == [] and pantalla["options_count"] == 3
+        assert "Bogotá" not in str(pantalla) and "Cali" not in str(pantalla)
+
+        celular = (await Svc.get_state(db, ana["token"]))["round"]            # con código: el celular de quien responde
+        assert celular["options"] == ["Cali", "Bogotá", "Medellín"]
+
+        falso = (await Svc.get_state(db, "codigo-inventado"))["round"]        # un código inventado tampoco las recibe
+        assert falso["options"] == []
+
+        await Svc.close_round(db, rid)                                        # cerrada: la pantalla no ve ni las opciones ni la correcta
+        cerrada = (await Svc.get_state(db))["round"]
+        assert cerrada["options"] == [] and cerrada["correct_text"] is None and cerrada["correct_index"] is None
+        assert "Bogotá" not in str(cerrada) and "Cali" not in str(cerrada) and "Medellín" not in str(cerrada)
+        assert (await Svc.get_state(db, ana["token"]))["round"]["correct_text"] == "Bogotá"   # el celular sí
+    _run(scenario)
+
+
+def test_al_cerrar_la_pantalla_recibe_estadisticas_por_opcion_sin_nombres():
+    async def scenario(db, event):
+        rid = await _ronda_abierta(db, correct=1)
+        a, b, c, d = [await Svc.join(db) for _ in range(4)]
+        assert (await Svc.get_state(db))["round"]["distribution"] is None          # abierta: sin estadísticas (no seguir a la mayoría)
+
+        await Svc.answer(db, a["token"], rid, 0)
+        await Svc.answer(db, b["token"], rid, 2)
+        await Svc.answer(db, c["token"], rid, 2)
+        await Svc.answer(db, d["token"], rid, 1)                                  # acierta: gana y cierra
+
+        cerrada = (await Svc.get_state(db))["round"]                              # lo que ve la pantalla
+        assert cerrada["distribution"] == [1, 1, 2] and cerrada["answers"] == 4
+        assert cerrada["correct_index"] is None and cerrada["options"] == []
+        for alias in (a["alias"], b["alias"], c["alias"]):
+            assert alias not in str(cerrada)                                       # solo cifras, sin nombres
+        assert d["alias"] in str(cerrada)                                          # salvo el ganador, que sí se anuncia
     _run(scenario)
