@@ -72,17 +72,11 @@ export function EventGameScreenPage() {
                 </div>
               )}
               <h1 className="text-4xl sm:text-6xl font-extrabold leading-tight">{round.question}</h1>
-              <ul className="mt-8 grid gap-4 sm:grid-cols-2">
-                {round.options.map((opt, i) => (
-                  <li key={i} className="flex items-center gap-4 rounded-2xl bg-white/10 border border-white/15 px-5 py-4 text-2xl sm:text-3xl font-semibold">
-                    <span className="shrink-0 w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center font-extrabold">{LETTERS[i]}</span>
-                    {opt}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-8 text-2xl text-slate-300"><strong className="text-white">{round.answers}</strong> {round.answers === 1 ? 'respuesta' : 'respuestas'}</p>
+              {/* Las opciones no se muestran aquí: solo llegan al celular de quien participa */}
+              <p className="mt-8 text-2xl sm:text-3xl text-slate-300">📱 Las opciones aparecen en tu celular: escanea el QR y responde.</p>
+              <p className="mt-6 text-2xl text-slate-300"><strong className="text-white">{round.answers}</strong> {round.answers === 1 ? 'respuesta' : 'respuestas'}</p>
             </div>
-            <div className="hidden lg:block">{qr('w-56')}</div>
+            <div>{qr('w-56 sm:w-72')}</div>
           </div>
         )}
 
@@ -98,12 +92,26 @@ export function EventGameScreenPage() {
             ) : (
               <h1 className="text-5xl sm:text-7xl font-extrabold">Se acabó el tiempo: nadie acertó</h1>
             )}
-            {round.correct_index !== null && (
-              <p className="mt-8 text-2xl sm:text-3xl">
-                Respuesta correcta: <strong className="text-green-400">{LETTERS[round.correct_index]}. {round.options[round.correct_index]}</strong>
-              </p>
+            {round.distribution && round.answers > 0 && (
+              <div className="mt-10 mx-auto max-w-3xl text-left" data-testid="stats">
+                <p className="text-lg sm:text-xl font-bold text-slate-300 mb-4">¿Qué respondió la gente? ({round.answers} {round.answers === 1 ? 'respuesta' : 'respuestas'})</p>
+                <ul className="space-y-3">
+                  {round.distribution.map((count, i) => {
+                    const pct = round.answers > 0 ? Math.round((count * 100) / round.answers) : 0;
+                    return (
+                      <li key={i} className="grid grid-cols-[3rem_1fr_9rem] items-center gap-4">
+                        <span className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-xl font-extrabold">{LETTERS[i]}</span>
+                        <div className="h-8 rounded-full bg-white/10 overflow-hidden" aria-hidden="true">
+                          <div className="h-full bg-orange-500 transition-all duration-700" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xl sm:text-2xl font-bold tabular-nums text-right">{count} <span className="text-slate-400 text-base">({pct} %)</span></span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
-            <p className="mt-6 text-sm text-slate-500">{round.question}</p>
+            <p className="mt-8 text-sm text-slate-500">{round.question}</p>
           </div>
         )}
       </div>

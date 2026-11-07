@@ -149,7 +149,7 @@ export function EventGamePage() {
               )}
               {round.correct_index !== null && (
                 <p className="text-sm text-slate-200">
-                  Respuesta correcta: <strong>{LETTERS[round.correct_index]}. {round.options[round.correct_index]}</strong>
+                  Respuesta correcta: <strong>{LETTERS[round.correct_index]}{round.correct_text ? `. ${round.correct_text}` : ''}</strong>
                   {!won && me?.answered && (me.option_index === round.correct_index ? ' · Tú también acertaste' : ' · Esta vez no acertaste')}
                 </p>
               )}

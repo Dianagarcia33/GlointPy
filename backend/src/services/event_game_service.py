@@ -9,6 +9,10 @@ Dinámica en vivo del evento Gloint Power Tech: «¿quién respondió primero?»
   dos respuestas casi simultáneas nunca dan dos ganadores. Al haber ganador la ronda se cierra sola.
 - Cada ronda dura ROUND_SECONDS (1 minuto) desde que se abre: pasado ese tiempo se cierra sola, sin ganador si nadie acertó,
   y las respuestas tardías se rechazan. El cierre lo hace el servidor (en la siguiente consulta o respuesta), no el celular.
+- Las OPCIONES y la respuesta correcta solo se envían a quien participa (con su código): la pantalla del presentador y
+  cualquier consulta sin código reciben la pregunta, pero no las opciones ni cuál era la correcta. Quien presenta las dice
+  en voz alta. Al cerrar la ronda la pantalla muestra estadísticas: cuántas personas eligieron cada opción (sin nombres).
+  Mientras la ronda está abierta no hay estadísticas, para que nadie siga a la mayoría.
 - Cada participante responde una sola vez por ronda. La respuesta correcta no se envía a nadie hasta que la ronda cierra.
 """
 import asyncio
@@ -107,11 +111,20 @@ def _seconds_left(r: EventGameRound) -> Optional[float]:
     return round(max(0.0, (_expires_at(r) - _utcnow()).total_seconds()), 1)
 
 
-def _round_public(r: EventGameRound, answers: int) -> dict:
+def _round_public(r: EventGameRound, answers: int, include_options: bool = False,
+                  reveal_correct: bool = False, distribution: Optional[List[int]] = None) -> dict:
+    options = list(r.options or [])
+    show_correct = reveal_correct and r.status == "closed"
     return {
         "id": r.id,
         "question": r.question,
-        "options": list(r.options or []),
+        # Las opciones solo salen para participantes (con código) y para el equipo; la pantalla no las recibe
+        "options": options if include_options else [],
+        "options_count": len(options),
+        # La correcta solo la ve quien participa (o el equipo), y solo con la ronda cerrada; la pantalla no la recibe
+        "correct_text": options[r.correct_index] if show_correct and 0 <= r.correct_index < len(options) else None,
+        # Cuántas personas eligieron cada opción (solo ronda cerrada): lo que se proyecta en lugar de la respuesta
+        "distribution": distribution if r.status == "closed" else None,
         "status": r.status,
         "duration_seconds": ROUND_SECONDS,
         "seconds_left": _seconds_left(r),
@@ -119,7 +132,7 @@ def _round_public(r: EventGameRound, answers: int) -> dict:
         "winner_alias": r.winner_alias,
         "winner_ms": r.winner_ms,
         # La respuesta correcta solo se conoce cuando la ronda cierra
-        "correct_index": r.correct_index if r.status == "closed" else None,
+        "correct_index": r.correct_index if show_correct else None,
     }
 
 
@@ -128,6 +141,13 @@ class EventGameService:
     @staticmethod
     async def _answers_count(db: AsyncSession, round_id: int) -> int:
         return int((await db.execute(select(func.count(EventGameAnswer.id)).where(EventGameAnswer.round_id == round_id))).scalar() or 0)
+
+    @staticmethod
+    async def _distribution(db: AsyncSession, rnd: EventGameRound) -> List[int]:
+        rows = (await db.execute(select(EventGameAnswer.option_index, func.count(EventGameAnswer.id))
+                                 .where(EventGameAnswer.round_id == rnd.id).group_by(EventGameAnswer.option_index))).all()
+        counts = {int(i): int(c) for i, c in rows}
+        return [counts.get(i, 0) for i in range(len(rnd.options or []))]
 
     @staticmethod
     async def _participant(db: AsyncSession, token: Optional[str]) -> Optional[EventGameParticipant]:
@@ -190,7 +210,11 @@ class EventGameService:
         participant = await cls._participant(db, token)
         state: dict = {"round": None, "me": None}
         if current:
-            state["round"] = _round_public(current, await cls._answers_count(db, current.id))
+            # Sin código de participante (pantalla del presentador, curiosos) no se envían las opciones
+            state["round"] = _round_public(
+                current, await cls._answers_count(db, current.id), include_options=participant is not None,
+                reveal_correct=participant is not None,
+                distribution=await cls._distribution(db, current) if current.status == "closed" else None)
         if participant:
             me = {"alias": participant.alias, "answered": False, "option_index": None, "is_winner": False}
             if current:
@@ -255,7 +279,9 @@ class EventGameService:
         participants = int((await db.execute(select(func.count(EventGameParticipant.id)))).scalar() or 0)
         return {
             "participants": participants,
-            "rounds": [{**_round_public(r, counts.get(r.id, 0)), "correct_index": r.correct_index} for r in rounds],
+            "rounds": [{**_round_public(r, counts.get(r.id, 0), include_options=True, reveal_correct=True,
+                                        distribution=await cls._distribution(db, r) if r.status == "closed" else None),
+                        "correct_index": r.correct_index} for r in rounds],
         }
 
     @classmethod
