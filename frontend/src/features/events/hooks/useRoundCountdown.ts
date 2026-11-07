@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { GameRound } from '../../../services/events';
+/** Lo que necesita el contador de cualquier ronda (dinámica de preguntas o rifa): su id, estado y segundos restantes. */
+export interface CountdownRound {
+  id: number;
+  status: string;
+  seconds_left: number | null;
+}
 
 /**
  * Cuenta regresiva de la ronda abierta. Se sincroniza con el servidor cada vez que llega el estado (`seconds_left`), así
  * no depende del reloj del celular. Al llegar a cero pide el estado de nuevo (`onZero`): es el servidor quien cierra la
  * ronda; si todavía la ve abierta por unos milisegundos, reintenta cada segundo.
  */
-export function useRoundCountdown(round: GameRound | null, onZero: () => void): number | null {
+export function useRoundCountdown(round: CountdownRound | null, onZero: () => void): number | null {
   const deadline = useRef<number | null>(null);
   const [left, setLeft] = useState<number | null>(null);
   const onZeroRef = useRef(onZero);
