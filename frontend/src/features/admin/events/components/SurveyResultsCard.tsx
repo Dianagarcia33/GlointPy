@@ -7,6 +7,9 @@ import {
   SurveyStats,
   getEventsWebSocketUrl,
   getSurveyResults,
+  getSurveyViewerLink,
+  revokeSurveyViewerLink,
+  rotateSurveyViewerLink,
   setSurveyOpen,
 } from '../../../../services/events';
 import { useLatestOnly } from '../hooks/useLatestOnly';
@@ -42,6 +45,10 @@ export function SurveyResultsCard() {
   const [data, setData] = useState<SurveyResults | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Enlace secreto para quien presenta (ve los resultados en vivo, sin iniciar sesión)
+  const [viewerToken, setViewerToken] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const { startRead, invalidate } = useLatestOnly();
 
@@ -56,6 +63,35 @@ export function SurveyResultsCard() {
   }, [startRead]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { getSurveyViewerLink().then((r) => setViewerToken(r.token)).catch(() => {}); }, []);
+
+  const viewerUrl = viewerToken ? `${window.location.origin}/evento/presentador/${viewerToken}` : '';
+
+  const changeLink = async (action: 'rotate' | 'revoke') => {
+    if (action === 'rotate' && viewerToken && !window.confirm('¿Crear un enlace nuevo? El anterior dejará de funcionar.')) return;
+    if (action === 'revoke' && !window.confirm('¿Desactivar el enlace? Quien lo tenga ya no podrá ver los resultados.')) return;
+    setLinkBusy(true);
+    setError(null);
+    try {
+      const r = action === 'rotate' ? await rotateSurveyViewerLink() : await revokeSurveyViewerLink();
+      setViewerToken(r.token);
+      setCopied(false);
+    } catch (e: any) {
+      setError(e?.message || 'No se pudo completar la acción.');
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(viewerUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // sin permiso de portapapeles: se puede seleccionar el enlace a mano
+    }
+  };
   useLiveRefresh(getEventsWebSocketUrl('/admin/questions/ws'), load, 15000, { scopes: ['survey'] });
 
   const toggle = async () => {
@@ -94,6 +130,24 @@ export function SurveyResultsCard() {
       </div>
 
       {error && <p role="alert" className="text-xs rounded-lg p-2.5 border bg-red-50 border-red-200 text-red-700">{error}</p>}
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+        <p className="text-xs font-bold text-slate-700">Enlace para quien presenta</p>
+        <p className="text-[11px] text-slate-500">Muestra los resultados en vivo, sin iniciar sesión y solo en lectura. Quien tenga el enlace los ve: compártelo solo con el presentador.</p>
+        {viewerToken ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <input readOnly value={viewerUrl} onFocus={(e) => e.currentTarget.select()}
+              aria-label="Enlace para el presentador"
+              className="flex-1 min-w-[220px] rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-700" />
+            <button onClick={copyLink} className="rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5">{copied ? '¡Copiado!' : 'Copiar'}</button>
+            <a href={viewerUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1.5">Abrir</a>
+            <button onClick={() => changeLink('rotate')} disabled={linkBusy} className="rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1.5 disabled:opacity-50">Crear uno nuevo</button>
+            <button onClick={() => changeLink('revoke')} disabled={linkBusy} className="rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-700 text-xs font-bold px-3 py-1.5 disabled:opacity-50">Desactivar</button>
+          </div>
+        ) : (
+          <button onClick={() => changeLink('rotate')} disabled={linkBusy} className="rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-2 disabled:opacity-50">Crear enlace para el presentador</button>
+        )}
+      </div>
 
       {data && (
         <>

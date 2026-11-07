@@ -157,3 +157,65 @@ def test_comentarios_anonimos_y_aviso_en_vivo():
         assert comments[0]["group"] == "investor:in_person"
         assert set(comments[0]) == {"comment", "group", "created_at"}   # sin nombre ni correo
     _run(scenario)
+
+
+def test_enlace_del_presentador_da_los_resultados_y_se_puede_revocar_o_renovar():
+    async def scenario(db, event):
+        db.add(_attendee(event, "Ana"))
+        await db.commit()
+        await Svc.set_open(db, True)
+        await Svc.submit(db, "tok-Ana", _answers(comment="Muy buena"))
+
+        for bad in (None, "", "cualquiera"):                                       # sin enlace creado: nadie entra
+            with pytest.raises(HTTPException) as exc:
+                await Svc.get_results_for_viewer(db, bad)
+            assert exc.value.status_code == 404
+
+        token = (await Svc.rotate_viewer_link(db))["token"]
+        assert len(token) >= 24 and (await Svc.get_viewer_link(db))["token"] == token
+        data = await Svc.get_results_for_viewer(db, token)
+        assert data["overall"]["total"] == 1 and data["event_title"] == "Gloint Power Tech"
+        assert "Ana" not in str(data)                                              # sigue siendo anónimo
+
+        with pytest.raises(HTTPException):                                         # un token distinto no sirve
+            await Svc.get_results_for_viewer(db, token + "x")
+
+        nuevo = (await Svc.rotate_viewer_link(db))["token"]                        # renovar invalida el anterior
+        assert nuevo != token
+        with pytest.raises(HTTPException):
+            await Svc.get_results_for_viewer(db, token)
+        assert (await Svc.get_results_for_viewer(db, nuevo))["overall"]["total"] == 1
+
+        assert (await Svc.revoke_viewer_link(db))["token"] is None                 # revocar lo apaga
+        with pytest.raises(HTTPException):
+            await Svc.get_results_for_viewer(db, nuevo)
+    _run(scenario)
+
+
+def test_el_presentador_recibe_en_vivo_solo_los_avisos_de_la_encuesta():
+    class FakeWs:
+        def __init__(self):
+            self.sent = []
+
+        async def send_json(self, data):
+            self.sent.append(data)
+
+        async def send_text(self, data):
+            self.sent.append(data)
+
+    async def scenario(db, event):
+        viewer, attendee = FakeWs(), FakeWs()
+        questions_hub.connect_viewer(viewer)
+        questions_hub.connect(attendee, admin=False)
+        try:
+            await questions_hub.notify("questions")
+            await questions_hub.flush_now()
+            assert viewer.sent == []                                   # preguntas: no le importan al presentador
+            await questions_hub.notify("survey", attendees=False)
+            await questions_hub.flush_now()
+            assert len(viewer.sent) == 1 and "survey" in str(viewer.sent[0])
+        finally:
+            questions_hub.disconnect(viewer)
+            questions_hub.disconnect(attendee)
+        assert viewer not in questions_hub.viewers
+    _run(scenario)

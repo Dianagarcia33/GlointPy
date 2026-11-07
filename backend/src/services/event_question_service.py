@@ -46,15 +46,20 @@ class QuestionsHub:
     def __init__(self):
         self.attendees: Set[WebSocket] = set()
         self.admins: Set[WebSocket] = set()
+        self.viewers: Set[WebSocket] = set()   # presentadores con el enlace secreto: solo reciben avisos de la encuesta
         self._pending: Dict[str, bool] = {}   # ámbito -> ¿también a los asistentes?
         self._task = None
 
     def connect(self, ws: WebSocket, admin: bool):
         (self.admins if admin else self.attendees).add(ws)
 
+    def connect_viewer(self, ws: WebSocket):
+        self.viewers.add(ws)
+
     def disconnect(self, ws: WebSocket):
         self.attendees.discard(ws)
         self.admins.discard(ws)
+        self.viewers.discard(ws)
 
     async def notify(self, scope: str = "questions", attendees: bool = True):
         """Registra el aviso y lo envía agrupado, como máximo una vez por ámbito cada COALESCE_SECONDS."""
@@ -74,6 +79,8 @@ class QuestionsHub:
         for scope, to_attendees in pending.items():
             payload = {"type": "changed", "scope": scope}
             targets += [(ws, payload) for ws in list(self.admins)]
+            if scope == "survey":
+                targets += [(ws, payload) for ws in list(self.viewers)]
             if to_attendees:
                 targets += [(ws, payload) for ws in list(self.attendees)]
         await ws_broadcast.send_many(targets, self.disconnect)

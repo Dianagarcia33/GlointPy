@@ -8,7 +8,8 @@ Encuesta de satisfacción en vivo del evento Gloint Power Tech.
 - Cada cambio se avisa por el mismo WebSocket en vivo de las preguntas (aviso "changed"; el cliente vuelve a pedir su vista).
 """
 import logging
-from typing import Dict, List
+import secrets
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -93,6 +94,38 @@ class EventSurveyService:
         await db.commit()
         await questions_hub.notify("survey")  # abrir/cerrar sí le importa a todos: aparece o desaparece la encuesta
         return await cls.get_results(db)
+
+    # ------------------------------------------------------------------ enlace del presentador (solo lectura)
+    @classmethod
+    async def get_viewer_link(cls, db: AsyncSession) -> dict:
+        event = await EventService.get_or_create_default_event(db)
+        return {"token": event.survey_viewer_token}
+
+    @classmethod
+    async def rotate_viewer_link(cls, db: AsyncSession) -> dict:
+        """Genera un enlace nuevo; el anterior deja de funcionar."""
+        event = await EventService.get_or_create_default_event(db)
+        event.survey_viewer_token = secrets.token_urlsafe(24)
+        await db.commit()
+        return {"token": event.survey_viewer_token}
+
+    @classmethod
+    async def revoke_viewer_link(cls, db: AsyncSession) -> dict:
+        event = await EventService.get_or_create_default_event(db)
+        event.survey_viewer_token = None
+        await db.commit()
+        return {"token": None}
+
+    @classmethod
+    async def get_results_for_viewer(cls, db: AsyncSession, token: Optional[str]) -> dict:
+        """Resultados (anónimos) para quien presenta, con el enlace secreto. Un enlace inválido o revocado da 404."""
+        event = await EventService.get_or_create_default_event(db)
+        stored = event.survey_viewer_token
+        if not stored or not token or not secrets.compare_digest(stored, token):
+            raise HTTPException(status_code=404, detail="Este enlace no es válido o ya no está disponible.")
+        data = await cls.get_results(db)
+        data["event_title"] = event.title
+        return data
 
     @classmethod
     async def get_results(cls, db: AsyncSession) -> dict:

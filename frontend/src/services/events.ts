@@ -439,6 +439,7 @@ export interface SurveyResults {
   groups: Record<string, SurveyStats>;
   distributions: Record<RatingField, Record<string, number>>;
   recent_comments: { comment: string; group: string; created_at?: string | null }[];
+  event_title?: string;
 }
 
 export const getSurveyStatus = async (token: string): Promise<SurveyStatus> => {
@@ -451,6 +452,23 @@ export const submitSurvey = async (token: string, answers: SurveyAnswers): Promi
 
 export const getSurveyResults = async (): Promise<SurveyResults> => {
   return await fetchApi('/events/admin/survey/results');
+};
+
+// Enlace secreto de solo lectura para quien presenta: ve los resultados en vivo sin iniciar sesión
+export const getSurveyViewerResults = async (token: string): Promise<SurveyResults> => {
+  return await fetchApi(`/events/survey-viewer/${encodeURIComponent(token)}`);
+};
+
+export const getSurveyViewerLink = async (): Promise<{ token: string | null }> => {
+  return await fetchApi('/events/admin/survey/viewer-link');
+};
+
+export const rotateSurveyViewerLink = async (): Promise<{ token: string | null }> => {
+  return await fetchApi('/events/admin/survey/viewer-link', { method: 'POST' });
+};
+
+export const revokeSurveyViewerLink = async (): Promise<{ token: string | null }> => {
+  return await fetchApi('/events/admin/survey/viewer-link', { method: 'DELETE' });
 };
 
 export const setSurveyOpen = async (isOpen: boolean): Promise<SurveyResults> => {

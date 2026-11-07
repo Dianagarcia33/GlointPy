@@ -38,6 +38,8 @@ class Event(Base):
     coupon_store_url = Column(String(500), nullable=True, default="https://glointplace.com.co")
     # Encuesta de satisfacción en vivo: el administrador la abre/cierra durante el evento
     survey_open = Column(Boolean, nullable=False, default=False)
+    # Enlace secreto de solo lectura para que quien presenta vea los resultados de la encuesta (sin iniciar sesión)
+    survey_viewer_token = Column(String(64), nullable=True, unique=True, index=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
