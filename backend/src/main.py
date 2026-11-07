@@ -594,7 +594,13 @@ async def on_startup():
                     "ALTER TABLE events ADD COLUMN coupon_hours INT NOT NULL DEFAULT 48",
                     "ALTER TABLE events ADD COLUMN coupon_starts_at DATETIME NULL",
                     "ALTER TABLE events ADD COLUMN coupon_expires_at DATETIME NULL",
-                    "ALTER TABLE events ADD COLUMN coupon_store_url VARCHAR(500) NULL DEFAULT 'https://glointplace.com.co'"
+                    "ALTER TABLE events ADD COLUMN coupon_store_url VARCHAR(500) NULL DEFAULT 'https://glointplace.com.co'",
+                    "ALTER TABLE events ADD COLUMN survey_viewer_token VARCHAR(64) NULL",
+                    "CREATE UNIQUE INDEX ix_events_survey_viewer_token ON events(survey_viewer_token)",
+                    "ALTER TABLE events ADD COLUMN promo_banner_active TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE events ADD COLUMN promo_banner_url VARCHAR(500) NULL DEFAULT 'https://www.glointplace.com.co'",
+                    "ALTER TABLE events ADD COLUMN promo_banner_title VARCHAR(120) NULL DEFAULT 'Descubre Gloint Place'",
+                    "ALTER TABLE events ADD COLUMN promo_banner_text VARCHAR(255) NULL DEFAULT 'Conoce la tienda de Gloint y encuentra lo que necesitas.'"
                 ]:
                     try:
                         await conn.execute(text(col_query))

@@ -14,6 +14,10 @@ export interface EventData {
   is_full_in_person: boolean;
   is_active: boolean;
   banner_active: boolean;
+  promo_banner_active?: boolean;
+  promo_banner_url?: string;
+  promo_banner_title?: string;
+  promo_banner_text?: string;
 }
 
 export interface AttendeeData {
@@ -86,6 +90,10 @@ export interface EventConfigPayload {
   capacity_in_person?: number;
   is_active?: boolean;
   banner_active?: boolean;
+  promo_banner_active?: boolean;
+  promo_banner_url?: string;
+  promo_banner_title?: string;
+  promo_banner_text?: string;
 }
 
 export const getActiveEvent = async (): Promise<EventData> => {
@@ -248,6 +256,11 @@ export const liveHeartbeat = async (token: string, sessionId: string): Promise<{
 
 export const getLiveOverview = async (): Promise<LiveOverview> => {
   return await fetchApi('/events/admin/live');
+};
+
+// Prueba de la transmisión solo para el equipo: no abre la sala ni registra entradas
+export const previewLive = async (): Promise<{ playback_id: string; playback_token: string | null; live_open: boolean }> => {
+  return await fetchApi('/events/admin/live/preview', { method: 'POST' });
 };
 
 export const updateLiveConfig = async (payload: { live_playback_id?: string; live_open?: boolean }): Promise<LiveOverview> => {
@@ -431,6 +444,7 @@ export interface SurveyResults {
   groups: Record<string, SurveyStats>;
   distributions: Record<RatingField, Record<string, number>>;
   recent_comments: { comment: string; group: string; created_at?: string | null }[];
+  event_title?: string;
 }
 
 export const getSurveyStatus = async (token: string): Promise<SurveyStatus> => {
@@ -443,6 +457,23 @@ export const submitSurvey = async (token: string, answers: SurveyAnswers): Promi
 
 export const getSurveyResults = async (): Promise<SurveyResults> => {
   return await fetchApi('/events/admin/survey/results');
+};
+
+// Enlace secreto de solo lectura para quien presenta: ve los resultados en vivo sin iniciar sesión
+export const getSurveyViewerResults = async (token: string): Promise<SurveyResults> => {
+  return await fetchApi(`/events/survey-viewer/${encodeURIComponent(token)}`);
+};
+
+export const getSurveyViewerLink = async (): Promise<{ token: string | null }> => {
+  return await fetchApi('/events/admin/survey/viewer-link');
+};
+
+export const rotateSurveyViewerLink = async (): Promise<{ token: string | null }> => {
+  return await fetchApi('/events/admin/survey/viewer-link', { method: 'POST' });
+};
+
+export const revokeSurveyViewerLink = async (): Promise<{ token: string | null }> => {
+  return await fetchApi('/events/admin/survey/viewer-link', { method: 'DELETE' });
 };
 
 export const setSurveyOpen = async (isOpen: boolean): Promise<SurveyResults> => {
@@ -572,10 +603,6 @@ export interface AdminCoupons {
 
 export const getMyCoupon = async (token: string): Promise<MyCoupon> => {
   return await fetchApi(`/events/coupon/${encodeURIComponent(token)}`);
-};
-
-export const getCouponQrUrl = (token: string): string => {
-  return `${API_URL}/events/coupon/${encodeURIComponent(token)}/qr.png`;
 };
 
 export const getAdminCoupons = async (): Promise<AdminCoupons> => {

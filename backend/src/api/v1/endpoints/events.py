@@ -191,6 +191,12 @@ async def get_live_overview(db: AsyncSession = Depends(get_db)):
     """Quién está conectado ahora, quién entró y cuánto tiempo estuvo."""
     return await EventLiveService.get_overview(db)
 
+@router.post("/admin/live/preview", dependencies=event_admin)
+async def preview_live(response: Response, db: AsyncSession = Depends(get_db)):
+    """Prueba de la transmisión solo para el equipo: no abre la sala ni registra entradas."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return await EventLiveService.admin_preview(db)
+
 @router.put("/admin/live/config", dependencies=event_admin)
 async def update_live_config(body: LiveConfigRequest, db: AsyncSession = Depends(get_db)):
     """Playback ID de Mux y apertura/cierre de la sala."""
@@ -263,6 +269,29 @@ async def questions_attendee_ws(websocket: WebSocket, token: str):
         except HTTPException:
             return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Enlace no válido")
     questions_hub.connect(websocket, admin=False)
+    try:
+        while True:
+            await websocket.receive_text()  # mantiene la conexión; el cliente puede enviar pings
+    except WebSocketDisconnect:
+        pass
+    finally:
+        questions_hub.disconnect(websocket)
+
+@router.websocket("/survey-viewer/{token}/ws")
+async def survey_viewer_ws(websocket: WebSocket, token: str):
+    """Aviso en vivo de nuevas respuestas de la encuesta para quien presenta (lo identifica su enlace secreto)."""
+    from src.core.database import async_session_maker
+    from src.api.v1.endpoints.chat import ws_origin_ok
+
+    await websocket.accept()
+    if not ws_origin_ok(websocket):
+        return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Origen no permitido")
+    async with async_session_maker() as db:
+        try:
+            await EventSurveyService.get_results_for_viewer(db, token)
+        except HTTPException:
+            return await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Enlace no válido")
+    questions_hub.connect_viewer(websocket)
     try:
         while True:
             await websocket.receive_text()  # mantiene la conexión; el cliente puede enviar pings
@@ -392,6 +421,27 @@ async def get_survey_results(db: AsyncSession = Depends(get_db)):
     """Resultados en conjunto y por los cuatro grupos (anónimos)."""
     return await EventSurveyService.get_results(db)
 
+@router.get("/survey-viewer/{token}")
+async def get_survey_results_for_presenter(token: str, response: Response, db: AsyncSession = Depends(get_db)):
+    """Resultados de la encuesta para quien presenta, con su enlace secreto (sin sesión, solo lectura)."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return await EventSurveyService.get_results_for_viewer(db, token)
+
+@router.get("/admin/survey/viewer-link", dependencies=event_admin)
+async def get_survey_viewer_link(db: AsyncSession = Depends(get_db)):
+    """Enlace secreto vigente para el presentador (token nulo si no hay)."""
+    return await EventSurveyService.get_viewer_link(db)
+
+@router.post("/admin/survey/viewer-link", dependencies=event_admin)
+async def rotate_survey_viewer_link(db: AsyncSession = Depends(get_db)):
+    """Crea un enlace nuevo para el presentador e invalida el anterior."""
+    return await EventSurveyService.rotate_viewer_link(db)
+
+@router.delete("/admin/survey/viewer-link", dependencies=event_admin)
+async def revoke_survey_viewer_link(db: AsyncSession = Depends(get_db)):
+    """Desactiva el enlace del presentador."""
+    return await EventSurveyService.revoke_viewer_link(db)
+
 @router.put("/admin/survey/open", dependencies=event_admin)
 async def set_survey_open(body: SurveyOpenRequest, db: AsyncSession = Depends(get_db)):
     """Abre o cierra la encuesta durante el evento."""
@@ -505,12 +555,6 @@ class CouponRecipientsRequest(BaseModel):
 async def get_my_coupon(token: str, db: AsyncSession = Depends(get_db)):
     """Cupón personal del asistente (solo con los cupones activados por el equipo)."""
     return await EventCouponService.get_for_attendee(db, token)
-
-@router.get("/coupon/{token}/qr.png")
-async def get_my_coupon_qr(token: str, db: AsyncSession = Depends(get_db)):
-    """QR que lleva a Gloint Place con el cupón ya puesto (PNG)."""
-    png = await EventCouponService.get_qr(db, token)
-    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, no-store"})
 
 @router.get("/admin/coupons", dependencies=event_admin)
 async def admin_get_coupons(db: AsyncSession = Depends(get_db)):

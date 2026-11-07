@@ -13,6 +13,7 @@ import { EventAttendancePage } from "./features/events/pages/EventAttendancePage
 import { EventLivePage } from "./features/events/pages/EventLivePage";
 import { EventQuestionsPage } from "./features/events/pages/EventQuestionsPage";
 import { EventSurveyPage } from "./features/events/pages/EventSurveyPage";
+import { EventSurveyViewerPage } from "./features/events/pages/EventSurveyViewerPage";
 import { EventCouponPage } from "./features/events/pages/EventCouponPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
@@ -158,6 +159,9 @@ function App() {
       {/* Alias de compatibilidad con rutas documentadas en especificación */}
       <Route path="/chat" element={<Navigate to="/dashboard/chat" replace />} />
       <Route path="/rooms" element={<Navigate to="/dashboard/rooms" replace />} />
+
+      {/* Resultados de la encuesta para quien presenta (enlace secreto, pantalla completa, sin sesión) */}
+      <Route path="/evento/presentador/:token" element={<EventSurveyViewerPage />} />
 
       {/* Pasarela Pública Gloint Pay Checkout */}
       <Route path="/pay/checkout" element={<GlointPayCheckoutPage />} />
