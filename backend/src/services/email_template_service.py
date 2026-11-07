@@ -1301,7 +1301,8 @@ class EmailTemplateService:
             </div>
             """
         else:
-            virt_link_html = f'<a href="{virtual_url}" target="_blank" style="color: #0284c7; font-weight: 700; text-decoration: underline;">{virtual_url}</a>' if virtual_url else 'Enlace exclusivo habilitado previo al inicio'
+            # La transmisión se ve en la plataforma de Gloint con un enlace personal que llega por correo: no se muestra ninguna sala externa (Meet)
+            virt_link_html = 'Enlace personal que recibirás por correo antes del inicio'
             mode_rows = f"""
             <tr>
                 <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Modalidad:</td>
@@ -1317,7 +1318,7 @@ class EmailTemplateService:
             <div style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 16px 20px; margin: 20px 0; font-size: 13px; color: #075985; line-height: 1.65;">
                 <strong style="color: #0c4a6e; font-size: 13.5px;">💻 Instrucciones para tu conexión virtual:</strong><br>
                 • <strong>Apertura de la Transmisión:</strong> La sala de streaming estará disponible <strong>15 minutos antes</strong> para verificar audio y calidad de video.<br>
-                • <strong>Enlace Directo:</strong> Puedes acceder directamente desde el botón ubicado al final de este correo o mediante el enlace: <a href="{virtual_url}" style="color: #0284c7; text-decoration: underline;">{virtual_url}</a>.<br>
+                • <strong>Tu Acceso:</strong> Te enviaremos por correo tu enlace personal e intransferible para ver la transmisión directamente en la plataforma de Gloint.<br>
                 • <strong>Participación en Vivo:</strong> Tendrás a disposición el chat en tiempo real para formular preguntas a los directivos de Gloint.
             </div>
             """
@@ -1365,8 +1366,8 @@ class EmailTemplateService:
         {instructions_box}
         """
 
-        cta_text = "Acceder a la Sala Virtual" if not is_in_person else "Ver en Portal Gloint"
-        cta_url = virtual_url if (not is_in_person and virtual_url) else (f"{frontend_url}/dashboard" if attendee_type == "investor" else f"{frontend_url}/#power-tech")
+        cta_text = "Ver en Portal Gloint"
+        cta_url = f"{frontend_url}/dashboard" if attendee_type == "investor" else f"{frontend_url}/#power-tech"
         
         secondary_cta_text = "Ir a Mi Portal" if attendee_type == "investor" else None
         secondary_cta_url = f"{frontend_url}/dashboard" if attendee_type == "investor" else None
