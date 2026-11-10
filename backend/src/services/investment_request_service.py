@@ -1,4 +1,5 @@
 from src.core.search import like_contains, LIKE_ESCAPE
+import asyncio
 import csv
 import io
 import logging
@@ -576,13 +577,16 @@ class InvestmentRequestService:
                         amount=sale_amount,
                         referrer_code=referred_code
                     )
-                    await register_commercial_sale(
-                        db,
-                        commercial_id=int(c_id),
-                        sale_data=c_sale_create,
-                        investor_id=req.investor_id,
-                        investment_request_id=req.id
-                    )
+                    # SAVEPOINT: si la venta comercial falla a mitad (error de BD), solo se revierte ella y la
+                    # aprobación sigue sana; sin esto la transacción quedaba rota y el commit final daba un 500.
+                    async with db.begin_nested():
+                        await register_commercial_sale(
+                            db,
+                            commercial_id=int(c_id),
+                            sale_data=c_sale_create,
+                            investor_id=req.investor_id,
+                            investment_request_id=req.id
+                        )
                     logger.info(f"Venta comercial de ${sale_amount} (Aumento neto / Venta) adjudicada automáticamente al Directivo #{c_id}")
             except Exception as e:
                 logger.error(f"Error al adjudicar venta comercial automática al Directivo #{c_id}: {e}")
@@ -595,8 +599,15 @@ class InvestmentRequestService:
              "es_aumento_capital": bool(is_upgrade and existing_investor is not None),
              "contrato_id": req.investor_id, "reviewed_by": user_id},
         )
-        await db.commit()
-        await db.refresh(req)
+        try:
+            await db.commit()
+            await db.refresh(req)
+        except Exception as commit_err:
+            await db.rollback()
+            logger.error(f"No se pudo confirmar la aprobación de la solicitud #{request_id}: {commit_err}", exc_info=True)
+            # HTTPException (no un error sin manejar): así la respuesta lleva cabeceras CORS y el panel muestra
+            # el motivo real en vez de "Network Error".
+            raise HTTPException(status_code=500, detail="No se pudo guardar la aprobación. No se hizo ningún cambio; intenta de nuevo o revisa el registro del servidor.")
 
         # Contratos automáticos: una inversión nueva genera su contrato y un aumento de capital genera la nueva versión.
         # Va después del commit y en otra sesión: si falla, la aprobación ya quedó hecha y no se ve afectada.
@@ -632,7 +643,8 @@ class InvestmentRequestService:
                     elif req.extra_data.get("auto_approved_by") == "YOINT_GATEWAY":
                         yoint_method = "Pago en línea"
 
-                EmailService.send_investment_activated_email(
+                await asyncio.to_thread(
+                    EmailService.send_investment_activated_email,
                     to_email=investor_user.email,
                     user_name=investor_user.name or "Inversionista",
                     contract_code=c_code,
