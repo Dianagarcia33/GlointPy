@@ -399,7 +399,7 @@ class InvestmentRequestService:
 
             # Asegurar que el usuario tenga su Wallet creada
             from decimal import Decimal
-            from src.models.wallet import Wallet, WalletStatus
+            from src.models.wallet import Wallet, WalletStatus, WalletTransaction
             wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == req.user_id))
             wallet = wallet_res.scalars().first()
             if not wallet:
