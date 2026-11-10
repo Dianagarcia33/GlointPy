@@ -247,6 +247,17 @@ class InvestmentRequestService:
         if req.extra_data and isinstance(req.extra_data, dict):
             period_id = req.extra_data.get("contract_period_id")
 
+        if period_id:
+            # La solicitud puede traer un periodo que ya no existe (borrado o reemplazado): escribirlo en el contrato
+            # rompe la llave foránea y daba un 500. Se valida antes de tocar nada y se explica el motivo.
+            period_exists = (await db.execute(select(Period.id).where(Period.id == period_id))).scalar_one_or_none()
+            if period_exists is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"El periodo de contrato #{period_id} de esta solicitud ya no existe. "
+                           f"Corrige el periodo de la solicitud antes de aprobarla."
+                )
+
         if not period_id:
             period_res = await db.execute(select(Period).limit(1))
             period = period_res.scalars().first()
