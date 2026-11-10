@@ -149,6 +149,11 @@ class MyRegistrationResponse(AttendeeResponse):
     coupon_active: bool = False          # los cupones de Gloint Place están disponibles
 
 
+class AdminAttendeeResponse(AttendeeResponse):
+    """Inscrito visto por el equipo: incluye el token del enlace personal para poder compartirlo."""
+    access_token: Optional[str] = None
+
+
 class AdminEventSummaryResponse(BaseModel):
     event: EventPublicResponse
     total_attendees: int
@@ -156,7 +161,7 @@ class AdminEventSummaryResponse(BaseModel):
     external_attendees: int
     in_person_attendees: int
     virtual_attendees: int
-    attendees: List[AttendeeResponse]
+    attendees: List[AdminAttendeeResponse]
 
 
 class EventAuthorizedDomainCreate(BaseModel):

@@ -7,6 +7,7 @@ import {
   previewLive,
   sendLiveInvitations,
   sendLiveInvitationToAttendee,
+  sendLiveInvitationToInvestor,
   updateLiveConfig,
 } from '../../../../services/events';
 import { useLatestOnly } from '../hooks/useLatestOnly';
@@ -32,6 +33,7 @@ export function LiveRoomCard() {
   const [playbackId, setPlaybackId] = useState('');
   const [preview, setPreview] = useState<AttendanceEmailsResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [investorEmail, setInvestorEmail] = useState('');
   const [rowBusy, setRowBusy] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   // Prueba de la transmisión solo para el equipo (no abre la sala a los inscritos)
@@ -110,6 +112,22 @@ export function LiveRoomCard() {
       setRowBusy(null);
     }
   };
+
+  const sendToInvestor = () => run(async () => {
+    const email = investorEmail.trim();
+    if (!email) return;
+    let res;
+    try {
+      res = await sendLiveInvitationToInvestor(email);
+    } catch (e: any) {
+      if (!/presencial/i.test(e?.message || '')) throw e;
+      if (!window.confirm(`${e.message}\n\n¿Pasarlo a virtual y enviarle el enlace?`)) return;
+      res = await sendLiveInvitationToInvestor(email, true);
+    }
+    setMessage({ type: 'success', text: `Enlace de la transmisión enviado a ${res.email}.` });
+    setInvestorEmail('');
+    refresh();
+  });
 
   return (
     <section className="bg-white border border-slate-200 rounded-2xl shadow-xs p-5 sm:p-6 space-y-5">
@@ -201,6 +219,21 @@ export function LiveRoomCard() {
           ))}
         </div>
       )}
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+        <p className="text-xs font-bold text-slate-700">Enviar el enlace a cualquier inversionista</p>
+        <p className="text-[11px] text-slate-500">Escribe su correo de la cuenta. Si no estaba inscrito, queda inscrito como virtual y recibe su enlace personal.</p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input type="email" value={investorEmail} onChange={(e) => setInvestorEmail(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') sendToInvestor(); }}
+            placeholder="correo@inversionista.com" aria-label="Correo del inversionista"
+            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <button onClick={sendToInvestor} disabled={busy || !investorEmail.trim()}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+            <Send className="w-4 h-4" />Enviar enlace
+          </button>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={loadPreview} disabled={busy}

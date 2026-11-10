@@ -24,6 +24,7 @@ from src.schemas.event import (
     PublicRsvpRequest,
     AttendeeResponse,
     AdminEventSummaryResponse,
+    AdminAttendeeResponse,
     EventAuthorizedDomainCreate,
     EventAuthorizedDomainUpdate,
     EventAuthorizedDomainResponse,
@@ -488,6 +489,13 @@ class EventService:
         result = await db.execute(query)
         attendees = result.scalars().all()
 
+        # Inscritos anteriores a los tokens no tienen enlace personal: se les genera para poder compartirlo
+        missing = [a for a in attendees if not a.access_token]
+        if missing:
+            for a in missing:
+                a.access_token = secrets.token_urlsafe(32)
+            await db.commit()
+
         confirmed_attendees = [a for a in attendees if a.status == "confirmed"]
         total = len(confirmed_attendees)
         investor_count = sum(1 for a in confirmed_attendees if a.attendee_type == "investor")
@@ -502,7 +510,7 @@ class EventService:
             external_attendees=external_count,
             in_person_attendees=in_person_count,
             virtual_attendees=virtual_count,
-            attendees=[AttendeeResponse.from_orm(a) for a in attendees]
+            attendees=[AdminAttendeeResponse.model_validate(a, from_attributes=True) for a in attendees]
         )
 
     @classmethod

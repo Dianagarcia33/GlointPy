@@ -41,6 +41,7 @@ export interface AttendeeData {
   seats_reserved: number;
   status: 'confirmed' | 'cancelled';
   created_at?: string;
+  access_token?: string | null; // solo la respuesta del admin lo incluye
 }
 
 export interface AdminEventSummary {
@@ -732,6 +733,12 @@ export const deleteGameRound = async (id: number): Promise<GameAdminData> => {
   return await fetchApi(`/events/admin/game/rounds/${id}`, { method: 'DELETE' });
 };
 
+export const sendLiveInvitationToInvestor = async (email: string, forceVirtual = false): Promise<{ sent: boolean; email: string }> => {
+  return await fetchApi('/events/admin/live/investor-invitation', {
+    method: 'POST',
+    body: JSON.stringify({ email, force_virtual: forceVirtual }),
+  });
+};
 // ---------------------------------------------------------------------------
 // Rifa por eliminación (presenciales que ya entraron; responden con su enlace personal)
 // ---------------------------------------------------------------------------
