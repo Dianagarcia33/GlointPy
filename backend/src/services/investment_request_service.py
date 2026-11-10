@@ -26,6 +26,10 @@ REFERRAL_ACCELERATION_ENABLED = False
 
 logger = logging.getLogger(__name__)
 
+# id de periodo inexistente que llega en algunas solicitudes -> id real (18 meses, 4.8%, 547 días)
+LEGACY_PERIOD_ID_MAP = {18: 7}
+
+
 class InvestmentRequestService:
     
     @staticmethod
@@ -251,6 +255,14 @@ class InvestmentRequestService:
             # La solicitud puede traer un periodo que ya no existe (borrado o reemplazado): escribirlo en el contrato
             # rompe la llave foránea y daba un 500. Se valida antes de tocar nada y se explica el motivo.
             period_exists = (await db.execute(select(Period.id).where(Period.id == period_id))).scalar_one_or_none()
+            if period_exists is None and period_id in LEGACY_PERIOD_ID_MAP:
+                # Parche: hay solicitudes que traen un id de periodo que no existe (18 en vez del periodo de 18 meses).
+                mapped_id = LEGACY_PERIOD_ID_MAP[period_id]
+                mapped_ok = (await db.execute(select(Period.id).where(Period.id == mapped_id))).scalar_one_or_none()
+                if mapped_ok is not None:
+                    logger.warning(f"Solicitud #{request_id}: periodo inexistente {period_id} reemplazado por {mapped_id}")
+                    period_id = mapped_id
+                    period_exists = mapped_id
             if period_exists is None:
                 raise HTTPException(
                     status_code=400,
