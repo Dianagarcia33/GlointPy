@@ -414,15 +414,15 @@ class InvestmentRequestService:
             today_cot = get_colombia_today()
 
             if start_d and start_d < today_cot:
-                if not investor.package:
-                    investor.package = pkg
-                if not investor.period:
-                    p_res = await db.execute(select(Period).where(Period.id == period_id))
-                    investor.period = p_res.scalar_one_or_none()
-                if not hasattr(investor, 'withdrawals') or investor.withdrawals is None:
-                    investor.withdrawals = []
-                if not hasattr(investor, 'accelerations') or investor.accelerations is None:
-                    investor.accelerations = []
+                # Conexión asíncrona: leer investor.package/period/withdrawals/accelerations de un contrato recién
+                # creado dispara una carga perezosa y revienta (greenlet_spawn -> 500 sin CORS = "Network Error").
+                # Se cargan explícitamente y se fijan como ya cargadas, sin tocar la base de datos.
+                from sqlalchemy.orm.attributes import set_committed_value
+                p_res = await db.execute(select(Period).where(Period.id == period_id))
+                set_committed_value(investor, "package", pkg)
+                set_committed_value(investor, "period", p_res.scalar_one_or_none())
+                set_committed_value(investor, "withdrawals", [])
+                set_committed_value(investor, "accelerations", [])
 
                 yield_calc = calculate_investment_yield(investor, start_d, today_cot)
                 initial_yield = yield_calc.total_yield
