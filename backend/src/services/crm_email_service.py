@@ -17,6 +17,7 @@ from src.models.crm_email import CRMEmail, CRMEmailDirection, CRMEmailStatus
 from src.models.crm import CRMLead, CRMProject, CRMActivity, CRMActivityType
 from src.models.user import User
 from src.services.email_service import EmailService
+from src.core.html_sanitize import sanitize_signature_html
 
 def friendly_imap_error(exc: Exception, is_auth_error: bool) -> str:
     """Mensaje para el usuario (H-207): sin el repr de bytes ni detalles de la librería IMAP; el detalle va al log."""
@@ -633,7 +634,8 @@ class CRMEmailService:
         project_id: Optional[int] = None,
         attachments: Optional[List[dict]] = None,
         cc_emails: Optional[str] = None,
-        bcc_emails: Optional[str] = None
+        bcc_emails: Optional[str] = None,
+        include_signature: bool = True
     ) -> dict:
         """Envía un correo comercial a través de Resend, guarda la copia en la BD y registra la actividad."""
         if not lead_id:
@@ -643,6 +645,14 @@ class CRMEmailService:
                 lead_id = found_lead.id
                 if not project_id:
                     project_id = found_lead.project_id
+
+        # Firma del usuario: se agrega al final del cuerpo (también queda en la copia guardada)
+        signature = (getattr(user, "email_signature", None) or "").strip()
+        if include_signature and signature:
+            body_html = (
+                f'{body_html}<br/><div class="gloint-signature" '
+                f'style="margin-top:16px;">{signature}</div>'
+            )
 
         cc_list = [c.strip() for c in cc_emails.replace(";", ",").split(",") if c.strip()] if cc_emails else None
         bcc_list = [b.strip() for b in bcc_emails.replace(";", ",").split(",") if b.strip()] if bcc_emails else None
@@ -694,6 +704,20 @@ class CRMEmailService:
             await db.commit()
 
         return _email_to_dict(email_record)
+
+    @staticmethod
+    async def get_signature(user: User) -> dict:
+        return {"signature_html": user.email_signature or ""}
+
+    @staticmethod
+    async def set_signature(db: AsyncSession, user: User, signature_html: Optional[str]) -> dict:
+        clean = sanitize_signature_html(signature_html)
+        if len(clean) > 100_000:
+            raise ValueError("La firma es demasiado grande (máximo 100 KB).")
+        user.email_signature = clean or None
+        db.add(user)
+        await db.commit()
+        return {"signature_html": user.email_signature or ""}
 
     @staticmethod
     def get_email_templates() -> List[dict]:

@@ -50,12 +50,7 @@ import {
   UserPlus, 
   Check, 
   Users, 
-  Bold, 
-  Italic, 
-  Underline, 
-  ListOrdered, 
-  Quote, 
-  Link2 
+  PenLine 
 } from 'lucide-react';
 import { 
   crmEmailService, 
@@ -68,6 +63,7 @@ import {
 import { crmService, CRMProject } from '../../../services/crmService';
 import { useAuthStore } from '../../../store/authStore';
 import { getMediaUrl } from '../../../services/api';
+import { EmailRichEditor, isHtmlEmpty } from '../components/EmailRichEditor';
 import { sanitizeEmailHtml } from '../../../utils/sanitizeHtml';
 
 // Utilidad para formatear tamaños de archivo
@@ -223,14 +219,16 @@ export const CRMInboxPage: React.FC = () => {
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [subject, setSubject] = useState('');
   const [bodyHtml, setBodyHtml] = useState('');
-  // H-188: el cuerpo es HTML; se puede alternar entre el código y una vista previa renderizada
-  const [isBodyPreview, setIsBodyPreview] = useState(false);
+  // Firma del usuario: se agrega al final de los correos enviados
+  const [includeSignature, setIncludeSignature] = useState(true);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [signatureDraft, setSignatureDraft] = useState('');
+  const [savingSignature, setSavingSignature] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [sending, setSending] = useState(false);
   const [composerAttachments, setComposerAttachments] = useState<EmailAttachment[]>([]);
   const [uploadingComposerFiles, setUploadingComposerFiles] = useState(false);
   const composerFileInputRef = useRef<HTMLInputElement>(null);
-  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Vista previa lightbox para imágenes
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -329,6 +327,12 @@ export const CRMInboxPage: React.FC = () => {
     queryFn: () => crmEmailService.getTemplates()
   });
 
+  const { data: signatureData, refetch: refetchSignature } = useQuery<{ signature_html: string }>({
+    queryKey: ['crm-email-signature'],
+    queryFn: () => crmEmailService.getSignature(),
+  });
+  const signatureHtml = signatureData?.signature_html || '';
+
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3800);
@@ -401,7 +405,6 @@ export const CRMInboxPage: React.FC = () => {
       setSelectedTemplateId(templateId);
       setSubject(tmpl.subject);
       setBodyHtml(tmpl.body_html.trim());
-      setIsBodyPreview(true); // la plantilla es HTML: se muestra ya formateada y se puede pasar a "Editar"
     } else {
       setQuickReplyText(tmpl.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
       setIsQuickReplyExpanded(true);
@@ -442,7 +445,7 @@ export const CRMInboxPage: React.FC = () => {
   // Enviar correo desde redactor
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recipient.trim() || !subject.trim() || !bodyHtml.trim()) {
+    if (!recipient.trim() || !subject.trim() || isHtmlEmpty(bodyHtml)) {
       showToast('Por favor completa el destinatario, asunto y cuerpo del mensaje', 'error');
       return;
     }
@@ -455,7 +458,8 @@ export const CRMInboxPage: React.FC = () => {
         body_html: composerBodyToHtml(bodyHtml),
         attachments: composerAttachments.length > 0 ? composerAttachments : undefined,
         cc_emails: ccEmails.trim() || undefined,
-        bcc_emails: bccEmails.trim() || undefined
+        bcc_emails: bccEmails.trim() || undefined,
+        include_signature: includeSignature
       });
       showToast('¡Correo comercial enviado exitosamente!', 'success');
       setIsComposerOpen(false);
@@ -465,7 +469,6 @@ export const CRMInboxPage: React.FC = () => {
       setShowCcBcc(false);
       setSubject('');
       setBodyHtml('');
-      setIsBodyPreview(false);
       setComposerAttachments([]);
       refetchEmails();
       refetchFolderCounts();
@@ -497,7 +500,8 @@ export const CRMInboxPage: React.FC = () => {
         body_html: quickReplyText.trim().replace(/\n/g, '<br/>'),
         lead_id: selectedEmail.lead_id || undefined,
         project_id: selectedEmail.project_id || undefined,
-        attachments: quickReplyAttachments.length > 0 ? quickReplyAttachments : undefined
+        attachments: quickReplyAttachments.length > 0 ? quickReplyAttachments : undefined,
+        include_signature: true
       });
       showToast('¡Respuesta enviada exitosamente!', 'success');
       setQuickReplyText('');
@@ -827,29 +831,23 @@ export const CRMInboxPage: React.FC = () => {
     }
   };
 
-  // Helper para insertar etiquetas HTML en redactor
-  const insertFormatting = (tag: string) => {
-    const textarea = composerTextareaRef.current;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = bodyHtml;
-    const selectedText = text.substring(start, end) || 'texto';
-    
-    let replacement = '';
-    if (tag === 'b') replacement = `<b>${selectedText}</b>`;
-    else if (tag === 'i') replacement = `<i>${selectedText}</i>`;
-    else if (tag === 'u') replacement = `<u>${selectedText}</u>`;
-    else if (tag === 'ul') replacement = `\n<ul>\n  <li>${selectedText}</li>\n</ul>\n`;
-    else if (tag === 'quote') replacement = `<blockquote style="border-left: 3px solid #A06A10; padding-left: 10px; margin: 10px 0; color: #475569;">${selectedText}</blockquote>`;
-    else if (tag === 'a') replacement = `<a href="https://" style="color: #A06A10; text-decoration: underline;">${selectedText}</a>`;
+  const openSignatureEditor = () => {
+    setSignatureDraft(signatureHtml);
+    setIsSignatureModalOpen(true);
+  };
 
-    const newText = text.substring(0, start) + replacement + text.substring(end);
-    setBodyHtml(newText);
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + replacement.length, start + replacement.length);
-    }, 50);
+  const handleSaveSignature = async () => {
+    try {
+      setSavingSignature(true);
+      await crmEmailService.saveSignature(isHtmlEmpty(signatureDraft) ? '' : signatureDraft);
+      await refetchSignature();
+      setIsSignatureModalOpen(false);
+      showToast(isHtmlEmpty(signatureDraft) ? 'Firma eliminada' : 'Firma guardada. Se agregará a tus correos.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'No se pudo guardar la firma', 'error');
+    } finally {
+      setSavingSignature(false);
+    }
   };
 
   // Filtrado de correos según la pestaña activa
@@ -2310,100 +2308,41 @@ export const CRMInboxPage: React.FC = () => {
                   />
                 </div>
 
-                {/* Código / Vista previa del cuerpo (H-188) */}
-                <div className="flex items-center gap-1 text-[11px] font-bold" role="tablist" aria-label="Modo del cuerpo del mensaje">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={!isBodyPreview}
-                    onClick={() => setIsBodyPreview(false)}
-                    className={`px-3 py-1 rounded-lg border transition-colors ${!isBodyPreview ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={isBodyPreview}
-                    onClick={() => setIsBodyPreview(true)}
-                    className={`px-3 py-1 rounded-lg border transition-colors ${isBodyPreview ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                  >
-                    Vista previa
-                  </button>
-                </div>
+                {/* Cuerpo del Mensaje (editor visual: no se ven etiquetas HTML) */}
+                <EmailRichEditor
+                  value={bodyHtml}
+                  onChange={setBodyHtml}
+                  placeholder="Escribe el mensaje comercial aquí..."
+                  ariaLabel="Cuerpo del mensaje"
+                />
 
-                {/* Barra de Herramientas de Formato de Texto */}
-                <div className={`flex items-center gap-1 p-1 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 ${isBodyPreview ? 'opacity-40 pointer-events-none' : ''}`}>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('b')}
-                    className="p-1 hover:bg-slate-200 rounded font-bold text-xs"
-                    title="Negrita"
-                  >
-                    <Bold className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('i')}
-                    className="p-1 hover:bg-slate-200 rounded italic text-xs"
-                    title="Cursiva"
-                  >
-                    <Italic className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('u')}
-                    className="p-1 hover:bg-slate-200 rounded underline text-xs"
-                    title="Subrayado"
-                  >
-                    <Underline className="w-3.5 h-3.5" />
-                  </button>
-                  <div className="w-px h-3.5 bg-slate-200 mx-1" />
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('ul')}
-                    className="p-1 hover:bg-slate-200 rounded text-xs"
-                    title="Lista con viñetas"
-                  >
-                    <ListOrdered className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('quote')}
-                    className="p-1 hover:bg-slate-200 rounded text-xs"
-                    title="Cita"
-                  >
-                    <Quote className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => insertFormatting('a')}
-                    className="p-1 hover:bg-slate-200 rounded text-xs"
-                    title="Insertar enlace"
-                  >
-                    <Link2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Cuerpo del Mensaje */}
-                <div className="flex-1">
-                  {isBodyPreview ? (
-                    <div
-                      className="w-full min-h-[11rem] max-h-80 overflow-y-auto bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 leading-relaxed"
-                      aria-label="Vista previa del mensaje"
-                      dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(composerBodyToHtml(bodyHtml)) || '<span style="color:#94a3b8">El mensaje está vacío.</span>' }}
+                {/* Firma */}
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <label className={`flex items-center gap-1.5 font-semibold ${signatureHtml ? 'text-slate-700' : 'text-slate-400'}`}>
+                    <input
+                      type="checkbox"
+                      checked={includeSignature && !!signatureHtml}
+                      disabled={!signatureHtml}
+                      onChange={(e) => setIncludeSignature(e.target.checked)}
                     />
-                  ) : (
-                  <textarea
-                    ref={composerTextareaRef}
-                    rows={8}
-                    placeholder="Escribe el mensaje comercial aquí..."
-                    value={bodyHtml}
-                    onChange={(e) => setBodyHtml(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-brand-500 font-sans resize-none leading-relaxed"
-                  />
-                  )}
+                    Enviar con mi firma
+                  </label>
+                  <button
+                    type="button"
+                    onClick={openSignatureEditor}
+                    className="flex items-center gap-1 font-bold text-brand-600 hover:text-brand-700"
+                  >
+                    <PenLine className="w-3 h-3" />
+                    {signatureHtml ? 'Editar firma' : 'Crear firma'}
+                  </button>
                 </div>
+                {includeSignature && signatureHtml && (
+                  <div
+                    className="border-t border-dashed border-slate-300 pt-2 text-xs text-slate-700 max-h-28 overflow-y-auto"
+                    aria-label="Vista de tu firma"
+                    dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(signatureHtml) }}
+                  />
+                )}
 
                 {/* Adjuntos en el Compositor */}
                 {composerAttachments.length > 0 && (
@@ -2477,6 +2416,47 @@ export const CRMInboxPage: React.FC = () => {
               </div>
             </form>
           )}
+        </div>
+      )}
+
+      {/* Modal de firma de correo */}
+      {isSignatureModalOpen && (
+        <div className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <PenLine className="w-4 h-4 text-brand-500" />
+                <h2 className="text-base font-bold text-slate-900 font-montserrat">Mi firma de correo</h2>
+              </div>
+              <button type="button" onClick={() => setIsSignatureModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-700" title="Cerrar">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mb-3">
+              Escribe tu nombre, cargo y datos de contacto. Se agregará al final de los correos que envíes desde la bandeja. Déjala vacía para quitarla.
+            </p>
+            <EmailRichEditor
+              value={signatureDraft}
+              onChange={setSignatureDraft}
+              placeholder="Ej: Ana Pérez · Asesora Comercial · +57 300 000 0000"
+              minHeightClass="min-h-[8rem]"
+              ariaLabel="Editor de firma"
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button type="button" onClick={() => setIsSignatureModalOpen(false)} className="px-4 py-2 text-xs text-slate-500 hover:text-slate-700 font-montserrat">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={savingSignature}
+                onClick={handleSaveSignature}
+                className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold font-montserrat flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {savingSignature && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Guardar firma
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
