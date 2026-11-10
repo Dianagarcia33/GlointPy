@@ -10,6 +10,7 @@ import { rankingsService, UserRankDetails } from '../../../services/rankings';
 import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
+import { FirstInvestmentGuide } from '../components/FirstInvestmentGuide';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
 import { DirectorDashboardView } from '../components/DirectorDashboardView';
@@ -411,7 +412,7 @@ export const DashboardPage = () => {
                                             </h4>
                                         </div>
                                         <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                                            Estamos validando automáticamente tus antecedentes normativos con Tusdatos.co. Las opciones de inversión se habilitarán automáticamente tan pronto finalice el análisis.
+                                            Estamos validando automáticamente tus antecedentes normativos con Tusdatos.co. Puedes quedarte en esta pantalla: apenas finalice el análisis te llevaremos a crear tu primera inversión. También te avisaremos por correo.
                                         </p>
                                     </div>
                                 </div>
@@ -422,6 +423,9 @@ export const DashboardPage = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Verificación aprobada sin inversiones: guía hacia la primera inversión */}
+                        <FirstInvestmentGuide investmentsCount={investments.length} />
 
                         {/* Banner de Validación SARLAFT Rechazada / Con Alertas */}
                         {isSarlaftRejected && (
