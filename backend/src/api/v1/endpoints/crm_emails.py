@@ -24,6 +24,10 @@ class SendEmailSchema(BaseModel):
     attachments: Optional[List[dict]] = None
     cc_emails: Optional[str] = None
     bcc_emails: Optional[str] = None
+    include_signature: bool = True
+
+class SignatureSchema(BaseModel):
+    signature_html: Optional[str] = None
 
 class BulkEmailActionSchema(BaseModel):
     action: str  # mark_read, mark_unread, star, unstar, archive, unarchive, trash, restore, delete_permanent
@@ -100,6 +104,25 @@ async def get_email_templates(
     return CRMEmailService.get_email_templates()
 
 
+@router.get("/signature", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:inbox:send", "crm:view"]))])
+async def get_email_signature(current_user: User = Depends(get_current_user)):
+    """Firma de correo del usuario actual."""
+    return await CRMEmailService.get_signature(current_user)
+
+
+@router.put("/signature", dependencies=[Depends(RequirePermission(["crm:inbox:send", "crm:leads:manage"]))])
+async def save_email_signature(
+    data: SignatureSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Guarda (o borra, si va vacía) la firma de correo del usuario actual."""
+    try:
+        return await CRMEmailService.set_signature(db, current_user, data.signature_html)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.get("/leads/{lead_id}", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view", "crm:leads:manage"]))])
 async def get_lead_emails(
     lead_id: int,
@@ -130,7 +153,8 @@ async def send_crm_email(
         project_id=data.project_id,
         attachments=data.attachments,
         cc_emails=data.cc_emails,
-        bcc_emails=data.bcc_emails
+        bcc_emails=data.bcc_emails,
+        include_signature=data.include_signature
     )
 
     return {"message": "Correo enviado exitosamente", "data": result}

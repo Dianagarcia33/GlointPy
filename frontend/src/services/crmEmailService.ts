@@ -106,10 +106,22 @@ export const crmEmailService = {
     attachments?: EmailAttachment[];
     cc_emails?: string;
     bcc_emails?: string;
+    include_signature?: boolean;
   }): Promise<{ message: string; data: CRMEmail }> => {
     return fetchApi('/crm/emails/send', {
       method: 'POST',
       body: JSON.stringify(data)
+    });
+  },
+
+  getSignature: async (): Promise<{ signature_html: string }> => {
+    return fetchApi('/crm/emails/signature');
+  },
+
+  saveSignature: async (signatureHtml: string): Promise<{ signature_html: string }> => {
+    return fetchApi('/crm/emails/signature', {
+      method: 'PUT',
+      body: JSON.stringify({ signature_html: signatureHtml })
     });
   },
 
