@@ -272,7 +272,9 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
                 user.roles_list = Array.from(rolesList);
             }
             loginAction(user);
-            navigate('/dashboard');
+            // Tras registrarse, el usuario sigue guiado: verificación SARLAFT y luego su primera inversión
+            try { sessionStorage.removeItem('gl_skip_first_investment_onboarding'); } catch { /* sin storage */ }
+            navigate('/dashboard/primera-inversion');
         },
     });
 
