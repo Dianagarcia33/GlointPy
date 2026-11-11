@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Loader2, Trophy, ChevronRight, Clock, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Trophy, ChevronRight, ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 import { Can } from '../../../components/security/Can';
@@ -12,6 +12,7 @@ import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { FirstInvestmentGuide } from '../components/FirstInvestmentGuide';
+import { SarlaftPendingModal } from '../components/SarlaftPendingModal';
 import { SKIP_ONBOARDING_KEY } from './FirstInvestmentOnboardingPage';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
@@ -406,34 +407,8 @@ export const DashboardPage = () => {
                     <InvestorDashboardSkeleton />
                 ) : (
                     <>
-                        {/* Banner de Validación SARLAFT Pendiente */}
-                        {isSarlaftPending && (
-                            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300/80 rounded-3xl p-5 sm:p-6 mb-6 backdrop-blur-sm shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
-                                <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-600 mt-0.5 shadow-xs">
-                                        <Clock className="w-6 h-6 animate-pulse" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-900 text-[10px] font-extrabold uppercase rounded-full border border-amber-500/30">
-                                                En Verificación
-                                            </span>
-                                            <h4 className="font-bold text-slate-900 text-sm sm:text-base font-montserrat">
-                                                Validación de Identidad y SARLAFT en Proceso
-                                            </h4>
-                                        </div>
-                                        <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                                            Estamos validando automáticamente tus antecedentes normativos con Tusdatos.co. Puedes quedarte en esta pantalla: apenas finalice el análisis te llevaremos a crear tu primera inversión. También te avisaremos por correo.
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                                    <span className="text-xs font-semibold text-amber-800 bg-amber-100/80 px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-1.5">
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-700" /> Consultando antecedentes...
-                                    </span>
-                                </div>
-                            </div>
-                        )}
+                        {/* Validación SARLAFT en curso: modal bloqueante hasta que termine */}
+                        {isSarlaftPending && <SarlaftPendingModal />}
 
                         {/* Verificación aprobada sin inversiones: guía hacia la primera inversión */}
                         <FirstInvestmentGuide investmentsCount={investments.length} />

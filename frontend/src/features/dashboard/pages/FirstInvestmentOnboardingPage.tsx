@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, ArrowRight, Clock, Wallet, UserCheck, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
+import { SarlaftPendingModal } from '../components/SarlaftPendingModal';
 import { investmentsService, Investment } from '../../../services/investments';
 import { NewInvestmentModal } from '../components/NewInvestmentModal';
 
@@ -82,6 +83,7 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
 
     return (
         <div className="max-w-2xl mx-auto py-8 px-4">
+            {isPending && !isLoading && <SarlaftPendingModal />}
             <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-6 sm:p-8">
                 <div className="mb-6">
                     <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-montserrat">
