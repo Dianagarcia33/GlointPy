@@ -25,6 +25,7 @@ import { RegisterPage } from "./features/auth/pages/RegisterPage";
 import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
 import { WelcomeOnboardingPage } from "./features/auth/pages/WelcomeOnboardingPage";
+import { FirstInvestmentOnboardingPage } from "./features/dashboard/pages/FirstInvestmentOnboardingPage";
 import { ForceChangePasswordPage } from "./features/auth/pages/ForceChangePasswordPage";
 import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditionsPage";
 import { PrivacyPolicyPage } from "./features/landing/pages/PrivacyPolicyPage";
@@ -194,6 +195,7 @@ function App() {
         } 
       >
         <Route index element={<DashboardPage />} />
+        <Route path="primera-inversion" element={<FirstInvestmentOnboardingPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
         <Route path="investments" element={<Navigate to="/dashboard" replace />} />

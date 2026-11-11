@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Loader2, Trophy, ChevronRight, Clock, ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
@@ -11,6 +12,7 @@ import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { FirstInvestmentGuide } from '../components/FirstInvestmentGuide';
+import { SKIP_ONBOARDING_KEY } from './FirstInvestmentOnboardingPage';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
 import { DirectorDashboardView } from '../components/DirectorDashboardView';
@@ -194,6 +196,15 @@ export const DashboardPage = () => {
         enabled: isInvestorView && !!user?.id,
         staleTime: 60000,
     });
+
+    // Inversionista sin ninguna inversión ni solicitud: se le guía hacia la verificación y su primera inversión
+    const navigate = useNavigate();
+    useEffect(() => {
+        if (!isInvestorView || isLoadingInvestments || investments.length > 0) return;
+        let skipped = false;
+        try { skipped = sessionStorage.getItem(SKIP_ONBOARDING_KEY) === '1'; } catch { /* sin storage */ }
+        if (!skipped) navigate('/dashboard/primera-inversion', { replace: true });
+    }, [isInvestorView, isLoadingInvestments, investments.length, navigate]);
 
     const parseNumber = (val: any) => {
         const parsed = Number(val);
