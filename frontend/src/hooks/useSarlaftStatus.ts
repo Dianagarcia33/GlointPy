@@ -19,10 +19,14 @@ export const useSarlaftStatus = (): SarlaftStatusState => {
     const { user } = useAuthStore();
 
     const { data, isLoading, refetch } = useQuery<SarlaftCheckResponse>({
-        queryKey: ['my_sarlaft_check'],
+        // Por usuario: si se inicia otra sesión en la misma pestaña no se muestra el estado del usuario anterior
+        queryKey: ['my_sarlaft_check', user?.id],
         queryFn: () => sarlaftService.getMyCheck(),
         enabled: !!user,
         staleTime: 1000 * 15,
+        // El estado cambia en el servidor sin que el usuario haga nada: siempre se vuelve a consultar al entrar o al volver a la pestaña
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
         refetchInterval: (query) => {
             const check = query.state.data?.check;
             const rawStatus = (check?.status || check?.tusdatos_status || query.state.data?.status || 'none').toLowerCase();
