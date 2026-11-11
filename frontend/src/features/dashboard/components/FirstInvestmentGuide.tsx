@@ -13,7 +13,7 @@ const dismissKey = (userId?: number | string) => `gl_first_investment_guide_dism
 
 const readDismissed = (userId?: number | string): boolean => {
     try {
-        return localStorage.getItem(dismissKey(userId)) === '1';
+        return sessionStorage.getItem(dismissKey(userId)) === '1';
     } catch {
         return false;
     }
@@ -54,7 +54,7 @@ export const FirstInvestmentGuide: React.FC<FirstInvestmentGuideProps> = ({ inve
     const dismiss = () => {
         setDismissed(true);
         try {
-            localStorage.setItem(dismissKey(user?.id), '1');
+            sessionStorage.setItem(dismissKey(user?.id), '1');
         } catch {
             /* sin storage: solo se oculta durante esta sesión */
         }

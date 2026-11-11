@@ -164,8 +164,13 @@ class TusdatosService:
         check.tusdatos_job_id = str(job_id)
         await db.commit()
 
-        # Polling de resultados (máx 15 reintentos, intervalo 4 seg)
-        max_attempts = 15
+        return await cls._poll_and_finalize(db, check, job_id)
+
+    @classmethod
+    async def _poll_and_finalize(cls, db: AsyncSession, check: SarlaftCheck, job_id: str, max_attempts: int = 15) -> SarlaftCheck:
+        """Pollea el job en Tusdatos y, si terminó, cierra el chequeo (clasifica, guarda PDF y avisa por correo)."""
+        import json
+
         for _ in range(max_attempts):
             await asyncio.sleep(4)
             results = await cls.poll_job_results(job_id)
@@ -279,6 +284,51 @@ class TusdatosService:
         check.tusdatos_status = "procesando"
         await db.commit()
         return check
+
+    @classmethod
+    async def resume_pending_checks(cls, db: AsyncSession, limit: int = 20) -> int:
+        """Retoma los chequeos que quedaron en proceso (se agotó el polling inicial o se reinició el servidor).
+
+        - Con job_id: vuelve a consultar el resultado en Tusdatos y lo cierra si ya terminó.
+        - Sin job_id (el lanzamiento no llegó a Tusdatos): lo relanza.
+        Solo toca chequeos con más de 3 minutos desde su último movimiento.
+        Devuelve cuántos chequeos se revisaron.
+        """
+        from datetime import timedelta
+
+        res = await db.execute(
+            select(SarlaftCheck)
+            .where(SarlaftCheck.tusdatos_status.in_(["processing", "procesando"]))
+            .order_by(SarlaftCheck.id.asc())
+            .limit(limit)
+        )
+        checks = res.scalars().all()
+        for check in checks:
+            try:
+                # El chequeo inicial en segundo plano tarda hasta ~1 min: no se pisa mientras sigue vivo
+                last = check.tusdatos_last_check or check.created_at
+                if last and datetime.utcnow() - last < timedelta(minutes=3):
+                    continue
+                job_id = check.job_id or check.tusdatos_job_id
+                if not job_id:
+                    fecha = (check.details or {}).get("fecha_expedicion") if isinstance(check.details, dict) else None
+                    launch_res = await cls.launch_check(check.document_number, check.document_type or "CC", fecha)
+                    job_id = launch_res.get("jobid")
+                    if not job_id:
+                        check.status = "failed"
+                        check.tusdatos_status = "failed"
+                        check.tusdatos_msg = launch_res.get("error", "No se recibió jobid de Tusdatos")
+                        await db.commit()
+                        continue
+                    check.job_id = str(job_id)
+                    check.tusdatos_job_id = str(job_id)
+                    await db.commit()
+                # Un solo intento por ciclo: si aún no termina, se retoma en el siguiente
+                await cls._poll_and_finalize(db, check, str(job_id), max_attempts=1)
+            except Exception as e:
+                logger.error(f"Error retomando chequeo SARLAFT {check.id}: {e}")
+                await db.rollback()
+        return len(checks)
 
     @classmethod
     async def execute_full_sarlaft_check_background(

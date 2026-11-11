@@ -93,6 +93,11 @@ async def on_startup():
         t_yoint = asyncio.create_task(background_yoint_sync_worker())
         _background_tasks.add(t_yoint)
         t_yoint.add_done_callback(_background_tasks.discard)
+        # Retomar validaciones SARLAFT que quedaron en proceso (timeout o reinicio del servidor)
+        from src.services.sarlaft_resume_worker import background_sarlaft_resume_worker
+        t_sarlaft = asyncio.create_task(background_sarlaft_resume_worker())
+        _background_tasks.add(t_sarlaft)
+        t_sarlaft.add_done_callback(_background_tasks.discard)
         import src.models
         from src.core.database import engine, Base, async_session_maker
         from src.run_seed import seed_permissions_db
