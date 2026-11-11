@@ -3,7 +3,7 @@ from typing import List, Optional
 import os
 import uuid
 import re
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
 
@@ -85,6 +85,45 @@ async def get_crm_emails(
         search=search, 
         has_meeting=has_meeting
     )
+
+
+_SIGNATURE_IMAGE_TYPES = {
+    ".png": b"\x89PNG\r\n\x1a\n",
+    ".jpg": b"\xff\xd8\xff",
+    ".jpeg": b"\xff\xd8\xff",
+    ".gif": b"GIF8",
+}
+
+
+@router.post("/signature-image", dependencies=[Depends(RequirePermission(["crm:inbox:send", "crm:leads:manage"]))])
+async def upload_signature_image(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Sube una imagen (logo/foto) para la firma de correo y devuelve su URL pública absoluta.
+
+    Los clientes de correo (Gmail, Outlook) no muestran imágenes incrustadas en base64 ni
+    rutas relativas, por eso la imagen se sirve desde una URL pública completa.
+    """
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _SIGNATURE_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Formato no permitido. Usa una imagen PNG, JPG o GIF.")
+
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="La imagen supera los 2 MB. Reduce su tamaño e inténtala de nuevo.")
+    if not content.startswith(_SIGNATURE_IMAGE_TYPES[ext]):
+        raise HTTPException(status_code=400, detail="El archivo no es una imagen válida.")
+
+    target_dir = os.path.join("uploads", "public", "signatures")
+    os.makedirs(target_dir, exist_ok=True)
+    filename = f"sig_{current_user.id}_{uuid.uuid4().hex[:10]}{ext}"
+    with open(os.path.join(target_dir, filename), "wb") as f:
+        f.write(content)
+
+    base = str(request.base_url).rstrip("/")
+    return {"url": f"{base}/api/v1/uploads/public/signatures/{filename}"}
 
 
 @router.get("/counts", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
