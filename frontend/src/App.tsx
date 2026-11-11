@@ -196,7 +196,7 @@ function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="primera-inversion" element={<FirstInvestmentOnboardingPage />} />
-        <Route path="profile" element={<ProfilePage />} />
+        <Route path="profile" element={<RequirePermission permission="profile:view"><ProfilePage /></RequirePermission>} />
         <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
         <Route path="investments" element={<Navigate to="/dashboard" replace />} />
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />

@@ -228,6 +228,9 @@ class SecurityService:
             {"name": "admin:system_events:manage", "description": "Gestionar calendario y eventos del sistema", "module": "Administración"},
             {"name": "sarlaft:check", "description": "Ejecutar validación de listas restrictivas Sarlaft", "module": "Administración"},
 
+            # Módulo Perfil
+            {"name": "profile:view", "description": "Acceder al módulo Mi Perfil (menú, navbar y ruta /dashboard/profile)", "module": "Perfil"},
+
             # Módulo Chat
             {"name": "chat:view", "description": "Acceder y visualizar el módulo de chat corporativo", "module": "Chat"},
             {"name": "chat:send", "description": "Enviar mensajes y archivos en salas de chat", "module": "Chat"},
@@ -347,14 +350,14 @@ class SecurityService:
                 "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
                 "wallets:view", "wallets:view_balance", "wallets:view_history", "wallets:request_withdrawal", "wallets:new_investment",
                 "bank_accounts:manage", "beneficiaries:view", "referrals:view", "shares:access",
-                "chat:view", "chat:send",
+                "profile:view", "chat:view", "chat:send",
                 "credits:view", "credits:request", "credits:pay"
             ],
             "cliente": [
                 "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
                 "wallets:view", "wallets:view_balance", "wallets:view_history", "wallets:request_withdrawal", "wallets:new_investment",
                 "bank_accounts:manage", "beneficiaries:view", "referrals:view", "shares:access",
-                "chat:view", "chat:send",
+                "profile:view", "chat:view", "chat:send",
                 "credits:view", "credits:request", "credits:pay"
             ],
             "directivo_de_inversiones": [
@@ -362,33 +365,33 @@ class SecurityService:
                 "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
                 "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
                 "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
-                "chat:view", "chat:send"
+                "profile:view", "chat:view", "chat:send"
             ],
             "directivo_inversion": [
                 "commercial:view", "director:dashboard:view", "referrals:view", "admin:referrals:manage",
                 "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
                 "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
                 "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
-                "chat:view", "chat:send"
+                "profile:view", "chat:view", "chat:send"
             ],
             "operaciones": [
                 "admin:investors:manage", "admin:investors:create", "admin:investors:capital_increase", "admin:investors:wallet_adjust", "admin:investors:generate_documents",
                 "admin:investments:manage", "admin:investments:solicitud_inversion", "admin:investments:approve", "admin:investments:reject",
                 "admin:packages:manage", "admin:periods:manage", "sarlaft:check",
-                "chat:view", "chat:send"
+                "profile:view", "chat:view", "chat:send"
             ],
             "contabilidad": [
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
-                "wallets:view", "bank_accounts:manage", "chat:view", "chat:send"
+                "wallets:view", "bank_accounts:manage", "profile:view", "chat:view", "chat:send"
             ],
             "contabilidad_": [
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
-                "wallets:view", "bank_accounts:manage", "chat:view", "chat:send"
+                "wallets:view", "bank_accounts:manage", "profile:view", "chat:view", "chat:send"
             ],
             "administrativo": [
                 "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
                 "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
-                "chat:view", "chat:send", "rooms:view", "rooms:reserve"
+                "profile:view", "chat:view", "chat:send", "rooms:view", "rooms:reserve"
             ]
         }
 
