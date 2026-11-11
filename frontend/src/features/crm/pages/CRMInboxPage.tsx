@@ -836,6 +836,36 @@ export const CRMInboxPage: React.FC = () => {
     setIsSignatureModalOpen(true);
   };
 
+  const signatureLogoInput = useRef<HTMLInputElement>(null);
+  const [uploadingSignatureLogo, setUploadingSignatureLogo] = useState(false);
+
+  // Diseño: logo a la izquierda, línea dorada y datos de contacto a la derecha
+  const applySignatureTemplate = async (file: File) => {
+    try {
+      setUploadingSignatureLogo(true);
+      const { url } = await crmEmailService.uploadSignatureImage(file);
+      const gold = '#B58A1B';
+      const name = (user?.name || 'Tu nombre').replace(/[<>&"]/g, '');
+      const email = (user?.email || 'correo@gloint.com.co').replace(/[<>&"]/g, '');
+      setSignatureDraft(
+        `<table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;"><tbody><tr>` +
+        `<td style="padding:0 16px 0 0;vertical-align:middle;"><img src="${url}" alt="" width="200" style="width:200px;height:auto;" /></td>` +
+        `<td style="padding:0 0 0 16px;border-left:2px solid ${gold};vertical-align:top;font-size:15px;line-height:1.5;color:#111;">` +
+        `<div><b><i><span style="color:${gold};font-size:18px;">${name}</span></i></b></div>` +
+        `<div><i>Tu cargo</i></div>` +
+        `<div><b><i><span style="color:${gold};">CORREO:</span></i></b> <i>${email}</i></div>` +
+        `<div><b><i><span style="color:${gold};">CELULAR:</span></i></b> <i>3000000000</i></div>` +
+        `<div><br/></div>` +
+        `<div><i><u>www.gloint.com.co</u></i></div>` +
+        `</td></tr></tbody></table>`
+      );
+    } catch (err: any) {
+      showToast(err.message || 'No se pudo subir la imagen', 'error');
+    } finally {
+      setUploadingSignatureLogo(false);
+    }
+  };
+
   const handleSaveSignature = async () => {
     try {
       setSavingSignature(true);
@@ -2433,14 +2463,39 @@ export const CRMInboxPage: React.FC = () => {
               </button>
             </div>
             <p className="text-xs text-slate-500 mb-3">
-              Escribe tu nombre, cargo y datos de contacto. Se agregará al final de los correos que envíes desde la bandeja. Déjala vacía para quitarla.
+              Escribe tu nombre, cargo y datos de contacto. Puedes agregar imágenes (logo o foto) con el botón de imagen del editor. Se agregará al final de los correos que envíes desde la bandeja. Déjala vacía para quitarla.
             </p>
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                type="button"
+                disabled={uploadingSignatureLogo}
+                onClick={() => signatureLogoInput.current?.click()}
+                className="px-3 py-1.5 text-xs font-semibold border border-brand-200 text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-xl flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {uploadingSignatureLogo && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Usar diseño con logo
+              </button>
+              <span className="text-[11px] text-slate-400">Sube tu logo y completa tus datos en el editor.</span>
+              <input
+                ref={signatureLogoInput}
+                type="file"
+                accept="image/png,image/jpeg,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) void applySignatureTemplate(f);
+                }}
+              />
+            </div>
             <EmailRichEditor
               value={signatureDraft}
               onChange={setSignatureDraft}
               placeholder="Ej: Ana Pérez · Asesora Comercial · +57 300 000 0000"
               minHeightClass="min-h-[8rem]"
               ariaLabel="Editor de firma"
+              onUploadImage={async (file) => (await crmEmailService.uploadSignatureImage(file)).url}
+              onImageError={(m) => showToast(m, 'error')}
             />
             <div className="flex justify-end gap-2 mt-4">
               <button type="button" onClick={() => setIsSignatureModalOpen(false)} className="px-4 py-2 text-xs text-slate-500 hover:text-slate-700 font-montserrat">

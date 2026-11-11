@@ -97,6 +97,15 @@ export const crmEmailService = {
     });
   },
 
+  uploadSignatureImage: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetchApi('/crm/emails/signature-image', {
+      method: 'POST',
+      body: formData
+    });
+  },
+
   sendEmail: async (data: {
     recipient_email: string;
     subject: string;
