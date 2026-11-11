@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, ShieldAlert, ArrowRight, Clock, Wallet, UserCheck, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Loader2, ArrowRight, Clock, Wallet, UserCheck, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 import { investmentsService, Investment } from '../../../services/investments';
@@ -100,14 +100,14 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
                         text="Recibimos tus datos y documentos."
                     />
                     <Step
-                        icon={verifying ? <Loader2 className="w-5 h-5 animate-spin" /> : isRejected ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
-                        state={isApproved ? 'done' : isRejected ? 'blocked' : 'current'}
-                        title={isApproved ? 'Identidad verificada' : isRejected ? 'Verificación con alertas' : 'Verificando tu identidad'}
+                        icon={verifying ? <Loader2 className="w-5 h-5 animate-spin" /> : isRejected ? <Clock className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+                        state={isApproved ? 'done' : 'current'}
+                        title={isApproved ? 'Identidad verificada' : isRejected ? 'Tu verificación está en revisión' : 'Verificando tu identidad'}
                         text={
                             isApproved
                                 ? 'Todo en orden. Ya puedes invertir.'
                                 : isRejected
-                                ? 'Un oficial de cumplimiento debe revisar tu caso antes de habilitar inversiones.'
+                                ? 'Nuestro equipo de cumplimiento necesita revisar algunos datos. Te escribiremos pronto.'
                                 : 'Consultamos listas restrictivas y antecedentes. Suele tardar pocos minutos.'
                         }
                     />
@@ -130,10 +130,10 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
                 )}
 
                 {isRejected && (
-                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3 mb-6" role="alert">
-                        <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                        <p className="text-xs text-rose-800 leading-relaxed">
-                            Por seguridad y políticas regulatorias no es posible crear solicitudes de inversión por ahora. Contacta a soporte para revisar tu expediente.
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start gap-3 mb-6" role="status">
+                        <Clock className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                            Tu inversión se habilitará cuando termine esta revisión. Si tienes dudas o quieres agilizarla, escríbenos desde soporte.
                         </p>
                     </div>
                 )}
@@ -150,9 +150,9 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => navigate('/dashboard/tickets')}
-                            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold"
+                            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold"
                         >
-                            Contactar soporte
+                            Escribir a soporte
                         </button>
                     )}
                     {/* La inversión solo se habilita con la verificación aprobada */}

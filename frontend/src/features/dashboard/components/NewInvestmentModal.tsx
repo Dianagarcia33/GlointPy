@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck, Clock, ShieldAlert, Zap, CheckCircle2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
-import { sarlaftService } from '../../../services/sarlaft';
+import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 import { compressImage } from '../../../utils/imageCompression';
 import { useAuthStore } from '../../../store/authStore';
 import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
@@ -75,25 +75,12 @@ export const NewInvestmentModal = ({
         enabled: isOpen && step === 2,
     });
 
-    // SARLAFT Compliance Query
-    const { data: sarlaftData, isLoading: loadingSarlaft } = useQuery({
-        queryKey: ['my_sarlaft_check'],
-        queryFn: () => sarlaftService.getMyCheck(),
-        enabled: isOpen,
-    });
-
-    const sarlaftCheck = sarlaftData?.check;
-    const rawStatus = (sarlaftCheck?.status || sarlaftCheck?.tusdatos_status || sarlaftData?.status || 'none').toLowerCase();
-    
-    // Si no hay verificación o está en proceso -> Pendiente
-    const isSarlaftPending = rawStatus === 'none' || rawStatus === 'pending' || rawStatus === 'processing' || rawStatus === 'procesando';
-    
-    // Si falló o fue clasificado de alto riesgo sin corregir -> Rechazado
-    const isSarlaftRejected = !isSarlaftPending && (
-        rawStatus === 'failed' || rawStatus === 'error' || (
-            sarlaftCheck?.risk_level === 'HIGH' && !(sarlaftCheck as any)?.tusdatos_hallazgos_corregidos
-        )
-    );
+    // Mismo estado SARLAFT que el resto de la app (se actualiza solo mientras esté pendiente)
+    const {
+        isLoading: loadingSarlaft,
+        isPending: isSarlaftPending,
+        isRejected: isSarlaftRejected,
+    } = useSarlaftStatus();
 
     React.useEffect(() => {
         if (isUpgrade && currentPeriodId && periods) {
