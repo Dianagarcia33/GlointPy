@@ -420,20 +420,22 @@ export const AdminInvestorsPage = () => {
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-600' : ''}`} />
           </button>
 
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            disabled={isExportingExcel}
-            title="Descargar todas las inversiones en archivo Excel (.xlsx)"
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0 disabled:opacity-60"
-          >
-            {isExportingExcel ? (
-              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin shrink-0" />
-            ) : (
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            )}
-            <span>{isExportingExcel ? 'Descargando...' : 'Descargar Excel'}</span>
-          </button>
+          <Can permissions={['admin.investors.export_excel', 'admin.roles.manage']}>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={isExportingExcel}
+              title="Descargar todas las inversiones en archivo Excel (.xlsx)"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0 disabled:opacity-60"
+            >
+              {isExportingExcel ? (
+                <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin shrink-0" />
+              ) : (
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              )}
+              <span>{isExportingExcel ? 'Descargando...' : 'Descargar Excel'}</span>
+            </button>
+          </Can>
 
           {isAdmin() && (
             <Can permissions={['admin.investors.generate_documents', 'admin.roles.manage']}>

@@ -201,6 +201,7 @@ class SecurityService:
             {"name": "admin:investors:create", "description": "Crear nuevos contratos e inversionistas (Crear Inversión)", "module": "Inversionistas"},
             {"name": "admin:investors:wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Herramienta Lápiz)", "module": "Inversionistas"},
             {"name": "admin:investors:capital_increase", "description": "Gestionar aumentos de capital a contratos (+ Capital)", "module": "Inversionistas"},
+            {"name": "admin:investors:export_excel", "description": "Descargar la tabla de inversionistas en Excel (botón Descargar Excel)", "module": "Inversionistas"},
             {"name": "admin:investors:delete", "description": "Eliminar contratos de inversión e inversionistas", "module": "Inversionistas"},
 
             # Módulo Inversiones
@@ -376,6 +377,7 @@ class SecurityService:
             ],
             "operaciones": [
                 "admin:investors:manage", "admin:investors:create", "admin:investors:capital_increase", "admin:investors:wallet_adjust", "admin:investors:generate_documents",
+                "admin:investors:export_excel",
                 "admin:investments:manage", "admin:investments:solicitud_inversion", "admin:investments:approve", "admin:investments:reject",
                 "admin:packages:manage", "admin:periods:manage", "sarlaft:check",
                 "profile:view", "chat:view", "chat:send"
