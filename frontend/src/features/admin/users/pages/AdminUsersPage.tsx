@@ -4,6 +4,7 @@ import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { sarlaftService } from '../../../../services/sarlaft';
 import { UserModal } from '../components/UserModal';
+import { IdentityReviewModal } from '../../components/IdentityReviewModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
 import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, LogOut, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet, Clock } from 'lucide-react';
@@ -52,6 +53,7 @@ export const AdminUsersPage = () => {
 
   // Gestión individual SARLAFT
   const [sarlaftTargetUser, setSarlaftTargetUser] = useState<User | null>(null);
+  const [identityTargetUser, setIdentityTargetUser] = useState<User | null>(null);
   const [sarlaftNewStatus, setSarlaftNewStatus] = useState<'pending' | 'rejected' | 'approved'>('pending');
   const [sarlaftJustification, setSarlaftJustification] = useState('');
   const [isSavingSarlaft, setIsSavingSarlaft] = useState(false);
@@ -1020,6 +1022,21 @@ export const AdminUsersPage = () => {
                                 </div>
                               </button>
 
+                              {/* Validar identidad (cédula + selfie) */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  setIdentityTargetUser(user);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer border-t border-slate-100"
+                              >
+                                <ShieldCheck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-bold">Validar identidad</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Revisar cédula y selfie</span>
+                                </div>
+                              </button>
+
                               {/* Validar SARLAFT (Aprobar) */}
                               <button
                                 onClick={() => {
@@ -1315,6 +1332,15 @@ export const AdminUsersPage = () => {
           </div>
         </div>,
         document.body
+      )}
+
+      {identityTargetUser && (
+        <IdentityReviewModal
+          userId={identityTargetUser.id}
+          userName={identityTargetUser.name}
+          onClose={() => setIdentityTargetUser(null)}
+          onSaved={() => setSuccess(`Revisión de identidad guardada para ${identityTargetUser.name}.`)}
+        />
       )}
 
       {/* Modal Temporal para Validación Masiva SARLAFT de Inversionistas */}

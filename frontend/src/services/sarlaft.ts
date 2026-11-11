@@ -1,5 +1,13 @@
 import { fetchApi, getMediaUrl } from './api';
 
+export interface IdentityReview {
+  status: 'verified' | 'rejected' | 'pending';
+  note?: string;
+  reviewed_by?: number;
+  reviewed_by_name?: string;
+  reviewed_at?: string;
+}
+
 export interface SarlaftCheckResponse {
   status: 'none' | 'pending' | 'processing' | 'completed' | 'failed';
   check: {
@@ -13,6 +21,15 @@ export interface SarlaftCheckResponse {
     risk_level: 'CLEAN' | 'LOW' | 'MEDIUM' | 'HIGH';
     pdf_path?: string;
     details?: {
+      kyc_docs?: string[];
+      biometrics?: {
+        verified?: boolean;
+        similarity?: number | null;
+        attempts?: number;
+        requires_manual_review?: boolean;
+        message?: string;
+      };
+      identity_review?: IdentityReview;
       validado?: boolean;
       nombre?: string;
       hallazgos_resumen?: string;
@@ -67,6 +84,17 @@ export const sarlaftService = {
     justification?: string;
   }): Promise<{ success: boolean; message: string; status: string; check_id: number }> {
     return await fetchApi('/sarlaft/admin/set-status', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async reviewIdentity(data: {
+    user_id: number;
+    status: 'verified' | 'rejected' | 'pending';
+    note?: string;
+  }): Promise<{ success: boolean; message: string; identity_review: IdentityReview }> {
+    return await fetchApi('/sarlaft/admin/identity-review', {
       method: 'POST',
       body: JSON.stringify(data)
     });

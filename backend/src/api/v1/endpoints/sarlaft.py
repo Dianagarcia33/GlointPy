@@ -337,3 +337,80 @@ async def set_user_sarlaft_status(
 
 
 
+
+
+class IdentityReviewRequest(BaseModel):
+    user_id: int
+    status: str  # "verified" | "rejected" | "pending"
+    note: Optional[str] = None
+
+
+@router.post("/admin/identity-review", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage"]))])
+async def review_user_identity(
+    req: IdentityReviewRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Revisión manual de identidad: el administrador compara la cédula y la selfie del usuario
+    (y el resultado biométrico) y deja registrado si la identidad queda verificada o rechazada.
+    Se guarda en el último chequeo del usuario (details.identity_review); no cambia el estado SARLAFT.
+    """
+    from datetime import datetime
+
+    target = req.status.lower().strip()
+    if target not in ["verified", "rejected", "pending"]:
+        raise HTTPException(status_code=400, detail="Estado inválido. Opciones permitidas: 'verified', 'rejected', 'pending'.")
+    note = (req.note or "").strip()
+    if target == "rejected" and not note:
+        raise HTTPException(status_code=400, detail="Indica el motivo del rechazo de la identidad.")
+
+    user_res = await db.execute(select(User).where(User.id == req.user_id))
+    user = user_res.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    c_res = await db.execute(
+        select(SarlaftCheck).where(SarlaftCheck.user_id == req.user_id).order_by(SarlaftCheck.id.desc())
+    )
+    check = c_res.scalars().first()
+    now = datetime.utcnow()
+    if not check:
+        check = SarlaftCheck(
+            user_id=user.id,
+            document_number=user.document_id or f"USER_{user.id}",
+            document_type="CC",
+            created_at=now,
+            details={},
+        )
+        db.add(check)
+
+    details = dict(check.details or {})
+    prev = (details.get("identity_review") or {}).get("status", "pending")
+    details["identity_review"] = {
+        "status": target,
+        "note": note[:500],
+        "reviewed_by": current_user.id,
+        "reviewed_by_name": current_user.name,
+        "reviewed_at": now.isoformat(),
+    }
+    check.details = details  # se reasigna el dict completo para que SQLAlchemy detecte el cambio del JSON
+    check.updated_at = now
+
+    await db.flush()
+    await audit_in_tx(
+        db, "IDENTITY_REVIEW_SET", "sarlaft", current_user, "User", user.id,
+        f"Revisión de identidad del usuario #{user.id}: {prev} -> {target}",
+        {"usuario_id": user.id, "check_id": check.id, "estado_antes": prev, "estado_despues": target, "nota": note[:300]},
+    )
+    await db.commit()
+
+    return {
+        "success": True,
+        "message": {
+            "verified": f"Identidad de {user.name} verificada.",
+            "rejected": f"Identidad de {user.name} rechazada.",
+            "pending": f"Identidad de {user.name} devuelta a pendiente de revisión.",
+        }[target],
+        "identity_review": details["identity_review"],
+    }

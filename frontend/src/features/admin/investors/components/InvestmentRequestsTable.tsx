@@ -8,6 +8,7 @@ import { Can } from '../../../../components/security/Can';
 import { getMediaUrl, fetchApi } from '../../../../services/api';
 import { sarlaftService } from '../../../../services/sarlaft';
 import { AdminSolicitudInversionModal } from './AdminSolicitudInversionModal';
+import { IdentityReviewModal } from '../../components/IdentityReviewModal';
 
 const FALLBACK_DOC_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
 
@@ -162,6 +163,7 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
     }
   };
 
+  const [identityTarget, setIdentityTarget] = useState<{ userId: number; name: string } | null>(null);
   const [sarlaftData, setSarlaftData] = useState<Record<number, any>>({});
   const [sarlaftLoading, setSarlaftLoading] = useState<Record<number, boolean>>({});
 
@@ -659,6 +661,15 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
                                     <div className="pt-2 border-t border-slate-100 space-y-2">
                                       <div className="flex items-center justify-between">
                                         <span className="text-slate-500 font-medium block">Documentos de Identidad (KYC):</span>
+                                        {request.user_id && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setIdentityTarget({ userId: request.user_id as number, name: request.user?.name || request.extra_data?.nombre_completo || `Usuario #${request.user_id}` })}
+                                            className="px-2.5 py-1 text-[10px] font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-lg"
+                                          >
+                                            Validar identidad
+                                          </button>
+                                        )}
                                         {request.extra_data?.biometrics?.requires_manual_review ? (
                                           <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-bold rounded border border-amber-300 inline-flex items-center gap-1">
                                             <AlertTriangle className="w-3 h-3 text-amber-600" />
@@ -730,6 +741,16 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
                                    <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
                                      <span>🛡️</span> Verificación SARLAFT (Tusdatos.co)
                                    </h4>
+                                   <div className="flex items-center">
+                                   {request.user_id && !(Array.isArray(request.extra_data?.kyc_docs) && request.extra_data.kyc_docs.length > 0) && (
+                                     <button
+                                       type="button"
+                                       onClick={() => setIdentityTarget({ userId: request.user_id as number, name: request.user?.name || request.extra_data?.nombre_completo || `Usuario #${request.user_id}` })}
+                                       className="px-2.5 py-1 text-[10px] font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-lg mr-2"
+                                     >
+                                       Validar identidad
+                                     </button>
+                                   )}
                                    <button 
                                      onClick={() => handleRunSarlaftCheck(request)}
                                      disabled={sarlaftLoading[request.id]}
@@ -738,6 +759,7 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
                                      {sarlaftLoading[request.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>🔍</span>}
                                      {sarlaftLoading[request.id] ? 'Consultando...' : sarlaftData[request.id] ? 'Re-Consultar' : 'Consultar'}
                                    </button>
+                                   </div>
                                  </div>
                                  <div className="text-xs space-y-2">
                                    {sarlaftData[request.id] ? (
@@ -1173,6 +1195,14 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
           </div>
         </div>,
         document.body
+      )}
+
+      {identityTarget && (
+        <IdentityReviewModal
+          userId={identityTarget.userId}
+          userName={identityTarget.name}
+          onClose={() => setIdentityTarget(null)}
+        />
       )}
     </div>
   );
