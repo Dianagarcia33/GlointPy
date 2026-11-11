@@ -213,6 +213,9 @@ class SecurityService:
             # Módulo Pagos & Auditoría
             {"name": "admin:payments:manage", "description": "Gestionar la pasarela de pagos y depósitos bancarios", "module": "Pagos"},
             {"name": "admin:withdrawals:manage", "description": "Auditar y autorizar solicitudes de retiro de fondos", "module": "Pagos"},
+            {"name": "admin:daily_yields:view", "description": "Ver el módulo Rendimientos Diarios (resumen, movimientos y lotes)", "module": "Auditoría"},
+            {"name": "admin:daily_yields:export", "description": "Rendimientos Diarios: exportar movimientos a CSV", "module": "Auditoría"},
+            {"name": "admin:daily_yields:trigger", "description": "Rendimientos Diarios: ejecutar la dispersión diaria manualmente", "module": "Auditoría"},
             {"name": "admin:audits:manage", "description": "Auditoría integral, cálculo y corte de rendimientos", "module": "Auditoría"},
 
             # Módulo Administración
@@ -377,17 +380,19 @@ class SecurityService:
             ],
             "operaciones": [
                 "admin:investors:manage", "admin:investors:create", "admin:investors:capital_increase", "admin:investors:wallet_adjust", "admin:investors:generate_documents",
-                "admin:investors:export_excel",
+                "admin:investors:export_excel", "admin:daily_yields:view", "admin:daily_yields:export",
                 "admin:investments:manage", "admin:investments:solicitud_inversion", "admin:investments:approve", "admin:investments:reject",
                 "admin:packages:manage", "admin:periods:manage", "sarlaft:check",
                 "profile:view", "chat:view", "chat:send"
             ],
             "contabilidad": [
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
+                "admin:daily_yields:view", "admin:daily_yields:export", "admin:daily_yields:trigger",
                 "wallets:view", "bank_accounts:manage", "profile:view", "chat:view", "chat:send"
             ],
             "contabilidad_": [
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
+                "admin:daily_yields:view", "admin:daily_yields:export", "admin:daily_yields:trigger",
                 "wallets:view", "bank_accounts:manage", "profile:view", "chat:view", "chat:send"
             ],
             "administrativo": [

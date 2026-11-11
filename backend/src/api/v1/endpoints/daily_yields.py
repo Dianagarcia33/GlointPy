@@ -29,7 +29,10 @@ from src.core.audit_context import audit_request_ctx
 router = APIRouter()
 
 # Permiso requerido: administradores de auditoría o de inversionistas
-admin_permission = RequirePermission(["admin.audits.manage", "admin.investors.manage", "wallets:view"])
+# Permisos propios del módulo (antes bastaba cualquiera de audits/investors/wallets:view, incluso para ejecutar la dispersión)
+admin_permission = RequirePermission("admin:daily_yields:view")
+export_permission = RequirePermission("admin:daily_yields:export")
+trigger_permission = RequirePermission("admin:daily_yields:trigger")
 
 
 def safe_float(val: Any, default: float = 0.0) -> float:
@@ -709,7 +712,7 @@ async def list_daily_yield_movements(
 async def trigger_daily_yield_manually(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(admin_permission)
+    current_user: User = Depends(trigger_permission)
 ) -> Dict[str, Any]:
     """
     Permite a un administrador forzar o adelantar la ejecución de la dispersión de rendimientos
@@ -751,7 +754,7 @@ async def export_daily_yields_csv(
     batch_id: Optional[str] = Query(None, description="ID del lote"),
     type: Optional[str] = Query(None, description="Tipo de rendimiento"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(admin_permission)
+    current_user: User = Depends(export_permission)
 ):
     """
     Exporta en formato CSV estructurado los movimientos y pagos de rendimientos,

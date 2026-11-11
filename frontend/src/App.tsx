@@ -201,7 +201,7 @@ function App() {
         <Route path="investments" element={<Navigate to="/dashboard" replace />} />
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
-        <Route path="daily-yields" element={<RequirePermission permissions={["admin.audits.manage", "admin.investors.manage"]}><DailyYieldsPage /></RequirePermission>} />
+        <Route path="daily-yields" element={<RequirePermission permission="admin.daily_yields.view"><DailyYieldsPage /></RequirePermission>} />
         <Route path="security-logs" element={<RequirePermission permissions={["admin.audits.manage", "admin.roles.manage"]}><SecurityLogsPage /></RequirePermission>} />
         <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />

@@ -260,15 +260,17 @@ export const DailyYieldsPage: React.FC = () => {
             <span className="hidden sm:inline">Refrescar</span>
           </button>
 
-          <button
-            onClick={handleExportCsv}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl font-bold text-xs shadow-xs transition-all cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-slate-500" />
-            <span>Exportar CSV</span>
-          </button>
+          <Can permission="admin.daily_yields.export">
+            <button
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-2xl font-bold text-xs shadow-xs transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              <span>Exportar CSV</span>
+            </button>
+          </Can>
 
-          <Can permission="admin.audits.manage">
+          <Can permission="admin.daily_yields.trigger">
             <button
               onClick={() => setIsTriggerModalOpen(true)}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 transition-all cursor-pointer"
