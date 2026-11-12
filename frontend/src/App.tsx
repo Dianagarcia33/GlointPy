@@ -202,7 +202,7 @@ function App() {
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
         <Route path="daily-yields" element={<RequirePermission permission="admin.daily_yields.view"><DailyYieldsPage /></RequirePermission>} />
-        <Route path="security-logs" element={<RequirePermission permissions={["admin.audits.manage", "admin.roles.manage"]}><SecurityLogsPage /></RequirePermission>} />
+        <Route path="security-logs" element={<RequirePermission permission="admin.security_logs.view"><SecurityLogsPage /></RequirePermission>} />
         <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />
         <Route path="periods" element={<RequirePermission permission="admin.periods.manage"><AdminPeriodsPage /></RequirePermission>} />
@@ -235,8 +235,8 @@ function App() {
         <Route path="assets" element={<RequirePermission permissions={["assets:view", "assets.view", "inventory:view"]}><AssetsPage /></RequirePermission>} />
         <Route path="credits" element={<RequirePermission permissions={["credits:view", "credits:request"]}><CreditsPage /></RequirePermission>} />
         <Route path="admin-credits" element={<RequirePermission permissions={["admin.credits.manage", "credits:manage"]}><AdminCreditsPage /></RequirePermission>} />
-        <Route path="evaluaciones-tecnicas" element={<RequirePermission permission="admin.users.manage"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
-        <Route path="pruebas-tecnicas" element={<RequirePermission permission="admin.users.manage"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
+        <Route path="evaluaciones-tecnicas" element={<RequirePermission permission="admin.technical_tests.view"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
+        <Route path="pruebas-tecnicas" element={<RequirePermission permission="admin.technical_tests.view"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
         {/* Alias de compatibilidad documentados en Módulos 12 y 13 */}
         <Route path="admin/investors" element={<Navigate to="/dashboard/investors" replace />} />
         <Route path="admin/rankings" element={<Navigate to="/dashboard/rankings" replace />} />
