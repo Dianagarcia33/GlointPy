@@ -22,6 +22,7 @@ PERMISSIONS = [
     {"name": "admin:roles:manage", "description": "Gestionar roles y permisos del sistema", "module": "roles"},
     {"name": "users:view", "description": "Ver lista de usuarios de la plataforma", "module": "users"},
     {"name": "admin:users:manage", "description": "Gestionar usuarios y credenciales de la plataforma", "module": "users"},
+    {"name": "admin:payment_receipts:view", "description": "Ver comprobantes de pago y recibos de retiro de cualquier usuario", "module": "Pagos"},
     {"name": "admin:periods:manage", "description": "Gestionar periodos de inversión", "module": "periods"},
     {"name": "admin:packages:manage", "description": "Gestionar paquetes de inversión", "module": "packages"},
     {"name": "admin:rankings:manage", "description": "Gestionar rankings y niveles de inversión", "module": "rankings"},
@@ -190,12 +191,23 @@ async def seed_permissions_db(db):
                         ))
                         print(f"🏢 Permiso de Salas {room_p} asignado a: {role.name}")
 
+        # Operaciones aprueba solicitudes de inversión: necesita abrir los comprobantes que revisa
+        if "operaciones" in r_name and "admin:payment_receipts:view" in all_perms_map:
+            perm = all_perms_map["admin:payment_receipts:view"]
+            check = await db.execute(select(role_permissions).where(
+                (role_permissions.c.role_id == role.id) &
+                (role_permissions.c.permission_id == perm.id)
+            ))
+            if not check.first():
+                await db.execute(insert(role_permissions).values(role_id=role.id, permission_id=perm.id))
+
         # Asegurar permisos contables al rol de contabilidad (Módulo 22)
         if any(kw in r_name for kw in ["contab", "contador", "auditor", "tesoreria"]):
             accounting_perms = [
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", 
                 "admin:audits:manage", "admin:commissions:settle",
-                "wallets:view", "bank_accounts:manage"
+                "wallets:view", "bank_accounts:manage",
+                "admin:payment_receipts:view"
             ]
             for p_name in accounting_perms:
                 if p_name in all_perms_map:
