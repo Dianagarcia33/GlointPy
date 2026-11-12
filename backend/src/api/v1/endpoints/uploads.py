@@ -21,6 +21,11 @@ UPLOAD_ROOT = os.path.abspath("uploads")
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
 
 # Adjuntos de correos del CRM: solo usuarios con acceso a la bandeja comercial
+# Comprobantes de pago (inversiones, recargas, ventas) y recibos de retiro de cualquier usuario.
+# Antes dependía solo del nombre del rol y contabilidad/operaciones no podían abrir lo que revisan.
+PAYMENT_RECEIPTS_PERMISSION = "admin:payment_receipts:view"
+PAYMENT_RECEIPT_CATEGORIES = ("comprobantes", "receipts")
+
 CRM_EMAIL_PERMISSIONS = ["crm:inbox:view", "crm:inbox:send", "crm:view", "crm:leads:manage"]
 
 async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncSession):
@@ -79,6 +84,10 @@ async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncS
         any(r in ["admin", "administrador", "director", "superadmin", "gerente", "comercial", "auditor"] for r in user_roles)
     )
 
+    if not is_privileged and category in PAYMENT_RECEIPT_CATEGORIES:
+        from src.core.pbac import PBACEngine
+        is_privileged = PBACEngine.has_permission(current_user, PAYMENT_RECEIPTS_PERMISSION)
+
     if not is_privileged:
         # If user is a regular investor, verify ownership of the requested file
         db_relative_path = f"/uploads/{relative_path.lstrip('/')}"
@@ -106,9 +115,13 @@ async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncS
                 wr_res = await db.execute(wr_stmt)
                 if not wr_res.scalars().first():
                     # Also check commercial sales
-                    cs_stmt = select(CommercialSale).where(
+                    # La venta no guarda el comprobante: se llega a él por su solicitud de inversión.
+                    # (Antes se consultaba CommercialSale.comprobante_path, que no existe, y esto daba error 500.)
+                    cs_stmt = select(CommercialSale.id).join(
+                        InvestmentRequest, InvestmentRequest.id == CommercialSale.investment_request_id
+                    ).where(
                         (CommercialSale.commercial_id == current_user.id) &
-                        (CommercialSale.comprobante_path.like(f"%{filename_only}"))
+                        (InvestmentRequest.comprobante_path.like(f"%{filename_only}"))
                     )
                     cs_res = await db.execute(cs_stmt)
                     if not cs_res.scalars().first():
