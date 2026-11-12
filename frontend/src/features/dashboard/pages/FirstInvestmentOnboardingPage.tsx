@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, ArrowRight, Clock, Wallet, UserCheck, ShieldChec
 import { useAuthStore } from '../../../store/authStore';
 import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 import { SarlaftPendingModal } from '../components/SarlaftPendingModal';
+import { usePermissions } from '../../../hooks/usePermissions';
 import { investmentsService, Investment } from '../../../services/investments';
 import { NewInvestmentModal } from '../components/NewInvestmentModal';
 
@@ -40,6 +41,8 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuthStore();
     const { isApproved, isPending, isRejected, isLoading } = useSarlaftStatus();
+    const { hasPermission } = usePermissions();
+    const canInvest = hasPermission('wallets:new_investment');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const sawPending = useRef(false);
     const autoOpened = useRef(false);
@@ -53,6 +56,11 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
         enabled: !!user?.id,
         staleTime: 30000,
     });
+
+    // Quien no puede invertir (personal interno) no pasa por este flujo
+    useEffect(() => {
+        if (!canInvest) navigate('/dashboard', { replace: true });
+    }, [canInvest, navigate]);
 
     // Si ya tiene una inversión o solicitud, esta pantalla no aplica
     useEffect(() => {
@@ -83,7 +91,7 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
 
     return (
         <div className="max-w-2xl mx-auto py-8 px-4">
-            {isPending && !isLoading && <SarlaftPendingModal />}
+            {canInvest && isPending && !isLoading && <SarlaftPendingModal />}
             <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-6 sm:p-8">
                 <div className="mb-6">
                     <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-montserrat">

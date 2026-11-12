@@ -13,6 +13,8 @@ import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { FirstInvestmentGuide } from '../components/FirstInvestmentGuide';
 import { SarlaftPendingModal } from '../components/SarlaftPendingModal';
+import { WelcomeCard } from '../components/WelcomeCard';
+import { usePermissions } from '../../../hooks/usePermissions';
 import { SKIP_ONBOARDING_KEY } from './FirstInvestmentOnboardingPage';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
@@ -164,7 +166,13 @@ export const DashboardPage = () => {
     );
 
     const isInvestorView = !isSuperAdmin && !isDirectorOnly && !isAccountingOnly;
-    const { isPending: isSarlaftPending, isRejected: isSarlaftRejected } = useSarlaftStatus();
+    // Solo quien puede crear inversiones pasa por la verificación SARLAFT y la guía de primera inversión;
+    // el resto del personal (marketing, talento humano, etc.) no debe quedar bloqueado por ella.
+    const { hasPermission } = usePermissions();
+    const canInvest = hasPermission('wallets:new_investment');
+    const { isPending: rawSarlaftPending, isRejected: rawSarlaftRejected } = useSarlaftStatus();
+    const isSarlaftPending = canInvest && rawSarlaftPending;
+    const isSarlaftRejected = canInvest && rawSarlaftRejected;
 
     // Analytics Query for Admin
     const { data: adminAnalytics, isLoading: isLoadingAnalytics } = useQuery<AdminAnalyticsDashboardData>({
@@ -201,11 +209,11 @@ export const DashboardPage = () => {
     // Inversionista sin ninguna inversión ni solicitud: se le guía hacia la verificación y su primera inversión
     const navigate = useNavigate();
     useEffect(() => {
-        if (!isInvestorView || isLoadingInvestments || investments.length > 0) return;
+        if (!isInvestorView || !canInvest || isLoadingInvestments || investments.length > 0) return;
         let skipped = false;
         try { skipped = sessionStorage.getItem(SKIP_ONBOARDING_KEY) === '1'; } catch { /* sin storage */ }
         if (!skipped) navigate('/dashboard/primera-inversion', { replace: true });
-    }, [isInvestorView, isLoadingInvestments, investments.length, navigate]);
+    }, [isInvestorView, canInvest, isLoadingInvestments, investments.length, navigate]);
 
     const parseNumber = (val: any) => {
         const parsed = Number(val);
@@ -411,7 +419,7 @@ export const DashboardPage = () => {
                         {isSarlaftPending && <SarlaftPendingModal />}
 
                         {/* Verificación aprobada sin inversiones: guía hacia la primera inversión */}
-                        <FirstInvestmentGuide investmentsCount={investments.length} />
+                        {canInvest && <FirstInvestmentGuide investmentsCount={investments.length} />}
 
                         {/* Banner de Validación SARLAFT Rechazada / Con Alertas */}
                         {isSarlaftRejected && (
@@ -447,7 +455,7 @@ export const DashboardPage = () => {
 
 
                         {/* HERO Y KPIS */}
-                        <Can permission="dashboard:view_kpis">
+                        <Can permission="dashboard:view_kpis" fallback={<WelcomeCard userName={user?.name?.split(' ')[0] || ''} />}>
                             <HeroCard 
                                 userName={user?.name?.split(' ')[0] || ''}
                                 totalPortfolio={totalPortafolio}
