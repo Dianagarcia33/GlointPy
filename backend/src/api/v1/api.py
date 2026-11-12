@@ -5,7 +5,7 @@ from src.api.v1.endpoints import (
     commercial_sales, analytics, templates, beneficiaries, potential_referrals,
     chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents,
     uploads, banks, investment_ranks, external_apps, share_market, events, rooms,
-    webhooks, inventory, yoint_payins, credits, daily_yields,
+    webhooks, inventory, yoint_payins, credits, daily_yields, income_report,
     suppliers, purchase_orders, company_assets, technical_test, locations
 )
 
@@ -54,4 +54,5 @@ api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"]
 api_router.include_router(yoint_payins.router, prefix="/yoint/payins", tags=["yoint-payins"])
 api_router.include_router(credits.router, prefix="/credits", tags=["credits"])
 api_router.include_router(daily_yields.router, prefix="/daily-yields", tags=["daily-yields"])
+api_router.include_router(income_report.router, prefix="/income-report", tags=["income-report"])
 api_router.include_router(technical_test.router, prefix="/technical-test", tags=["technical-test"])

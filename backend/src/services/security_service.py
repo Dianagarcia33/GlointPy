@@ -219,6 +219,8 @@ class SecurityService:
             {"name": "admin:daily_yields:view", "description": "Ver el módulo Rendimientos Diarios (resumen, movimientos y lotes)", "module": "Auditoría"},
             {"name": "admin:daily_yields:export", "description": "Rendimientos Diarios: exportar movimientos a CSV", "module": "Auditoría"},
             {"name": "admin:daily_yields:trigger", "description": "Rendimientos Diarios: ejecutar la dispersión diaria manualmente", "module": "Auditoría"},
+            {"name": "admin:income_report:view", "description": "Ver el Informe de Ingresos (paquetes aprobados por Yoint y por administrador)", "module": "Pagos"},
+            {"name": "admin:income_report:export", "description": "Informe de Ingresos: exportar el detalle a CSV", "module": "Pagos"},
             {"name": "admin:audits:manage", "description": "Auditoría integral, cálculo y corte de rendimientos", "module": "Auditoría"},
 
             # Módulo Administración
@@ -394,12 +396,14 @@ class SecurityService:
                 "dashboard:view_accounting",
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
                 "admin:daily_yields:view", "admin:daily_yields:export", "admin:daily_yields:trigger",
+                "admin:income_report:view", "admin:income_report:export",
                 "wallets:view", "bank_accounts:manage", "profile:view", "chat:view", "chat:send"
             ],
             "contabilidad_": [
                 "dashboard:view_accounting",
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
                 "admin:daily_yields:view", "admin:daily_yields:export", "admin:daily_yields:trigger",
+                "admin:income_report:view", "admin:income_report:export",
                 "wallets:view", "bank_accounts:manage", "profile:view", "chat:view", "chat:send"
             ],
             "administrativo": [
