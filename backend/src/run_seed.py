@@ -22,7 +22,11 @@ PERMISSIONS = [
     {"name": "admin:roles:manage", "description": "Gestionar roles y permisos del sistema", "module": "roles"},
     {"name": "users:view", "description": "Ver lista de usuarios de la plataforma", "module": "users"},
     {"name": "admin:users:manage", "description": "Gestionar usuarios y credenciales de la plataforma", "module": "users"},
+    # Se registran al arrancar para que el rol admin no pierda estos módulos al desplegar (antes usaban permisos prestados)
     {"name": "admin:payment_receipts:view", "description": "Ver comprobantes de pago y recibos de retiro de cualquier usuario", "module": "Pagos"},
+    {"name": "admin:security_logs:view", "description": "Ver el módulo Logs de Seguridad (traza de accesos y acciones)", "module": "Administración"},
+    {"name": "admin:technical_tests:view", "description": "Pruebas Técnicas Jr: ver el módulo y las entregas de los candidatos", "module": "Administración"},
+    {"name": "admin:technical_tests:manage", "description": "Pruebas Técnicas Jr: abrir o cerrar la convocatoria y cambiar el PIN de candidatos", "module": "Administración"},
     {"name": "admin:periods:manage", "description": "Gestionar periodos de inversión", "module": "periods"},
     {"name": "admin:packages:manage", "description": "Gestionar paquetes de inversión", "module": "packages"},
     {"name": "admin:rankings:manage", "description": "Gestionar rankings y niveles de inversión", "module": "rankings"},

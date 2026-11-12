@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   Edit3
 } from 'lucide-react';
+import { Can } from '../../../components/security/Can';
 import {
   technicalTestService,
   TechnicalSubmission,
@@ -202,14 +203,16 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
                   <span className="font-mono font-bold text-emerald-300 tracking-wider">
                     {config.access_pin}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingPin(true)}
-                    className="p-1 hover:text-emerald-400 text-slate-500 transition-colors ml-1 cursor-pointer"
-                    title="Editar PIN"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
+                  <Can permission="admin.technical_tests.manage">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingPin(true)}
+                      className="p-1 hover:text-emerald-400 text-slate-500 transition-colors ml-1 cursor-pointer"
+                      title="Editar PIN"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                  </Can>
                 </div>
               ) : (
                 <form onSubmit={handleSaveNewPin} className="flex items-center gap-2">
@@ -241,19 +244,21 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
               )}
 
               {/* Botón Kill Switch */}
-              <button
-                type="button"
-                onClick={handleToggleActive}
-                disabled={isUpdatingConfig}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wider transition-all shadow-xs cursor-pointer ${
-                  config.is_active
-                    ? 'bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40'
-                    : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
-                }`}
-              >
-                <Power className="w-3.5 h-3.5" />
-                <span>{config.is_active ? 'Cerrar Convocatoria' : 'Abrir Convocatoria'}</span>
-              </button>
+              <Can permission="admin.technical_tests.manage">
+                <button
+                  type="button"
+                  onClick={handleToggleActive}
+                  disabled={isUpdatingConfig}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold tracking-wider transition-all shadow-xs cursor-pointer ${
+                    config.is_active
+                      ? 'bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40'
+                      : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
+                  }`}
+                >
+                  <Power className="w-3.5 h-3.5" />
+                  <span>{config.is_active ? 'Cerrar Convocatoria' : 'Abrir Convocatoria'}</span>
+                </button>
+              </Can>
             </div>
           </div>
         </div>

@@ -212,7 +212,9 @@ class AuditUserPaginatedResponse(BaseModel):
 
 router = APIRouter()
 
-@router.get("/logs", response_model=AuditLogPaginatedResponse, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+# admin:security_logs:view abre el módulo Logs de Seguridad; admin:audits:manage se conserva porque la
+# pantalla de Auditoría muestra esta misma traza en su pestaña de seguridad.
+@router.get("/logs", response_model=AuditLogPaginatedResponse, dependencies=[Depends(RequirePermission(["admin:security_logs:view", "admin:audits:manage"]))])
 async def get_audit_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(25, ge=1, le=100),

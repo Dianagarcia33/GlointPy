@@ -226,6 +226,9 @@ class SecurityService:
 
             # Módulo Administración
             {"name": "admin:roles:manage", "description": "Gestionar roles de usuario y matriz de permisos PBAC", "module": "Administración"},
+            {"name": "admin:security_logs:view", "description": "Ver el módulo Logs de Seguridad (traza de accesos y acciones)", "module": "Administración"},
+            {"name": "admin:technical_tests:view", "description": "Pruebas Técnicas Jr: ver el módulo y las entregas de los candidatos", "module": "Administración"},
+            {"name": "admin:technical_tests:manage", "description": "Pruebas Técnicas Jr: abrir o cerrar la convocatoria y cambiar el PIN de candidatos", "module": "Administración"},
             {"name": "admin:users:manage", "description": "Gestionar usuarios, estados de cuenta y vinculaciones parentales", "module": "Administración"},
             {"name": "admin:periods:manage", "description": "Crear y administrar periodos fiscales de inversión", "module": "Administración"},
             {"name": "admin:packages:manage", "description": "Crear, parametrizar y activar paquetes de inversión", "module": "Administración"},

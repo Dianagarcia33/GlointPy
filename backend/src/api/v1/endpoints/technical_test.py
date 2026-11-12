@@ -368,44 +368,18 @@ async def submit_technical_test(
         "total_tests": total_tests
     }
 
-async def verify_admin_or_pin(
-    request: Request,
-    pin: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Permite acceso mediante sesión de Administrador (Diana en el Dashboard)
-    o mediante PIN de acceso.
-    """
-    # 1. Sesión de Administrador logueado en Gloint
-    try:
-        from src.api.deps import oauth2_scheme
-        token = await oauth2_scheme(request)
-        if token or request.cookies.get("access_token"):
-            user = await get_current_user(request=request, db=db, token=token)
-            if user:
-                return True
-    except Exception:
-        pass
+# Panel administrativo de la prueba: exige permiso propio. El PIN es solo para que el candidato presente
+# la prueba (/run y /submit); antes también abría este panel, igual que cualquier sesión iniciada.
+view_permission = RequirePermission("admin:technical_tests:view")
+manage_permission = RequirePermission("admin:technical_tests:manage")
 
-    # 2. Fallback de PIN si se envía
-    provided_pin = pin or request.headers.get("x-access-pin") or request.query_params.get("pin")
-    expected_pin = str(TEST_CONFIG.get("access_pin", "GLOINT-JR-2026")).strip().upper()
-    if provided_pin and str(provided_pin).strip().upper() == expected_pin:
-        return True
-
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Acceso restringido a Administradores de Gloint."
-    )
-
-@router.get("/submissions", dependencies=[Depends(verify_admin_or_pin)])
+@router.get("/submissions", dependencies=[Depends(view_permission)])
 async def list_technical_submissions(
     db: AsyncSession = Depends(get_db)
 ):
     """
     Lista las evaluaciones entregadas.
-    Permite acceso con PIN sin obligar a pasar por /login.
+    Requiere el permiso admin:technical_tests:view.
     """
     try:
         query = select(TechnicalEvaluation).order_by(TechnicalEvaluation.created_at.desc())
@@ -433,19 +407,19 @@ async def list_technical_submissions(
         logger.error(f"Error listando evaluaciones técnicas: {err}")
         return []
 
-@router.get("/config", dependencies=[Depends(verify_admin_or_pin)])
+@router.get("/config", dependencies=[Depends(view_permission)])
 async def get_test_config():
     """
     Retorna la configuración actual del Kill Switch y PIN de acceso.
     """
     return TEST_CONFIG
 
-@router.post("/toggle-config", dependencies=[Depends(verify_admin_or_pin)])
+@router.post("/toggle-config", dependencies=[Depends(manage_permission)])
 async def update_test_config(
     req: ToggleConfigRequest
 ):
     """
-    Permite activar/desactivar la prueba o actualizar el PIN en caliente usando el PIN actual.
+    Permite activar/desactivar la prueba o actualizar el PIN en caliente. Requiere admin:technical_tests:manage.
     """
     if req.is_active is not None:
         TEST_CONFIG["is_active"] = req.is_active
