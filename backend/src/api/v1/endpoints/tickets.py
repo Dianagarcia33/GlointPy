@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.api.deps import get_current_user
 from src.models.user import User
-from src.schemas.ticket import TicketResponse
+from src.schemas.ticket import TicketResponse, normalize_ticket_priority, DEFAULT_TICKET_PRIORITY
 from src.services.ticket_service import TicketService
 from src.services.push_notification_service import PushNotificationService
 
@@ -17,7 +17,7 @@ async def create_ticket(
     title: str = Form(...),
     description: str = Form(...),
     category: str = Form(...),
-    priority: str = Form(...),
+    priority: str = Form(DEFAULT_TICKET_PRIORITY),
     file: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -26,6 +26,11 @@ async def create_ticket(
     Crea un nuevo ticket en el sistema externo Glointtickeds utilizando los datos del usuario logueado.
     Permite subir una imagen opcional como evidencia y envía confirmación por notificación.
     """
+    try:
+        priority = normalize_ticket_priority(priority)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
     attachment_url = None
     if file:
         attachment_url = await TicketService.upload_attachment(file)
