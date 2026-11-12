@@ -174,11 +174,22 @@ export const DashboardPage = () => {
     const isSarlaftPending = canInvest && rawSarlaftPending;
     const isSarlaftRejected = canInvest && rawSarlaftRejected;
 
+    // Pestañas del panel de administración: cada una exige su propio permiso
+    const allowedTabs = {
+        admin: hasPermission('dashboard:view_admin_360'),
+        director: hasPermission('dashboard:view_director'),
+        accounting: hasPermission('dashboard:view_accounting'),
+    };
+    const effectiveMode: 'admin' | 'director' | 'accounting' | null =
+        allowedTabs[adminViewMode]
+            ? adminViewMode
+            : (['admin', 'director', 'accounting'] as const).find(m => allowedTabs[m]) ?? null;
+
     // Analytics Query for Admin
     const { data: adminAnalytics, isLoading: isLoadingAnalytics } = useQuery<AdminAnalyticsDashboardData>({
         queryKey: ['admin_analytics_dashboard'],
         queryFn: () => analyticsService.getAdminAnalyticsDashboard(),
-        enabled: isSuperAdmin && adminViewMode === 'admin'
+        enabled: isSuperAdmin && effectiveMode === 'admin'
     });
 
     // Investments Query for Investor (uses cache & starts in loading state to prevent zero-value flicker)
@@ -297,41 +308,49 @@ export const DashboardPage = () => {
                 <div className="space-y-6 w-full min-w-0">
                     {/* Admin Mode Switcher Tabs */}
                     <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80 flex-wrap">
-                        <button
-                            onClick={() => setAdminViewMode('admin')}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
-                                adminViewMode === 'admin' 
-                                    ? 'bg-slate-900 text-white shadow-sm' 
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                        >
-                            Panel Control 360°
-                        </button>
-                        <button
-                            onClick={() => setAdminViewMode('director')}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
-                                adminViewMode === 'director' 
-                                    ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/20' 
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                        >
-                            Directivo de Inversiones
-                        </button>
-                        <button
-                            onClick={() => setAdminViewMode('accounting')}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
-                                adminViewMode === 'accounting' 
-                                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20' 
-                                    : 'text-slate-600 hover:text-slate-900'
-                            }`}
-                        >
-                            Contabilidad & Tesorería
-                        </button>
+                        <Can permission="dashboard:view_admin_360">
+                            <button
+                                onClick={() => setAdminViewMode('admin')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                                    effectiveMode === 'admin' 
+                                        ? 'bg-slate-900 text-white shadow-sm' 
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                Panel Control 360°
+                            </button>
+                        </Can>
+                        <Can permission="dashboard:view_director">
+                            <button
+                                onClick={() => setAdminViewMode('director')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                                    effectiveMode === 'director' 
+                                        ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/20' 
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                Directivo de Inversiones
+                            </button>
+                        </Can>
+                        <Can permission="dashboard:view_accounting">
+                            <button
+                                onClick={() => setAdminViewMode('accounting')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                                    effectiveMode === 'accounting' 
+                                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20' 
+                                        : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                            >
+                                Contabilidad & Tesorería
+                            </button>
+                        </Can>
                     </div>
 
-                    {adminViewMode === 'accounting' ? (
+                    {effectiveMode === null ? (
+                        <WelcomeCard userName={user?.name?.split(' ')[0] || ''} />
+                    ) : effectiveMode === 'accounting' ? (
                         <AccountingDashboardView />
-                    ) : adminViewMode === 'director' ? (
+                    ) : effectiveMode === 'director' ? (
                         <DirectorDashboardView />
                     ) : isLoadingAnalytics ? (
                         <AdminDashboardSkeleton />

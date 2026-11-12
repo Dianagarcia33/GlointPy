@@ -28,7 +28,7 @@ router = APIRouter()
 
 # H-235: "admin.audits.manage" lo tiene también el rol contabilidad, por lo que ya no abre las analíticas de
 # gestión. Estas son las llaves de nivel administrativo (las mismas que ya aceptaba director-dashboard).
-ADMIN_ANALYTICS_PERMISSIONS = ["admin.users.manage", "admin.roles.manage"]
+ADMIN_ANALYTICS_PERMISSIONS = ["dashboard:view_admin_360"]
 
 
 @router.get("/admin-dashboard", dependencies=[Depends(RequirePermission(ADMIN_ANALYTICS_PERMISSIONS))])
@@ -188,7 +188,7 @@ async def get_admin_analytics_dashboard(
 
 
 
-@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage", "admin.commercial.manage", "commercial:view"]))])
+@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["dashboard:view_director", "director.dashboard.view", "commercial:view"]))])
 async def get_director_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -385,7 +385,7 @@ async def get_director_analytics_dashboard(
     }
 
 
-@router.get("/accounting-dashboard", dependencies=[Depends(RequirePermission(["accounting.dashboard.view", "admin.audits.manage", "admin.payments.manage", "admin.withdrawals.manage", "admin.investments.manage"]))])
+@router.get("/accounting-dashboard", dependencies=[Depends(RequirePermission(["dashboard:view_accounting", "accounting.dashboard.view", "admin.audits.manage", "admin.payments.manage", "admin.withdrawals.manage"]))])
 async def get_accounting_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)

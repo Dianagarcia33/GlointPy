@@ -173,6 +173,9 @@ class SecurityService:
             {"name": "dashboard:view_quick_actions", "description": "Visualizar accesos rápidos de inversión y retiros", "module": "Dashboard"},
             {"name": "dashboard:view_investments", "description": "Ver listado y detalle de mis contratos de inversión", "module": "Dashboard"},
             {"name": "dashboard:view_requests", "description": "Ver solicitudes pendientes en el dashboard", "module": "Dashboard"},
+            {"name": "dashboard:view_admin_360", "description": "Dashboard: pestaña Panel Control 360° (analíticas globales)", "module": "Dashboard"},
+            {"name": "dashboard:view_director", "description": "Dashboard: pestaña Directivo de Inversiones", "module": "Dashboard"},
+            {"name": "dashboard:view_accounting", "description": "Dashboard: pestaña Contabilidad & Tesorería", "module": "Dashboard"},
 
             # Módulo Billetera y Bóveda
             {"name": "wallets:view", "description": "Acceso al módulo principal de billetera digital", "module": "Billetera"},
@@ -365,6 +368,7 @@ class SecurityService:
                 "credits:view", "credits:request", "credits:pay"
             ],
             "directivo_de_inversiones": [
+                "dashboard:view_director",
                 "commercial:view", "director:dashboard:view", "referrals:view", "admin:referrals:manage",
                 "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
                 "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
@@ -372,6 +376,7 @@ class SecurityService:
                 "profile:view", "chat:view", "chat:send"
             ],
             "directivo_inversion": [
+                "dashboard:view_director",
                 "commercial:view", "director:dashboard:view", "referrals:view", "admin:referrals:manage",
                 "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
                 "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
@@ -386,11 +391,13 @@ class SecurityService:
                 "profile:view", "chat:view", "chat:send"
             ],
             "contabilidad": [
+                "dashboard:view_accounting",
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
                 "admin:daily_yields:view", "admin:daily_yields:export", "admin:daily_yields:trigger",
                 "wallets:view", "bank_accounts:manage", "profile:view", "chat:view", "chat:send"
             ],
             "contabilidad_": [
+                "dashboard:view_accounting",
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
                 "admin:daily_yields:view", "admin:daily_yields:export", "admin:daily_yields:trigger",
                 "wallets:view", "bank_accounts:manage", "profile:view", "chat:view", "chat:send"
