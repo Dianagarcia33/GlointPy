@@ -398,7 +398,7 @@ async def get_email_settings(
         "port": settings.IMAP_PORT
     }
 
-@router.post("/settings", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.post("/settings", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
 async def update_email_settings(
     data: EmailSettingsSchema,
     current_user: User = Depends(get_current_user),
@@ -418,7 +418,7 @@ async def update_email_settings(
         "has_saved_password": has_saved
     }
 
-@router.post("/sync", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.post("/sync", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
 async def sync_imap_emails(
     data: Optional[SyncEmailSchema] = None,
     current_user: User = Depends(get_current_user),
