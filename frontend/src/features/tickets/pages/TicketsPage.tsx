@@ -22,7 +22,7 @@ export const TicketsPage: React.FC = () => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('general');
-    const [priority, setPriority] = useState('normal');
+    const [priority, setPriority] = useState('medium');
     const [file, setFile] = useState<File | null>(null);
     
     const [isLoading, setIsLoading] = useState(false);
@@ -194,6 +194,7 @@ export const TicketsPage: React.FC = () => {
                 setIsCreateModalOpen(false);
                 setTitle('');
                 setDescription('');
+                setPriority('medium');
                 setFile(null);
                 setSuccessMsg(null);
             }, 1500);
@@ -285,7 +286,7 @@ export const TicketsPage: React.FC = () => {
             case 'normal':
             case 'medium':
             case 'media':
-                return 'Normal';
+                return 'Media (Normal)';
             case 'high':
             case 'alta':
                 return 'Alta';
@@ -293,9 +294,10 @@ export const TicketsPage: React.FC = () => {
             case 'urgente':
             case 'critical':
             case 'critica':
-                return 'Urgente';
+            case 'crítica':
+                return 'Crítica';
             default:
-                return priority || 'Normal';
+                return priority || 'Media (Normal)';
         }
     };
 
@@ -500,9 +502,10 @@ export const TicketsPage: React.FC = () => {
                                                 onChange={(e) => setPriority(e.target.value)}
                                                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
                                             >
-                                                <option value="low">Baja (Sin urgencia)</option>
-                                                <option value="normal">Normal</option>
-                                                <option value="urgent">Urgente (Bloqueante)</option>
+                                                <option value="low">Baja</option>
+                                                <option value="medium">Media (Normal)</option>
+                                                <option value="high">Alta</option>
+                                                <option value="urgent">Crítica</option>
                                             </select>
                                         </div>
                                     </div>
