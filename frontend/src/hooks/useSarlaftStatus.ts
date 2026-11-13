@@ -15,14 +15,15 @@ export interface SarlaftStatusState {
     refetch: () => void;
 }
 
-export const useSarlaftStatus = (): SarlaftStatusState => {
+export const useSarlaftStatus = (options?: { enabled?: boolean }): SarlaftStatusState => {
+    const enabled = options?.enabled ?? true;
     const { user } = useAuthStore();
 
     const { data, isLoading, refetch } = useQuery<SarlaftCheckResponse>({
         // Por usuario: si se inicia otra sesión en la misma pestaña no se muestra el estado del usuario anterior
         queryKey: ['my_sarlaft_check', user?.id],
         queryFn: () => sarlaftService.getMyCheck(),
-        enabled: !!user,
+        enabled: enabled && !!user,
         staleTime: 1000 * 15,
         // El estado cambia en el servidor sin que el usuario haga nada: siempre se vuelve a consultar al entrar o al volver a la pestaña
         refetchOnMount: 'always',
