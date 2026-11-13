@@ -14,9 +14,11 @@ const logo = "/logo.png";
 
 interface NavbarProps {
   onToggleMobileSidebar?: () => void;
+  /** Inversionista sin verificación aprobada: se ocultan buscador de módulos, saldo y accesos al panel */
+  restrictedAccess?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar, restrictedAccess = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [serviciosMenuOpen, setServiciosMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -214,7 +216,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                 CONTACTO
               </Link>
             </div>
-          ) : isAuthenticated ? (
+          ) : isAuthenticated && !restrictedAccess ? (
             <div className="hidden md:flex items-center justify-center z-20 absolute left-1/2 transform -translate-x-1/2 w-full max-w-md lg:max-w-lg px-4">
               <NavbarModuleSearch isDark={isDashboard || !isSolid} />
             </div>
@@ -225,7 +227,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
                 {/* Balance Widget: Estilo Fintech de Alta Gama */}
-                {balance !== null && (
+                {balance !== null && !restrictedAccess && (
                   <Link
                     to="/dashboard/wallet"
                     className={`group flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all duration-200 cursor-pointer ${
@@ -253,9 +255,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                 <NotificationBell isDark={isDashboard || !isSolid} />
 
                 {/* Acceso Rápido al Chat */}
-                <Can permission="chat:view">
-                  <ChatQuickAccess isDark={isDashboard || !isSolid} />
-                </Can>
+                {!restrictedAccess && (
+                  <Can permission="chat:view">
+                    <ChatQuickAccess isDark={isDashboard || !isSolid} />
+                  </Can>
+                )}
                 
                 {/* Separador sutil */}
                 <div className="h-5 w-px bg-slate-800 hidden sm:block" />
@@ -371,14 +375,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                           </Link>
                         )}
                         <Can permission="profile:view">
-                          <Link
+                          {!restrictedAccess && <Link
                             to="/dashboard/profile"
                             className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
                             onClick={() => setUserMenuOpen(false)}
                           >
                             <UserIcon className="w-4 h-4 text-brand-500" />
                             Mi Perfil
-                          </Link>
+                          </Link>}
                         </Can>
                         <button
                           onClick={() => {
@@ -415,7 +419,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-2 z-20">
-            {isAuthenticated && (
+            {isAuthenticated && !restrictedAccess && (
               <NavbarModuleSearch isDark={isDashboard || !isSolid} />
             )}
 

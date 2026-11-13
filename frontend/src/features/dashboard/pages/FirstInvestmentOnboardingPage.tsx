@@ -134,7 +134,7 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
                         <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
                         <p className="text-xs text-amber-800 leading-relaxed">
                             Puedes quedarte en esta pantalla: apenas termine la verificación te mostraremos tu solicitud de inversión.
-                            Si prefieres, ve al panel; también te avisaremos por correo.
+                            También te avisaremos por correo.
                         </p>
                     </div>
                 )}
@@ -149,13 +149,16 @@ export const FirstInvestmentOnboardingPage: React.FC = () => {
                 )}
 
                 <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                    <button
-                        type="button"
-                        onClick={goToDashboard}
-                        className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors"
-                    >
-                        Ir al panel
-                    </button>
+                    {/* El panel solo se abre con la verificación aprobada */}
+                    {isApproved && (
+                        <button
+                            type="button"
+                            onClick={goToDashboard}
+                            className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors"
+                        >
+                            Ir al panel
+                        </button>
+                    )}
                     {isRejected && (
                         <button
                             type="button"

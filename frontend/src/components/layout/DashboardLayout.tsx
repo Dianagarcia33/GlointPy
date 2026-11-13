@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { DashboardFooter } from './DashboardFooter';
 import { ParentalBanner } from './ParentalBanner';
 import { MandatoryProfileUpdateModal } from '../../features/profile/components/MandatoryProfileUpdateModal';
 import { useAuthStore } from '../../store/authStore';
-import { X, LayoutDashboard } from 'lucide-react';
+import { X, LayoutDashboard, Loader2 } from 'lucide-react';
+import { useInvestorAccessGate, isAllowedWhileRestricted, INVESTOR_ONBOARDING_PATH } from '../../hooks/useInvestorAccessGate';
 
 export const DashboardLayout = () => {
     const user = useAuthStore((state) => state.user);
@@ -15,11 +16,29 @@ export const DashboardLayout = () => {
     const isChatPage = location.pathname.includes('/dashboard/chat');
     const isFullHeightPage = isChatPage || location.pathname.includes('/dashboard/crm/inbox') || location.pathname.includes('/dashboard/crm/calendar');
 
+    // Inversionista sin verificación aprobada: sin menú lateral y sin acceso a los módulos por URL
+    const { status: accessStatus } = useInvestorAccessGate();
+    const showSidebar = accessStatus === 'open';
+    const pathAllowed = isAllowedWhileRestricted(location.pathname);
+    const content =
+        accessStatus === 'restricted' && !pathAllowed ? (
+            <Navigate to={INVESTOR_ONBOARDING_PATH} replace />
+        ) : accessStatus === 'loading' && !pathAllowed ? (
+            <div className="flex h-64 items-center justify-center" role="status" aria-label="Cargando">
+                <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+            </div>
+        ) : (
+            <Outlet />
+        );
+
     return (
         <div className="h-screen bg-slate-100 flex flex-col relative font-inter text-slate-900 overflow-hidden">
             {/* Top Navigation */}
             <div className="relative z-30">
-                <Navbar onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)} />
+                <Navbar
+                    onToggleMobileSidebar={showSidebar ? () => setMobileSidebarOpen(!mobileSidebarOpen) : undefined}
+                    restrictedAccess={!showSidebar}
+                />
             </div>
             
             {/* Contenedor principal debajo de la Navbar */}
@@ -28,12 +47,14 @@ export const DashboardLayout = () => {
                 {user?.must_update_profile && <MandatoryProfileUpdateModal />}
                 <div className="flex-1 flex relative overflow-hidden">
                     {/* Menú Lateral para pantallas medianas o grandes */}
-                    <div className="hidden md:block border-r border-slate-200 bg-white">
-                        <Sidebar />
-                    </div>
+                    {showSidebar && (
+                        <div className="hidden md:block border-r border-slate-200 bg-white">
+                            <Sidebar />
+                        </div>
+                    )}
 
                 {/* Drawer Móvil Deslizable para el Sidebar */}
-                {mobileSidebarOpen && (
+                {showSidebar && mobileSidebarOpen && (
                     <div className="md:hidden fixed inset-0 z-[100] flex">
                         {/* Backdrop oscuro */}
                         <div 
@@ -77,7 +98,7 @@ export const DashboardLayout = () => {
                     <main className="flex-1 flex flex-col overflow-hidden relative">
                         <div className="p-3 lg:p-4 flex-1 flex flex-col overflow-hidden">
                             <div className="w-full flex-1 flex flex-col overflow-hidden">
-                                <Outlet />
+                                {content}
                             </div>
                         </div>
                         <DashboardFooter />
@@ -86,7 +107,7 @@ export const DashboardLayout = () => {
                     <main className="flex-1 flex flex-col overflow-y-auto relative">
                         <div className="p-4 sm:p-6 lg:p-8 flex-1">
                             <div className="max-w-7xl mx-auto w-full pb-8">
-                                <Outlet />
+                                {content}
                             </div>
                         </div>
                         <DashboardFooter />
