@@ -476,7 +476,14 @@ class CRMEmailService:
             end_datetime=cal_event.get("end"),
             description=cal_event.get("description", ""),
             location=cal_event.get("location") or cal_event.get("url") or "",
-            lead_id=email_rec.lead_id
+            lead_id=email_rec.lead_id,
+            # Se conserva al organizador original: quien acepta es invitado y no puede editar la cita
+            organizer=(
+                cal_event.get("organizer") if isinstance(cal_event.get("organizer"), dict) and cal_event["organizer"].get("email")
+                else ({"name": email_rec.sender_email, "email": email_rec.sender_email} if email_rec.sender_email else None)
+            ),
+            attendees=[a for a in (cal_event.get("attendees") or []) if isinstance(a, dict) and "@" in (a.get("email") or "")],
+            send_invitations=False
         )
 
         # 2. Actualizar estado de respuesta en calendar_event

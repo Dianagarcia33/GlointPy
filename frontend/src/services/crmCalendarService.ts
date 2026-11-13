@@ -17,6 +17,46 @@ export interface CalendarEvent {
   attendees?: CalendarEventAttendee[];
   url?: string;
   calendar_url?: string;
+  /** 'virtual' | 'presencial' cuando la cita se creó desde este módulo */
+  modality?: 'virtual' | 'presencial' | null;
+  /** Sala reservada para la cita (reunión presencial) */
+  room_id?: number | null;
+  /** false cuando el usuario solo está invitado: puede verla pero no editarla */
+  is_organizer?: boolean;
+}
+
+export interface CalendarTeamMember {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface CalendarRoomOption {
+  id: number;
+  name: string;
+  capacity: number;
+  location?: string | null;
+  color?: string;
+}
+
+export interface CalendarFormOptions {
+  team_members: CalendarTeamMember[];
+  rooms: CalendarRoomOption[];
+  can_reserve_rooms: boolean;
+}
+
+export interface CalendarEventSaveResponse {
+  success: boolean;
+  uid: string;
+  event_url?: string;
+  calendar_url?: string;
+  location?: string;
+  url?: string | null;
+  modality?: 'virtual' | 'presencial' | null;
+  room_id?: number | null;
+  attendees?: CalendarEventAttendee[];
+  invitations?: { sent: string[]; failed: string[] };
+  message: string;
 }
 
 export interface GetCalendarEventsResponse {
@@ -36,6 +76,10 @@ export interface CreateCalendarEventPayload {
   location?: string;
   lead_id?: number;
   imap_password?: string;
+  attendees?: CalendarEventAttendee[];
+  meeting_url?: string;
+  room_id?: number;
+  calendar_url?: string;
 }
 
 export const crmCalendarService = {
@@ -62,14 +106,21 @@ export const crmCalendarService = {
     });
   },
 
-  createEvent: async (payload: CreateCalendarEventPayload): Promise<{
-    success: boolean;
-    uid: string;
-    event_url: string;
-    message: string;
-  }> => {
+  getFormOptions: async (): Promise<CalendarFormOptions> => {
+    return fetchApi('/crm/calendar/form-options');
+  },
+
+  createEvent: async (payload: CreateCalendarEventPayload): Promise<CalendarEventSaveResponse> => {
     return fetchApi('/crm/calendar/events', {
       method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  /** Solo el organizador puede editar; el servidor responde 403 a un invitado. */
+  updateEvent: async (eventUid: string, payload: CreateCalendarEventPayload): Promise<CalendarEventSaveResponse> => {
+    return fetchApi(`/crm/calendar/events/${encodeURIComponent(eventUid)}`, {
+      method: 'PUT',
       body: JSON.stringify(payload)
     });
   },

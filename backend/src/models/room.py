@@ -35,6 +35,8 @@ class RoomReservation(Base):
     attendees_count = Column(Integer, nullable=False, default=1)
     status = Column(String(20), nullable=False, default="confirmed")  # 'confirmed' | 'cancelled' | 'completed'
     cancelled_reason = Column(String(255), nullable=True)
+    # UID de la cita del calendario (CalDAV) que originó la reserva; NULL si se reservó desde el módulo de Salas
+    calendar_event_uid = Column(String(120), nullable=True, index=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -69,6 +69,7 @@ class RoomReservationResponse(BaseModel):
     attendees_count: int
     status: str
     cancelled_reason: Optional[str] = None
+    calendar_event_uid: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

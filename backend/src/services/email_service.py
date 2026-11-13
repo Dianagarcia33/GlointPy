@@ -51,6 +51,16 @@ class EmailService:
             for att in attachments:
                 file_url = att.get("file_url", "")
                 filename = att.get("filename", "adjunto")
+                # Adjunto generado en memoria (ej. invitación .ics): no existe como archivo en disco
+                if att.get("content") is not None:
+                    raw = att["content"]
+                    if isinstance(raw, str):
+                        raw = raw.encode("utf-8")
+                    inline_payload = {"filename": filename, "content": list(raw)}
+                    if att.get("content_type"):
+                        inline_payload["content_type"] = att["content_type"]
+                    resend_attachments.append(inline_payload)
+                    continue
                 clean_path = file_url.lstrip("/")
                 if clean_path.startswith("api/v1/uploads/"):
                     clean_path = clean_path.replace("api/v1/uploads/", "uploads/")

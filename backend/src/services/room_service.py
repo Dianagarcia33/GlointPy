@@ -150,11 +150,12 @@ class RoomService:
         return result.scalars().all()
 
     @staticmethod
-    async def create_reservation(
+    async def _validate_reservation(
         db: AsyncSession,
-        user_id: int,
-        data: RoomReservationCreate
-    ) -> RoomReservation:
+        data: RoomReservationCreate,
+        exclude_reservation_id: Optional[int] = None
+    ):
+        """Valida horario, sala, capacidad y cruces. Devuelve (sala, inicio, fin) en hora Colombia sin zona."""
         from zoneinfo import ZoneInfo
         BOGOTA_TZ = ZoneInfo("America/Bogota")
 
@@ -200,15 +201,15 @@ class RoomService:
             )
 
         # Overlapping conflict check
-        conflict_query = select(RoomReservation).where(
-            and_(
-                RoomReservation.room_id == data.room_id,
-                RoomReservation.status == "confirmed",
-                RoomReservation.start_time < end_time,
-                RoomReservation.end_time > start_time
-            )
-        )
-        conflict_res = await db.execute(conflict_query)
+        conflict_conditions = [
+            RoomReservation.room_id == data.room_id,
+            RoomReservation.status == "confirmed",
+            RoomReservation.start_time < end_time,
+            RoomReservation.end_time > start_time
+        ]
+        if exclude_reservation_id is not None:
+            conflict_conditions.append(RoomReservation.id != exclude_reservation_id)
+        conflict_res = await db.execute(select(RoomReservation).where(and_(*conflict_conditions)))
         conflict = conflict_res.scalars().first()
         if conflict:
             c_start = conflict.start_time.strftime("%I:%M %p")
@@ -217,6 +218,16 @@ class RoomService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"La sala '{room.name}' ya tiene una reserva en ese horario ({c_start} - {c_end}). Por favor elige otro horario o sala."
             )
+
+        return room, start_time, end_time
+
+    @staticmethod
+    async def create_reservation(
+        db: AsyncSession,
+        user_id: int,
+        data: RoomReservationCreate
+    ) -> RoomReservation:
+        room, start_time, end_time = await RoomService._validate_reservation(db, data)
 
         reservation = RoomReservation(
             room_id=data.room_id,
@@ -242,6 +253,73 @@ class RoomService:
             .where(RoomReservation.id == reservation.id)
         )
         return res_loaded.scalars().first()
+
+    # --- RESERVAS LIGADAS A UNA CITA DEL CALENDARIO ---
+
+    @staticmethod
+    async def get_calendar_reservation(db: AsyncSession, calendar_event_uid: str) -> Optional[RoomReservation]:
+        """Reserva vigente creada desde la cita del calendario indicada (o None)."""
+        res = await db.execute(
+            select(RoomReservation).where(
+                and_(
+                    RoomReservation.calendar_event_uid == calendar_event_uid,
+                    RoomReservation.status == "confirmed"
+                )
+            )
+        )
+        return res.scalars().first()
+
+    @staticmethod
+    async def sync_calendar_reservation(
+        db: AsyncSession,
+        user_id: int,
+        calendar_event_uid: str,
+        data: Optional[RoomReservationCreate],
+        cancel_reason: str = "La cita dejó de usar esta sala"
+    ) -> tuple[Optional[RoomReservation], Optional[MeetingRoom]]:
+        """
+        Deja la reserva de sala de una cita del calendario igual a `data`: la crea, la mueve
+        (otra sala u horario) o la cancela si `data` es None.
+
+        NO hace commit: quien llama confirma solo cuando la cita quedó guardada en el calendario
+        y hace rollback si falló, para que no queden salas reservadas sin cita.
+        """
+        existing = await RoomService.get_calendar_reservation(db, calendar_event_uid)
+
+        if data is None:
+            if existing:
+                existing.status = "cancelled"
+                existing.cancelled_reason = cancel_reason
+                await db.flush()
+            return None, None
+
+        room, start_time, end_time = await RoomService._validate_reservation(
+            db, data, exclude_reservation_id=existing.id if existing else None
+        )
+
+        if existing:
+            existing.room_id = data.room_id
+            existing.title = data.title.strip()
+            existing.description = data.description.strip() if data.description else None
+            existing.start_time = start_time
+            existing.end_time = end_time
+            existing.attendees_count = data.attendees_count or 1
+            reservation = existing
+        else:
+            reservation = RoomReservation(
+                room_id=data.room_id,
+                user_id=user_id,
+                title=data.title.strip(),
+                description=data.description.strip() if data.description else None,
+                start_time=start_time,
+                end_time=end_time,
+                attendees_count=data.attendees_count or 1,
+                status="confirmed",
+                calendar_event_uid=calendar_event_uid
+            )
+            db.add(reservation)
+        await db.flush()
+        return reservation, room
 
     @staticmethod
     async def cancel_reservation(

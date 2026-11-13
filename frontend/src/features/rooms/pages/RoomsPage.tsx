@@ -557,6 +557,15 @@ export const RoomsPage: React.FC = () => {
                                 <h4 className="text-sm font-extrabold text-slate-900 font-montserrat">
                                   {res.title}
                                 </h4>
+                                {res.calendar_event_uid && (
+                                  <span
+                                    title="Reserva creada al agendar una reunión presencial en el calendario"
+                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-brand-50 text-brand-700 border border-brand-200/70 rounded-full text-[10px] font-bold"
+                                  >
+                                    <CalendarCheck className="w-3 h-3" />
+                                    Desde calendario
+                                  </span>
+                                )}
                                 {finished && (
                                   <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-[10px] font-bold uppercase">
                                     Finalizada
@@ -796,7 +805,18 @@ export const RoomsPage: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="font-bold text-slate-800">{res.title}</div>
+                          <div className="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                            <span>{res.title}</span>
+                            {res.calendar_event_uid && (
+                              <span
+                                title="Reserva creada al agendar una reunión presencial en el calendario"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-brand-50 text-brand-700 border border-brand-200/70 rounded-full text-[10px] font-bold"
+                              >
+                                <CalendarCheck className="w-3 h-3" />
+                                Desde calendario
+                              </span>
+                            )}
+                          </div>
                           {res.description && (
                             <div className="text-[11px] text-slate-400 italic line-clamp-1">
                               {res.description}

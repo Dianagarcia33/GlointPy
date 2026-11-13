@@ -26,13 +26,18 @@ import {
   List,
   CalendarCheck,
   Layers,
-  Sparkles
+  Sparkles,
+  Pencil,
+  Users,
+  DoorOpen
 } from 'lucide-react';
 import { 
   crmCalendarService, 
   CalendarEvent, 
+  CalendarEventAttendee,
   CreateCalendarEventPayload 
 } from '../../../services/crmCalendarService';
+import { CalendarAttendeesPicker } from '../components/CalendarAttendeesPicker';
 import { crmEmailService } from '../../../services/crmEmailService';
 import { crmService, CRMLead } from '../../../services/crmService';
 
@@ -69,6 +74,13 @@ export const CRMCalendarPage: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number | undefined>(undefined);
   const [newLeadId, setNewLeadId] = useState<number | undefined>(undefined);
   const [savingEvent, setSavingEvent] = useState(false);
+  // Cita en edición (null = se está creando una nueva). Solo el organizador puede editar.
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [modality, setModality] = useState<'virtual' | 'presencial'>('virtual');
+  const [meetingUrl, setMeetingUrl] = useState('');
+  // Sala elegida para una reunión presencial; 'other' = dirección escrita a mano (no reserva sala)
+  const [roomChoice, setRoomChoice] = useState<number | 'other'>('other');
+  const [attendees, setAttendees] = useState<CalendarEventAttendee[]>([]);
 
   // Sincronización cPanel
   const [syncPassword, setSyncPassword] = useState('');
@@ -116,6 +128,61 @@ export const CRMCalendarPage: React.FC = () => {
     staleTime: 1000 * 60 * 5
   });
 
+  // 4. Query: equipo que se puede invitar y salas que el usuario puede reservar
+  const { data: formOptions } = useQuery({
+    queryKey: ['crm_calendar_form_options'],
+    queryFn: () => crmCalendarService.getFormOptions(),
+    staleTime: 1000 * 60 * 5
+  });
+  const teamMembers = formOptions?.team_members || [];
+  const roomOptions = formOptions?.rooms || [];
+  const selectedRoom = typeof roomChoice === 'number' ? roomOptions.find(r => r.id === roomChoice) : undefined;
+
+  const openCreateModal = (dateKey: string) => {
+    setEditingEvent(null);
+    setNewTitle('');
+    setNewDate(dateKey);
+    setNewStartTime('10:00');
+    setNewEndTime('11:00');
+    setNewLocation('');
+    setNewDescription('');
+    setNewLeadId(undefined);
+    setModality('virtual');
+    setMeetingUrl('');
+    setRoomChoice(roomOptions.length > 0 ? roomOptions[0].id : 'other');
+    setAttendees([]);
+    setIsCreateModalOpen(true);
+  };
+
+  const openEditModal = (ev: CalendarEvent) => {
+    const organizerEmail = ev.organizer?.email?.toLowerCase();
+    setEditingEvent(ev);
+    setNewTitle(ev.title);
+    setNewDate(ev.start.split('T')[0]);
+    setNewStartTime(ev.start.slice(11, 16) || '10:00');
+    setNewEndTime((ev.end || ev.start).slice(11, 16) || '11:00');
+    setNewDescription(ev.description || '');
+    setAttendees((ev.attendees || []).filter(a => a.email && a.email.toLowerCase() !== organizerEmail));
+    if (ev.room_id && roomOptions.some(r => r.id === ev.room_id)) {
+      setModality('presencial');
+      setRoomChoice(ev.room_id);
+      setMeetingUrl('');
+      setNewLocation('');
+    } else if (ev.url) {
+      setModality('virtual');
+      setMeetingUrl(ev.url);
+      setRoomChoice(roomOptions.length > 0 ? roomOptions[0].id : 'other');
+      setNewLocation('');
+    } else {
+      setModality('presencial');
+      setRoomChoice('other');
+      setMeetingUrl('');
+      setNewLocation(ev.location || '');
+    }
+    setSelectedEvent(null);
+    setIsCreateModalOpen(true);
+  };
+
   // Notificación toast temporal
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -148,7 +215,7 @@ export const CRMCalendarPage: React.FC = () => {
     }
   };
 
-  // Acción: Crear nueva cita en cPanel CalDAV
+  // Acción: Crear o editar una cita en cPanel CalDAV
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) {
@@ -170,46 +237,73 @@ export const CRMCalendarPage: React.FC = () => {
       return;
     }
 
+    const cleanMeetingUrl = meetingUrl.trim();
+    if (modality === 'virtual') {
+      if (cleanMeetingUrl && !/^https?:\/\/\S+$/i.test(cleanMeetingUrl)) {
+        showToast('El enlace de la reunión debe empezar por https://', 'error');
+        return;
+      }
+      if (attendees.length > 0 && !cleanMeetingUrl) {
+        showToast('Pega el enlace de la reunión para enviarlo a los invitados.', 'error');
+        return;
+      }
+    }
+    if (modality === 'presencial' && selectedRoom && attendees.length + 1 > selectedRoom.capacity) {
+      showToast(`${selectedRoom.name} tiene capacidad para ${selectedRoom.capacity} personas y la cita suma ${attendees.length + 1}.`, 'error');
+      return;
+    }
+
     setSavingEvent(true);
     try {
       const payload: CreateCalendarEventPayload = {
         title: newTitle.trim(),
         start_datetime: startIso,
         end_datetime: endIso,
-        location: newLocation.trim() || undefined,
         description: newDescription.trim() || undefined,
-        lead_id: newLeadId || undefined,
-        imap_password: syncPassword || undefined
+        imap_password: syncPassword || undefined,
+        attendees,
+        meeting_url: modality === 'virtual' ? cleanMeetingUrl || undefined : undefined,
+        room_id: modality === 'presencial' && selectedRoom ? selectedRoom.id : undefined,
+        location: modality === 'presencial' && !selectedRoom ? newLocation.trim() || undefined : undefined,
       };
 
-      const res = await crmCalendarService.createEvent(payload);
+      const res = editingEvent
+        ? await crmCalendarService.updateEvent(editingEvent.uid, { ...payload, calendar_url: editingEvent.calendar_url })
+        : await crmCalendarService.createEvent({ ...payload, lead_id: newLeadId || undefined });
+
       if (res.success) {
-        showToast('¡Cita agendada y sincronizada en cPanel con éxito!', 'success');
+        const failed = res.invitations?.failed?.length || 0;
+        showToast(res.message || (editingEvent ? 'Cita actualizada.' : 'Cita agendada.'), failed > 0 ? 'error' : 'success');
         setIsCreateModalOpen(false);
-        setNewTitle('');
-        setNewLocation('');
-        setNewDescription('');
-        setNewLeadId(undefined);
         // H-199: la cita se ve de inmediato; el servidor CalDAV puede tardar en indexarla, por eso se
-        // inserta en la lista y se confirma con una nueva consulta unos segundos después
-        const linkMatch = (newLocation || '').match(/https?:\/\/\S+/i);
-        const optimisticEvent: CalendarEvent = {
-          uid: (res as any).uid || `tmp_${Date.now()}`,
+        // inserta (o reemplaza) en la lista y se confirma con una nueva consulta unos segundos después
+        const savedEvent: CalendarEvent = {
+          ...(editingEvent || {}),
+          uid: res.uid || editingEvent?.uid || `tmp_${Date.now()}`,
           title: payload.title,
           start: payload.start_datetime,
           end: payload.end_datetime,
-          location: payload.location,
+          location: res.location ?? payload.location,
           description: payload.description,
-          url: linkMatch ? linkMatch[0] : undefined,
+          url: res.url || undefined,
+          modality: res.modality,
+          room_id: res.room_id,
+          attendees: res.attendees || attendees,
+          calendar_url: res.calendar_url || editingEvent?.calendar_url,
+          is_organizer: true,
         };
-        queryClient.setQueryData(['crm_calendar_events'], (old: any) => ({
-          ...(old || { needs_password: false }),
-          events: [optimisticEvent, ...((old?.events || []).filter((e: CalendarEvent) => e.uid !== optimisticEvent.uid))],
-          count: ((old?.events || []).length || 0) + 1,
-        }));
+        queryClient.setQueryData(['crm_calendar_events'], (old: any) => {
+          const rest = (old?.events || []).filter((ev: CalendarEvent) => ev.uid !== savedEvent.uid);
+          return {
+            ...(old || { needs_password: false }),
+            events: [savedEvent, ...rest],
+            count: rest.length + 1,
+          };
+        });
+        setEditingEvent(null);
         setTimeout(() => queryClient.invalidateQueries({ queryKey: ['crm_calendar_events'] }), 3000);
       } else {
-        showToast(res.message || 'Error al crear la cita.', 'error');
+        showToast(res.message || 'No se pudo guardar la cita.', 'error');
       }
     } catch (err: any) {
       showToast(err?.message || 'Error comunicándose con cPanel CalDAV.', 'error');
@@ -234,7 +328,7 @@ export const CRMCalendarPage: React.FC = () => {
         imapPassword: syncPassword || undefined
       });
       if (res.success) {
-        showToast('Cita eliminada de cPanel.', 'success');
+        showToast(res.message || 'Cita eliminada.', 'success');
         setSelectedEvent(null);
         queryClient.invalidateQueries({ queryKey: ['crm_calendar_events'] });
       } else {
@@ -354,10 +448,7 @@ export const CRMCalendarPage: React.FC = () => {
             <span>Agenda & Citas</span>
           </div>
           <button
-            onClick={() => {
-              setNewDate(new Date().toISOString().split('T')[0]);
-              setIsCreateModalOpen(true);
-            }}
+            onClick={() => openCreateModal(new Date().toISOString().split('T')[0])}
             className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold shadow-xs shadow-brand-500/20 active:scale-95 cursor-pointer"
             title="Agendar nueva cita en cPanel"
           >
@@ -634,10 +725,7 @@ export const CRMCalendarPage: React.FC = () => {
                   return (
                     <div
                       key={dateKey}
-                      onClick={() => {
-                        setNewDate(dateKey);
-                        setIsCreateModalOpen(true);
-                      }}
+                      onClick={() => openCreateModal(dateKey)}
                       className={`bg-white p-1.5 flex flex-col min-h-0 overflow-hidden transition-colors group cursor-pointer hover:bg-brand-50/20 ${
                         isToday ? 'bg-amber-50/30 ring-1 ring-inset ring-amber-400/40' : ''
                       }`}
@@ -734,8 +822,7 @@ export const CRMCalendarPage: React.FC = () => {
                         onClick={() => {
                           const today = new Date();
                           const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
-                          setNewDate(isCurrentMonth ? today.toISOString().split('T')[0] : `${currentMonthPrefix}-01`);
-                          setIsCreateModalOpen(true);
+                          openCreateModal(isCurrentMonth ? today.toISOString().split('T')[0] : `${currentMonthPrefix}-01`);
                         }}
                         className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
                       >
@@ -822,7 +909,7 @@ export const CRMCalendarPage: React.FC = () => {
       {/* 🟢 MODAL: AGENDAR NUEVA CITA */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 text-slate-900">
+          <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 text-slate-900">
             
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -831,10 +918,12 @@ export const CRMCalendarPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 font-montserrat">
-                    Agendar Cita en cPanel CalDAV
+                    {editingEvent ? 'Editar cita' : 'Agendar cita'}
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Sincronización en vivo con tu cuenta corporativa
+                    {editingEvent
+                      ? 'Los invitados reciben un aviso si cambias fecha, lugar o enlace'
+                      : 'Se guarda en tu calendario corporativo'}
                   </p>
                 </div>
               </div>
@@ -904,52 +993,108 @@ export const CRMCalendarPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Modalidad: virtual (enlace) o presencial (sala / dirección) */}
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-bold text-slate-700">
-                    Ubicación o Enlace Virtual
-                  </label>
-                  <div className="flex items-center gap-1">
+                <span className="block text-[11px] font-bold text-slate-700 mb-1">Modalidad</span>
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100" role="radiogroup" aria-label="Modalidad de la reunión">
+                  {([
+                    { key: 'virtual', label: 'Virtual', Icon: Video },
+                    { key: 'presencial', label: 'Presencial', Icon: MapPin },
+                  ] as const).map(({ key, label, Icon }) => (
                     <button
+                      key={key}
                       type="button"
-                      onClick={() => setNewLocation('Google Meet')}
-                      title="Marca la cita como Google Meet. Después pega el enlace de la reunión para que quede con videollamada."
-                      className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] text-slate-600 font-medium"
+                      role="radio"
+                      aria-checked={modality === key}
+                      onClick={() => setModality(key)}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                        modality === key ? 'bg-white text-brand-700 shadow-xs' : 'text-slate-500 hover:text-slate-700'
+                      }`}
                     >
-                      Marcar como Meet
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{label}</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewLocation('Oficinas Gloint')}
-                      title="Usa la dirección de las oficinas como lugar de la cita"
-                      className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] text-slate-600 font-medium"
-                    >
-                      Oficinas Gloint
-                    </button>
-                  </div>
+                  ))}
                 </div>
-                <input
-                  type="text"
-                  placeholder="https://meet.google.com/... o Dirección física"
-                  value={newLocation}
-                  onChange={(e) => setNewLocation(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
-                />
-                {/* H-199: el atajo solo escribe una etiqueta; el enlace real hay que pegarlo */}
-                {/^google meet$/i.test(newLocation.trim()) && (
-                  <p className="mt-1 text-[10px] text-amber-700 font-medium">
-                    Pega aquí el enlace de la reunión (meet.google.com/…). Sin enlace, la cita no tendrá el botón «Unirse a llamada».
-                  </p>
-                )}
-                {/https?:\/\/\S+/i.test(newLocation) && (
-                  <p className="mt-1 text-[10px] text-emerald-700 font-medium">
-                    Enlace detectado: la cita quedará con videollamada lista.
-                  </p>
-                )}
               </div>
 
-              {/* Selector de Proyecto y Lead */}
-              <div className="grid grid-cols-2 gap-2">
+              {modality === 'virtual' ? (
+                <div>
+                  <label htmlFor="cal-meeting-url" className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Enlace de la reunión (Meet, Zoom, Teams)
+                  </label>
+                  <input
+                    id="cal-meeting-url"
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://meet.google.com/abc-defg-hij"
+                    value={meetingUrl}
+                    onChange={(e) => setMeetingUrl(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
+                  />
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    Crea la reunión en Google Meet y pega aquí el enlace: es el que reciben los invitados.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {roomOptions.length > 0 && (
+                    <div>
+                      <label htmlFor="cal-room" className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Sala de reuniones
+                      </label>
+                      <select
+                        id="cal-room"
+                        value={roomChoice}
+                        onChange={(e) => setRoomChoice(e.target.value === 'other' ? 'other' : Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:border-brand-500 focus:bg-white"
+                      >
+                        {roomOptions.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} · {r.capacity} personas{r.location ? ` · ${r.location}` : ''}
+                          </option>
+                        ))}
+                        <option value="other">Otra dirección (sin reservar sala)</option>
+                      </select>
+                      {selectedRoom && (
+                        <p className="mt-1 text-[10px] text-emerald-700 font-medium">
+                          La sala queda reservada en el módulo de Salas para este horario.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {!selectedRoom && (
+                    <div>
+                      <label htmlFor="cal-location" className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Dirección o lugar
+                      </label>
+                      <input
+                        id="cal-location"
+                        type="text"
+                        placeholder="Ej: Oficinas Gloint, Calle 100 # 8A-55"
+                        value={newLocation}
+                        onChange={(e) => setNewLocation(e.target.value)}
+                        className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Invitados: equipo o correos externos */}
+              <div>
+                <span className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Invitados {attendees.length > 0 && <span className="text-slate-400 font-medium">({attendees.length})</span>}
+                </span>
+                <CalendarAttendeesPicker team={teamMembers} value={attendees} onChange={setAttendees} />
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Cada invitado recibe un correo con los datos de la reunión
+                  {modality === 'virtual' ? ' y el enlace para unirse.' : ' y el lugar.'}
+                </p>
+              </div>
+
+              {/* Selector de Proyecto y Lead (solo al crear: la actividad del prospecto ya quedó registrada) */}
+              {!editingEvent && <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Proyecto CRM (Opcional)
@@ -990,7 +1135,7 @@ export const CRMCalendarPage: React.FC = () => {
                     ))}
                   </select>
                 </div>
-              </div>
+              </div>}
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -1026,7 +1171,11 @@ export const CRMCalendarPage: React.FC = () => {
                   ) : (
                     <>
                       <CalendarCheck className="w-4 h-4" />
-                      <span>Agendar Cita</span>
+                      <span>
+                        {editingEvent
+                          ? 'Guardar cambios'
+                          : attendees.length > 0 ? 'Agendar y enviar invitación' : 'Agendar cita'}
+                      </span>
                     </>
                   )}
                 </button>
@@ -1082,6 +1231,39 @@ export const CRMCalendarPage: React.FC = () => {
                 </div>
               )}
 
+              {selectedEvent.room_id && (
+                <div className="flex items-center gap-2">
+                  <DoorOpen className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Sala reservada en el módulo de Salas</span>
+                </div>
+              )}
+
+              {selectedEvent.attendees && selectedEvent.attendees.length > 0 && (
+                <div className="pt-2 border-t border-slate-200/80">
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 mb-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Invitados ({selectedEvent.attendees.length})</span>
+                  </p>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {selectedEvent.attendees.map((a) => (
+                      <li
+                        key={a.email}
+                        title={a.email}
+                        className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] text-slate-700 max-w-full truncate"
+                      >
+                        {a.name && a.name !== a.email ? a.name : a.email}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {selectedEvent.is_organizer === false && (
+                <p className="pt-2 border-t border-slate-200/80 text-[11px] text-slate-500">
+                  Estás invitado a esta reunión. Solo quien la organizó puede modificarla.
+                </p>
+              )}
+
               {selectedEvent.description && (
                 <div className="pt-2 border-t border-slate-200/80">
                   <p className="text-[11px] font-bold text-slate-500 mb-1">Notas:</p>
@@ -1092,14 +1274,25 @@ export const CRMCalendarPage: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={() => handleDeleteEvent(selectedEvent)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Cancelar Cita</span>
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDeleteEvent(selectedEvent)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{selectedEvent.is_organizer === false ? 'Quitar de mi calendario' : 'Cancelar cita'}</span>
+                </button>
+                {selectedEvent.is_organizer !== false && (
+                  <button
+                    onClick={() => openEditModal(selectedEvent)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Editar</span>
+                  </button>
+                )}
+              </div>
 
               <div className="flex items-center gap-2">
                 {selectedEvent.url && (

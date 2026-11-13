@@ -30,6 +30,8 @@ export interface RoomReservation {
   attendees_count: number;
   status: 'confirmed' | 'cancelled' | 'completed';
   cancelled_reason?: string | null;
+  /** UID de la cita del calendario que originó la reserva (null si se reservó desde Salas) */
+  calendar_event_uid?: string | null;
   created_at?: string;
   updated_at?: string;
   room?: MeetingRoom;

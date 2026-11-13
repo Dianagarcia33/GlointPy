@@ -227,6 +227,13 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Reservas de sala creadas desde una cita del calendario
+            try:
+                await conn.execute(text("ALTER TABLE room_reservations ADD COLUMN calendar_event_uid VARCHAR(120) NULL"))
+                await conn.execute(text("CREATE INDEX ix_room_reservations_calendar_event_uid ON room_reservations (calendar_event_uid)"))
+            except Exception:
+                pass
+
             # Migraciones para Bandeja de Correos Completa y Eventos de Calendario en crm_emails
             for col_sql in [
                 "ALTER TABLE crm_emails ADD COLUMN is_starred TINYINT(1) NOT NULL DEFAULT 0",
