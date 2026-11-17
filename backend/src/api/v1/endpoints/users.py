@@ -8,7 +8,7 @@ from typing import List, Optional
 from src.core.database import get_db
 from src.schemas.user import (
     UserResponse, UserCreateAdmin, UserUpdateAdmin, UserPaginatedResponse,
-    UserProfileUpdate, UserChangePassword, ForceProfileUpdateRequest
+    UserProfileUpdate, UserChangePassword, ForceProfileUpdateRequest, DuplicateAccountsResponse
 )
 from src.schemas.security import AssignRoleToUser
 from src.models.user import User
@@ -31,6 +31,17 @@ async def get_my_profile(
     Obtiene los datos completos del perfil del usuario en sesión.
     """
     return await UserService.get_user_by_id(db, current_user.id)
+
+@router.get("/me/duplicate-accounts", response_model=DuplicateAccountsResponse)
+async def get_my_duplicate_accounts(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cuentas que comparten el documento del usuario en sesión (lista vacía si solo tiene una).
+    Los correos de las otras cuentas salen parciales.
+    """
+    return await UserService.get_duplicate_accounts(db, current_user)
 
 @router.put("/me/profile", response_model=UserResponse)
 async def update_my_profile(
@@ -126,12 +137,13 @@ async def list_users(
     role_id: Optional[int] = None,
     is_active: Optional[bool] = None,
     has_wallet: Optional[bool] = None,
+    duplicate_document: Optional[bool] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Obtiene la lista de todos los usuarios paginada (para panel admin).
     """
-    return await UserService.get_all_users(db, page, limit, search, role_id, is_active, has_wallet)
+    return await UserService.get_all_users(db, page, limit, search, role_id, is_active, has_wallet, duplicate_document)
 
 @router.post("/{user_id}/create-wallet", dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def create_user_wallet(user_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

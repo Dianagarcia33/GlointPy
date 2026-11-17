@@ -35,6 +35,11 @@ class User(Base):
     # Credencial IMAP para sincronización automática de correo corporativo (encriptada con Fernet)
     imap_password = Column(EncryptedString, nullable=True)
 
+    # Documento repetido en varias cuentas: la cuenta con la que el usuario eligió seguir iniciando sesión
+    # (puede ser la suya) y cuándo respondió. La unificación real la hace el equipo.
+    unify_keep_user_id = Column(BigInteger, nullable=True)
+    unify_answered_at = Column(DateTime, nullable=True)
+
     # Firma de correo (HTML saneado) que se agrega al final de los correos enviados desde la bandeja del CRM
     email_signature = Column(Text, nullable=True)
 

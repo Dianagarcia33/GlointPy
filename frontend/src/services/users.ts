@@ -43,6 +43,8 @@ export interface User {
   city?: string | null;
   date_of_birth?: string | null;
   must_update_profile?: boolean;
+  duplicate_document_count?: number;
+  unify_keep_user_id?: number | null;
   is_active: boolean;
   is_superuser: boolean;
   parent_user_id?: number | null;
@@ -264,7 +266,7 @@ export interface GlobalAccountStatement {
 }
 
 export const usersService = {
-  getUsers: async (params?: { page?: number, limit?: number, search?: string, role_id?: number, is_active?: boolean, has_wallet?: boolean }): Promise<PaginatedUsers> => {
+  getUsers: async (params?: { page?: number, limit?: number, search?: string, role_id?: number, is_active?: boolean, has_wallet?: boolean, duplicate_document?: boolean }): Promise<PaginatedUsers> => {
     const queryParams = new URLSearchParams();
     if (params) {
       if (params.page !== undefined) queryParams.append('page', params.page.toString());
@@ -273,6 +275,7 @@ export const usersService = {
       if (params.role_id !== undefined) queryParams.append('role_id', params.role_id.toString());
       if (params.is_active !== undefined) queryParams.append('is_active', params.is_active.toString());
       if (params.has_wallet !== undefined) queryParams.append('has_wallet', params.has_wallet.toString());
+      if (params.duplicate_document) queryParams.append('duplicate_document', 'true');
     }
     const queryString = queryParams.toString();
     const url = `/users${queryString ? `?${queryString}` : ''}`;
@@ -343,6 +346,11 @@ export const usersService = {
     return await fetchApi('/users/me/profile');
   },
 
+  /** Cuentas que comparten el documento del usuario en sesión (vacío si solo tiene una). */
+  getMyDuplicateAccounts: async (): Promise<DuplicateAccounts> => {
+    return await fetchApi('/users/me/duplicate-accounts');
+  },
+
   updateMyProfile: async (data: UserProfileUpdateData): Promise<User> => {
     return await fetchApi('/users/me/profile', {
       method: 'PUT',
@@ -385,7 +393,13 @@ export const usersService = {
   },
 };
 
+export interface DuplicateAccounts {
+  accounts: { id: number; email: string; is_self: boolean }[];
+  keep_account_id: number | null;
+}
+
 export interface UserProfileUpdateData {
+  keep_account_id?: number | null;
   name?: string;
   first_name: string;
   middle_name?: string | null;

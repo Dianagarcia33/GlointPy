@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { validateDocumentId, validatePhoneNumber, validateBirthDate } from '../../../utils/identityValidation';
 import { getColombiaToday } from '../../../utils/format';
 import { createPortal } from 'react-dom';
 import { ShieldAlert, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
-import { usersService } from '../../../services/users';
+import { usersService, DuplicateAccounts } from '../../../services/users';
 
 export const MandatoryProfileUpdateModal: React.FC = () => {
   const { user, setUser } = useAuthStore();
@@ -13,7 +13,7 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
   const [middleName, setMiddleName] = useState(user?.middle_name || '');
   const [lastName, setLastName] = useState(user?.last_name || '');
   const [secondLastName, setSecondLastName] = useState(user?.second_last_name || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const email = user?.email || '';
   const [documentId, setDocumentId] = useState(user?.document_id || '');
   const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
   const [dateOfBirth, setDateOfBirth] = useState(() => {
@@ -24,6 +24,22 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
       return '';
     }
   });
+
+  // Si su documento está en varias cuentas, debe elegir con cuál correo seguirá iniciando sesión
+  const [duplicates, setDuplicates] = useState<DuplicateAccounts['accounts']>([]);
+  const [keepAccountId, setKeepAccountId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    usersService.getMyDuplicateAccounts()
+      .then((res) => {
+        if (!active) return;
+        setDuplicates(res.accounts || []);
+        setKeepAccountId(res.keep_account_id ?? null);
+      })
+      .catch(() => { /* sin aviso: el servidor igual exige la elección al guardar */ });
+    return () => { active = false; };
+  }, []);
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +56,10 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
     }
     if (!lastName.trim()) {
       setError('Por favor ingresa tu primer apellido.');
+      return;
+    }
+    if (duplicates.length > 0 && keepAccountId === null) {
+      setError('Elige con cuál correo seguirás iniciando sesión.');
       return;
     }
     if (!documentId.trim()) {
@@ -82,6 +102,7 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
         document_id: documentId.trim(),
         phone_number: phoneNumber.trim(),
         date_of_birth: dateOfBirth,
+        keep_account_id: duplicates.length > 0 ? keepAccountId : undefined,
       });
 
       // Asegurar que must_update_profile sea explícitamente falso
@@ -210,20 +231,50 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Correo Electrónico */}
+            {/* Correo Electrónico: solo lectura, identifica la cuenta */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700">
-                Correo Electrónico <span className="text-red-500 font-bold">*</span>
+                Correo Electrónico
               </label>
               <input
                 type="email"
-                required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="correo@ejemplo.com"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white transition-all font-medium"
+                readOnly
+                disabled
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-500 bg-slate-100 cursor-not-allowed font-medium"
               />
+              <p className="text-[11px] text-slate-400">El correo no se puede modificar. Si necesitas cambiarlo, contacta a soporte.</p>
             </div>
+
+            {/* Documento en varias cuentas: elegir con cuál seguirá iniciando sesión */}
+            {duplicates.length > 0 && (
+              <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/70 space-y-3">
+                <div>
+                  <span className="font-bold text-amber-950 text-xs block font-montserrat">Encontramos más de una cuenta con tu documento</span>
+                  <p className="text-xs text-amber-800 mt-1">
+                    Vamos a unificarlas en una sola. Elige con cuál correo seguirás iniciando sesión.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {duplicates.map((acc) => (
+                    <label
+                      key={acc.id}
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border cursor-pointer text-xs sm:text-sm transition-all ${keepAccountId === acc.id ? 'border-brand-500 bg-white ring-2 ring-brand-500/20' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                    >
+                      <input
+                        type="radio"
+                        name="keep_account"
+                        checked={keepAccountId === acc.id}
+                        onChange={() => setKeepAccountId(acc.id)}
+                        className="accent-brand-500"
+                      />
+                      <span className="font-semibold text-slate-800 break-all">{acc.email}</span>
+                      {acc.is_self && <span className="ml-auto text-[10px] font-bold text-brand-600 uppercase shrink-0">Esta cuenta</span>}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Fila: Documento y Teléfono */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -140,11 +140,22 @@ class UserProfileUpdate(NamePartsMixin):
     document_id: Optional[str] = Field(None, max_length=50)
     phone_number: Optional[str] = Field(None, max_length=50)
     date_of_birth: Optional[Any] = None
+    # Cuenta con la que seguirá iniciando sesión cuando su documento está en varias cuentas
+    keep_account_id: Optional[int] = None
 
     @field_validator('date_of_birth', mode='before')
     @classmethod
     def parse_empty_date(cls, v):
         return _validate_date_of_birth(v)
+
+class DuplicateAccountOut(BaseModel):
+    id: int
+    email: str
+    is_self: bool
+
+class DuplicateAccountsResponse(BaseModel):
+    accounts: List[DuplicateAccountOut] = []
+    keep_account_id: Optional[int] = None
 
 class UserChangePassword(BaseModel):
     current_password: str = Field(..., min_length=1)
@@ -187,6 +198,9 @@ class UserResponse(BaseModel):
     parent_user_id: Optional[int] = None
     parent: Optional[UserSummaryOut] = None
     children: List[UserSummaryOut] = []
+    # Cuántas cuentas comparten su documento (solo se calcula en el listado del admin) y con cuál eligió quedarse
+    duplicate_document_count: int = 0
+    unify_keep_user_id: Optional[int] = None
     created_at: Any
     updated_at: Any
     
@@ -226,6 +240,7 @@ class UserResponse(BaseModel):
             loaded_data['permissions_override'] = getattr(data, 'permissions_override', None)
             loaded_data['permissions'] = getattr(data, 'permissions', [])
             loaded_data['temp_password'] = getattr(data, 'temp_password', None)
+            loaded_data['duplicate_document_count'] = getattr(data, 'duplicate_document_count', 0) or 0
 
             for field in ('id', 'name', 'email', 'is_active', 'is_superuser', 'must_change_password', 'must_update_profile', 'created_at', 'updated_at', 'temp_password'):
                 if field not in loaded_data and hasattr(data, field):

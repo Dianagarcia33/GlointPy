@@ -28,6 +28,7 @@ export const AdminUsersPage = () => {
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
   const [walletFilter, setWalletFilter] = useState<string>('');
+  const [duplicateFilter, setDuplicateFilter] = useState<string>('');
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isTableLoading, setIsTableLoading] = useState(false);
   
@@ -134,7 +135,8 @@ export const AdminUsersPage = () => {
         search: search || undefined,
         role_id: roleFilter ? Number(roleFilter) : undefined,
         is_active: activeFilter !== '' ? activeFilter === 'true' : undefined,
-        has_wallet: walletFilter !== '' ? walletFilter === 'true' : undefined
+        has_wallet: walletFilter !== '' ? walletFilter === 'true' : undefined,
+        duplicate_document: duplicateFilter === 'true' ? true : undefined
       });
 
       const usersList = res.data || [];
@@ -404,6 +406,7 @@ export const AdminUsersPage = () => {
         role_id: roleFilter ? parseInt(roleFilter) : undefined,
         is_active: activeFilter === 'true' ? true : activeFilter === 'false' ? false : undefined,
         has_wallet: walletFilter === 'true' ? true : walletFilter === 'false' ? false : undefined,
+        duplicate_document: duplicateFilter === 'true' ? true : undefined,
       });
       if (requestId !== latestRequestRef.current) return;
       
@@ -423,7 +426,7 @@ export const AdminUsersPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [page, search, roleFilter, activeFilter, walletFilter]);
+  }, [page, search, roleFilter, activeFilter, walletFilter, duplicateFilter]);
 
   // Los roles solo alimentan el filtro y el modal: se cargan aparte y una vez. Un rol sin
   // admin.roles.manage recibe 403 aquí y antes eso descartaba el listado de usuarios (H-151)
@@ -751,6 +754,19 @@ export const AdminUsersPage = () => {
             <option value="false">Sin Billetera</option>
           </select>
         </div>
+        <div className="w-full md:w-52">
+          <select 
+            className="w-full px-3.5 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all cursor-pointer"
+            value={duplicateFilter}
+            onChange={(e) => {
+              setDuplicateFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Todos los documentos</option>
+            <option value="true">Documento en varias cuentas</option>
+          </select>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
@@ -778,6 +794,14 @@ export const AdminUsersPage = () => {
                       <div className="min-w-0">
                         <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5 truncate">
                           <span className="truncate">{user.name}</span>
+                          {(user.duplicate_document_count || 0) > 1 && (
+                            <span
+                              title={user.unify_keep_user_id ? `Eligió seguir con la cuenta #${user.unify_keep_user_id}` : 'Aún no ha elegido con qué correo seguir'}
+                              className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-bold ${user.unify_keep_user_id ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}
+                            >
+                              {user.duplicate_document_count} cuentas{user.unify_keep_user_id ? ' · eligió' : ''}
+                            </span>
+                          )}
                           {user.is_superuser && (
                             <span className="text-[8px] bg-purple-100 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded font-bold uppercase shrink-0">Admin</span>
                           )}

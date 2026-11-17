@@ -56,6 +56,14 @@ def _mask_email(email):
     return f"{local[:1]}***@{domain}"
 
 
+def _normalize_document(doc) -> str:
+    return "".join(ch for ch in (doc or "") if ch not in ". -").strip()
+
+
+def _normalized_document_expr():
+    from sqlalchemy import func
+    return func.replace(func.replace(func.replace(User.document_id, ".", ""), " ", ""), "-", "")
+
 class UserService:
     @staticmethod
     async def get_all_users(
@@ -65,7 +73,8 @@ class UserService:
         search: str = None, 
         role_id: int = None, 
         is_active: bool = None,
-        has_wallet: bool = None
+        has_wallet: bool = None,
+        duplicate_document: bool = None
     ) -> dict:
         from sqlalchemy import or_, func
         from src.models.wallet import Wallet
@@ -84,6 +93,12 @@ class UserService:
             
         if is_active is not None:
             query = query.where(User.is_active == is_active)
+
+        if duplicate_document:
+            # Mismo documento (sin puntos, espacios ni guiones) en más de una cuenta
+            norm = _normalized_document_expr()
+            dup_docs = select(norm).where(User.document_id.isnot(None), User.document_id != "").group_by(norm).having(func.count(User.id) > 1)
+            query = query.where(User.document_id.isnot(None), norm.in_(dup_docs))
             
         if role_id is not None:
             query = query.join(User.roles).where(Role.id == role_id)
@@ -112,6 +127,17 @@ class UserService:
         
         result = await db.execute(query)
         data = result.scalars().all()
+
+        # Marca cuántas cuentas comparten el documento de cada usuario de la página
+        docs = {_normalize_document(u.document_id) for u in data if u.document_id}
+        if docs:
+            norm = _normalized_document_expr()
+            counts = dict((await db.execute(
+                select(norm, func.count(User.id)).where(norm.in_(list(docs))).group_by(norm)
+            )).all())
+            for u in data:
+                n = counts.get(_normalize_document(u.document_id), 1) if u.document_id else 1
+                u.duplicate_document_count = n if n > 1 else 0
         
         return {
             "total": total,
@@ -346,6 +372,23 @@ class UserService:
         return await UserService.get_user_by_id(db, user.id)
 
     @staticmethod
+    async def get_duplicate_accounts(db: AsyncSession, user: User) -> dict:
+        """Cuentas que comparten el documento del usuario. Las ajenas se devuelven con el correo parcial."""
+        accounts = []
+        doc = _normalize_document(user.document_id)
+        if doc:
+            res = await db.execute(select(User).where(_normalized_document_expr() == doc).order_by(User.id))
+            for other in res.scalars().all():
+                accounts.append({
+                    "id": other.id,
+                    "email": other.email if other.id == user.id else _mask_email(other.email),
+                    "is_self": other.id == user.id,
+                })
+        if len(accounts) < 2:
+            return {"accounts": [], "keep_account_id": None}
+        return {"accounts": accounts, "keep_account_id": user.unify_keep_user_id}
+
+    @staticmethod
     async def update_profile(db: AsyncSession, user_id: int, profile_data: dict) -> User:
         user = await UserService.get_user_by_id(db, user_id)
 
@@ -383,6 +426,23 @@ class UserService:
                     status_code=422,
                     detail="Para completar la actualización obligatoria indica tu primer nombre y tu primer apellido."
                 )
+
+        # Documento repetido en varias cuentas: debe elegir con cuál correo seguirá iniciando sesión
+        dup = await UserService.get_duplicate_accounts(db, user)
+        keep_id = profile_data.get("keep_account_id")
+        if dup["accounts"]:
+            valid_ids = {a["id"] for a in dup["accounts"]}
+            if keep_id is not None and keep_id not in valid_ids:
+                raise HTTPException(status_code=422, detail="La cuenta elegida no corresponde a tu documento.")
+            if user.must_update_profile and keep_id is None and not user.unify_keep_user_id:
+                raise HTTPException(status_code=422, detail="Tu documento está en más de una cuenta. Elige con cuál correo seguirás iniciando sesión.")
+            if keep_id is not None:
+                user.unify_keep_user_id = keep_id
+                user.unify_answered_at = datetime.utcnow()
+
+        # En la actualización obligatoria el correo no se puede cambiar: es el que identifica la cuenta
+        if user.must_update_profile and profile_data.get("email") and profile_data["email"].lower() != user.email.lower():
+            raise HTTPException(status_code=422, detail="El correo electrónico no se puede modificar en la actualización obligatoria de datos.")
 
         # Validate unique email if changing
         if "email" in profile_data and profile_data["email"] and profile_data["email"].lower() != user.email.lower():
