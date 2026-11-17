@@ -9,7 +9,10 @@ import { usersService } from '../../../services/users';
 export const MandatoryProfileUpdateModal: React.FC = () => {
   const { user, setUser } = useAuthStore();
 
-  const [name, setName] = useState(user?.name || '');
+  const [firstName, setFirstName] = useState(user?.first_name || '');
+  const [middleName, setMiddleName] = useState(user?.middle_name || '');
+  const [lastName, setLastName] = useState(user?.last_name || '');
+  const [secondLastName, setSecondLastName] = useState(user?.second_last_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [documentId, setDocumentId] = useState(user?.document_id || '');
   const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
@@ -31,8 +34,12 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
-      setError('Por favor ingresa tu nombre completo.');
+    if (!firstName.trim()) {
+      setError('Por favor ingresa tu primer nombre.');
+      return;
+    }
+    if (!lastName.trim()) {
+      setError('Por favor ingresa tu primer apellido.');
       return;
     }
     if (!documentId.trim()) {
@@ -67,7 +74,10 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
     try {
       setIsSaving(true);
       const updatedUser = await usersService.updateMyProfile({
-        name: name.trim(),
+        first_name: firstName.trim(),
+        middle_name: middleName.trim() || null,
+        last_name: lastName.trim(),
+        second_last_name: secondLastName.trim() || null,
         email: email.trim(),
         document_id: documentId.trim(),
         phone_number: phoneNumber.trim(),
@@ -144,19 +154,60 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
               Información Personal
             </div>
 
-            {/* Nombre Completo */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700">
-                Nombre Completo <span className="text-red-500 font-bold">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. Juan Pérez"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white transition-all font-medium"
-              />
+            {/* Nombres y apellidos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Primer Nombre <span className="text-red-500 font-bold">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Ej. Juan"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Segundo Nombre <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
+                  placeholder="Ej. Carlos"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Primer Apellido <span className="text-red-500 font-bold">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Ej. Pérez"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white transition-all font-medium"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  Segundo Apellido <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  
+                  value={secondLastName}
+                  onChange={(e) => setSecondLastName(e.target.value)}
+                  placeholder="Ej. Gómez"
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white transition-all font-medium"
+                />
+              </div>
             </div>
 
             {/* Correo Electrónico */}

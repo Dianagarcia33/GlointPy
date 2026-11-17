@@ -33,6 +33,10 @@ export interface UserSummary {
 export interface User {
   id: number;
   name: string;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
+  second_last_name?: string | null;
   email: string;
   document_id?: string | null;
   phone_number?: string | null;
@@ -59,7 +63,11 @@ export interface PaginatedUsers {
 }
 
 export interface UserCreate {
-  name: string;
+  name?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  second_last_name?: string;
   email: string;
   document_id?: string;
   phone_number?: string;
@@ -71,6 +79,10 @@ export interface UserCreate {
 
 export interface UserUpdate {
   name?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  second_last_name?: string;
   email?: string;
   document_id?: string;
   phone_number?: string;
@@ -374,7 +386,11 @@ export const usersService = {
 };
 
 export interface UserProfileUpdateData {
-  name: string;
+  name?: string;
+  first_name: string;
+  middle_name?: string | null;
+  last_name: string;
+  second_last_name?: string | null;
   email: string;
   document_id?: string | null;
   phone_number?: string | null;

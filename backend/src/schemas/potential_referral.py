@@ -1,4 +1,5 @@
 import re
+from src.schemas.user import NamePartsMixin
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
@@ -54,8 +55,7 @@ class PotentialReferralResponse(PotentialReferralBase):
     class Config:
         from_attributes = True
 
-class PotentialReferralConvertRequest(BaseModel):
-    name: str
+class PotentialReferralConvertRequest(NamePartsMixin):
     email: str
     password: Optional[str] = None
     tipo_documento: str

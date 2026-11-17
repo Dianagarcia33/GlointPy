@@ -24,6 +24,15 @@ const CITIES = [
     "Villavicencio", "Santa Marta", "Valledupar", "Montería", "Pasto", "Otra"
 ];
 
+// El referido llega con el nombre completo en un solo texto: se propone una separación que el asesor corrige.
+const splitFullName = (full: string) => {
+    const w = full.trim().split(/\s+/).filter(Boolean);
+    if (w.length >= 4) return { first_name: w[0], middle_name: w[1], last_name: w[2], second_last_name: w.slice(3).join(' ') };
+    if (w.length === 3) return { first_name: w[0], middle_name: '', last_name: w[1], second_last_name: w[2] };
+    if (w.length === 2) return { first_name: w[0], middle_name: '', last_name: w[1], second_last_name: '' };
+    return { first_name: w[0] || '', middle_name: '', last_name: '', second_last_name: '' };
+};
+
 export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     isOpen,
     onClose,
@@ -39,7 +48,10 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     const [isCustomMonto, setIsCustomMonto] = useState(false);
 
     const [formData, setFormData] = useState({
-        name: '',
+        first_name: '',
+        middle_name: '',
+        last_name: '',
+        second_last_name: '',
         email: '',
         tipo_documento: 'CC',
         documento: '',
@@ -86,7 +98,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     useEffect(() => {
         if (referral && isOpen) {
             setFormData({
-                name: referral.nombre || '',
+                ...splitFullName(referral.nombre || ''),
                 email: referral.email || '',
                 tipo_documento: 'CC',
                 documento: '',
@@ -174,7 +186,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!formData.name || !formData.email || !formData.documento || !formData.numero_celular) {
+        if (!formData.first_name.trim() || !formData.last_name.trim() || !formData.email || !formData.documento || !formData.numero_celular) {
             setError('Por favor diligencia todos los datos personales obligatorios del cliente.');
             return;
         }
@@ -207,7 +219,10 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
         try {
             const finalCity = formData.ciudad === 'Otra' ? formData.custom_ciudad : formData.ciudad;
             const payload = {
-                name: formData.name.trim(),
+                first_name: formData.first_name.trim(),
+                middle_name: formData.middle_name.trim() || null,
+                last_name: formData.last_name.trim(),
+                second_last_name: formData.second_last_name.trim() || null,
                 email: formData.email.trim(),
                 tipo_documento: formData.tipo_documento,
                 documento: formData.documento.trim(),
@@ -330,12 +345,42 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Nombre Completo *</label>
+                                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Primer Nombre *</label>
                                     <input 
                                         type="text" 
                                         required 
-                                        value={formData.name} 
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })} 
+                                        value={formData.first_name} 
+                                        onChange={e => setFormData({ ...formData, first_name: e.target.value })} 
+                                        className="w-full px-3.5 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs font-semibold text-slate-900 outline-none transition-all" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Segundo Nombre (opcional)</label>
+                                    <input 
+                                        type="text" 
+                                        
+                                        value={formData.middle_name} 
+                                        onChange={e => setFormData({ ...formData, middle_name: e.target.value })} 
+                                        className="w-full px-3.5 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs font-semibold text-slate-900 outline-none transition-all" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Primer Apellido *</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={formData.last_name} 
+                                        onChange={e => setFormData({ ...formData, last_name: e.target.value })} 
+                                        className="w-full px-3.5 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs font-semibold text-slate-900 outline-none transition-all" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Segundo Apellido (opcional)</label>
+                                    <input 
+                                        type="text" 
+                                        
+                                        value={formData.second_last_name} 
+                                        onChange={e => setFormData({ ...formData, second_last_name: e.target.value })} 
                                         className="w-full px-3.5 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs font-semibold text-slate-900 outline-none transition-all" 
                                     />
                                 </div>

@@ -274,6 +274,10 @@ class PotentialReferralService:
 
         new_user = User(
             name=data.name,
+            first_name=data.first_name,
+            middle_name=data.middle_name,
+            last_name=data.last_name,
+            second_last_name=data.second_last_name,
             email=data.email,
             password_hash=hashed_pwd,
             must_change_password=True,

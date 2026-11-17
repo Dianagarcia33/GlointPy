@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, Any, Literal
 
-from src.schemas.user import UserResponse
+from src.schemas.user import UserResponse, NamePartsMixin
 
 class Token(BaseModel):
     access_token: str
@@ -41,14 +41,12 @@ class LoginRequest(BaseModel):
     password: str
     client: Optional[ClientInfo] = None
 
-class RegisterRequest(BaseModel):
-    name: str
+class RegisterRequest(NamePartsMixin):
     email: EmailStr
     password: str
     commercial_id: Optional[int] = None
 
-class InvestorRegisterRequest(BaseModel):
-    name: str
+class InvestorRegisterRequest(NamePartsMixin):
     documento: str
     tipo_documento: str
     fecha_expedicion: Optional[str] = None

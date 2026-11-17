@@ -36,7 +36,10 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
 
     // Form Data State
     const [formData, setFormData] = useState({
-        name: '',
+        first_name: '',
+        middle_name: '',
+        last_name: '',
+        second_last_name: '',
         documento: '',
         tipo_documento: 'CC',
         fecha_expedicion: '',
@@ -297,7 +300,10 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
         const finalCity = formData.ciudad === 'Otra' ? formData.custom_ciudad : formData.ciudad;
 
         const payload = {
-            name: formData.name.trim(),
+            first_name: formData.first_name.trim(),
+            middle_name: formData.middle_name.trim() || null,
+            last_name: formData.last_name.trim(),
+            second_last_name: formData.second_last_name.trim() || null,
             documento: formData.documento.trim(),
             tipo_documento: formData.tipo_documento,
             fecha_expedicion: formData.fecha_expedicion || null,
@@ -361,7 +367,8 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
         const isExpedicionValid = !!formData.fecha_expedicion && formData.fecha_expedicion <= getTodayDate();
 
         return (
-            !!formData.name.trim() &&
+            !!formData.first_name.trim() &&
+            !!formData.last_name.trim() &&
             !!formData.tipo_documento &&
             !!formData.documento.trim() &&
             isExpedicionValid &&
@@ -377,7 +384,8 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
     const getStep3Issues = (): string[] => {
         const issues: string[] = [];
         const age = calculateAge(formData.fecha_nacimiento);
-        if (!formData.name.trim()) issues.push('Nombre completo');
+        if (!formData.first_name.trim()) issues.push('Primer nombre');
+        if (!formData.last_name.trim()) issues.push('Primer apellido');
         if (!formData.tipo_documento) issues.push('Tipo de documento');
         if (!formData.documento.trim()) issues.push('Número de documento');
         if (!formData.fecha_expedicion) issues.push('Fecha de expedición');
@@ -639,13 +647,40 @@ export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) 
                             ) : null}
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Completo *</label>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Primer Nombre *</label>
                                     <div className="relative group">
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <User className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Ana Pérez Gómez" />
+                                        <input required type="text" name="first_name" value={formData.first_name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Ana" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Segundo Nombre <span className="font-normal text-slate-400">(opcional)</span></label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <User className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input type="text" name="middle_name" value={formData.middle_name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: María" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Primer Apellido *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <User className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required type="text" name="last_name" value={formData.last_name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Pérez" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Segundo Apellido <span className="font-normal text-slate-400">(opcional)</span></label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <User className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input type="text" name="second_last_name" value={formData.second_last_name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Gómez" />
                                     </div>
                                 </div>
                                 <div>

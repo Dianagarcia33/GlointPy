@@ -9,7 +9,13 @@ class User(Base):
     __tablename__ = 'users'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
+    # Nombre completo derivado de las partes (first_name + middle_name + last_name + second_last_name).
+    # Se conserva porque contratos, correos, auditoría y búsquedas lo leen; se arma con compose_full_name().
     name = Column(String(255), nullable=False)
+    first_name = Column(String(100), nullable=True)
+    middle_name = Column(String(100), nullable=True)
+    last_name = Column(String(100), nullable=True)
+    second_last_name = Column(String(100), nullable=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     

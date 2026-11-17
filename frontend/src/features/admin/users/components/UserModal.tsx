@@ -14,7 +14,10 @@ interface UserModalProps {
 
 export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, user, roles }) => {
   const [formData, setFormData] = useState<UserCreate | UserUpdate>({
-    name: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    second_last_name: '',
     email: '',
     document_id: '',
     phone_number: '',
@@ -94,7 +97,10 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
   useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name,
+        first_name: user.first_name || '',
+        middle_name: user.middle_name || '',
+        last_name: user.last_name || '',
+        second_last_name: user.second_last_name || '',
         email: user.email,
         document_id: user.document_id || '',
         phone_number: user.phone_number || '',
@@ -106,7 +112,10 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
       setSelectedParent(user.parent || null);
     } else {
       setFormData({
-        name: '',
+        first_name: '',
+        middle_name: '',
+        last_name: '',
+        second_last_name: '',
         email: '',
         document_id: '',
         phone_number: '',
@@ -160,8 +169,12 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.name.trim()) {
-      setError('El nombre del usuario es obligatorio');
+    if (!formData.first_name || !formData.first_name.trim()) {
+      setError('El primer nombre es obligatorio');
+      return;
+    }
+    if (!formData.last_name || !formData.last_name.trim()) {
+      setError('El primer apellido es obligatorio');
       return;
     }
     if (!formData.email || !formData.email.trim()) {
@@ -191,7 +204,10 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
 
     try {
       const payload: any = {
-        name: formData.name.trim(),
+        first_name: formData.first_name.trim(),
+        middle_name: formData.middle_name?.trim() || null,
+        last_name: formData.last_name.trim(),
+        second_last_name: formData.second_last_name?.trim() || null,
         email: formData.email.trim(),
         document_id: formData.document_id.trim(),
         phone_number: formData.phone_number ? formData.phone_number.trim() : null,
@@ -293,15 +309,51 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Nombre Completo <span className="text-red-500">*</span></label>
+                  <label className="text-xs font-semibold text-slate-700">Primer Nombre <span className="text-red-500">*</span></label>
                   <input
                     type="text"
-                    name="name"
+                    name="first_name"
                     required
-                    value={formData.name || ''}
+                    value={formData.first_name || ''}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-900"
-                    placeholder="Nombre completo"
+                    placeholder="Primer nombre"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Segundo Nombre <span className="text-slate-400 font-normal">(opcional)</span></label>
+                  <input
+                    type="text"
+                    name="middle_name"
+                   
+                    value={formData.middle_name || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-900"
+                    placeholder="Segundo nombre"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Primer Apellido <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    required
+                    value={formData.last_name || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-900"
+                    placeholder="Primer apellido"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700">Segundo Apellido <span className="text-slate-400 font-normal">(opcional)</span></label>
+                  <input
+                    type="text"
+                    name="second_last_name"
+                   
+                    value={formData.second_last_name || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-900"
+                    placeholder="Segundo apellido"
                   />
                 </div>
 

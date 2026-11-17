@@ -4,6 +4,10 @@ import { persist } from 'zustand/middleware';
 export interface User {
   id: number;
   name: string;
+  first_name?: string | null;
+  middle_name?: string | null;
+  last_name?: string | null;
+  second_last_name?: string | null;
   email: string;
   is_active: boolean;
   is_superuser?: boolean;
@@ -81,7 +85,9 @@ export const useAuthStore = create<AuthState>()(
               (state.user.permissions || []).every((p, i) => p === (normalized.permissions || [])[i]);
             const sameRoles = (state.user.roles_list || []).length === (normalized.roles_list || []).length &&
               (state.user.roles_list || []).every((r, i) => r === (normalized.roles_list || [])[i]);
-            const sameName = state.user.name === normalized.name;
+            const sameName = state.user.name === normalized.name &&
+              state.user.first_name === normalized.first_name && state.user.middle_name === normalized.middle_name &&
+              state.user.last_name === normalized.last_name && state.user.second_last_name === normalized.second_last_name;
             const sameEmail = state.user.email === normalized.email;
             const sameDoc = state.user.document_id === normalized.document_id;
             const samePhone = state.user.phone_number === normalized.phone_number;

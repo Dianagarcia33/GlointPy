@@ -32,7 +32,10 @@ export const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'personal' | 'security'>('personal');
 
   // Personal Info Form
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [secondLastName, setSecondLastName] = useState('');
   const [email, setEmail] = useState('');
   const [documentId, setDocumentId] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -59,7 +62,10 @@ export const ProfilePage: React.FC = () => {
     let isMounted = true;
 
     if (user) {
-      setName(user.name || '');
+      setFirstName(user.first_name || '');
+      setMiddleName(user.middle_name || '');
+      setLastName(user.last_name || '');
+      setSecondLastName(user.second_last_name || '');
       setEmail(user.email || '');
       setDocumentId(user.document_id || '');
       setPhoneNumber(user.phone_number || '');
@@ -76,7 +82,10 @@ export const ProfilePage: React.FC = () => {
       .then((freshUser) => {
         if (!isMounted || !freshUser) return;
         setUser(freshUser as any);
-        setName(freshUser.name || '');
+        setFirstName(freshUser.first_name || '');
+        setMiddleName(freshUser.middle_name || '');
+        setLastName(freshUser.last_name || '');
+        setSecondLastName(freshUser.second_last_name || '');
         setEmail(freshUser.email || '');
         setDocumentId(freshUser.document_id || '');
         setPhoneNumber(freshUser.phone_number || '');
@@ -103,8 +112,12 @@ export const ProfilePage: React.FC = () => {
     setProfileError(null);
     setProfileSuccess(null);
 
-    if (!name.trim()) {
-      setProfileError('El nombre completo es requerido.');
+    if (!firstName.trim()) {
+      setProfileError('El primer nombre es requerido.');
+      return;
+    }
+    if (!lastName.trim()) {
+      setProfileError('El primer apellido es requerido.');
       return;
     }
     if (!email.trim()) {
@@ -129,7 +142,10 @@ export const ProfilePage: React.FC = () => {
     try {
       setIsSavingProfile(true);
       const updatedUser = await usersService.updateMyProfile({
-        name: name.trim(),
+        first_name: firstName.trim(),
+        middle_name: middleName.trim() || null,
+        last_name: lastName.trim(),
+        second_last_name: secondLastName.trim() || null,
         email: email.trim(),
         document_id: documentId.trim() || undefined,
         phone_number: phoneNumber.trim() || undefined,
@@ -365,14 +381,56 @@ export const ProfilePage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                  Nombre Completo <span className="text-rose-500">*</span>
+                  Primer Nombre <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Tu nombre completo"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Tu primer nombre"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Segundo Nombre <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
+                  placeholder="Tu segundo nombre"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Primer Apellido <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Tu primer apellido"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                  Segundo Apellido <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  
+                  value={secondLastName}
+                  onChange={(e) => setSecondLastName(e.target.value)}
+                  placeholder="Tu segundo apellido"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-sans"
                 />
               </div>

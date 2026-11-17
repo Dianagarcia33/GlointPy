@@ -182,6 +182,10 @@ class UserService:
         temp_password = generate_secure_temp_password(12)
         user = User(
             name=user_data["name"],
+            first_name=user_data.get("first_name"),
+            middle_name=user_data.get("middle_name"),
+            last_name=user_data.get("last_name"),
+            second_last_name=user_data.get("second_last_name"),
             email=user_data["email"],
             document_id=user_data.get("document_id"),
             phone_number=user_data.get("phone_number"),
@@ -309,8 +313,10 @@ class UserService:
             "email": _mask_email(user.email), "is_active": bool(user.is_active),
             "parent_user_id": user.parent_user_id, "roles": sorted(r.id for r in (user.roles or [])),
         }
+        from src.core.person_name import apply_name_parts, NAME_PART_FIELDS
+        apply_name_parts(user, user_data)
         for key, value in user_data.items():
-            if key != "role_ids":
+            if key != "role_ids" and key not in NAME_PART_FIELDS:
                 setattr(user, key, value)
 
         # Desactivar una cuenta cierra sus sesiones: si se reactiva más tarde, los tokens viejos no reviven
@@ -370,6 +376,13 @@ class UserService:
                     status_code=422,
                     detail="Para completar la actualización obligatoria indica tu documento de identidad, teléfono y fecha de nacimiento."
                 )
+            final_first = profile_data.get("first_name") if "first_name" in profile_data else user.first_name
+            final_last = profile_data.get("last_name") if "last_name" in profile_data else user.last_name
+            if not (final_first and final_first.strip() and final_last and final_last.strip()):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Para completar la actualización obligatoria indica tu primer nombre y tu primer apellido."
+                )
 
         # Validate unique email if changing
         if "email" in profile_data and profile_data["email"] and profile_data["email"].lower() != user.email.lower():
@@ -387,7 +400,10 @@ class UserService:
                     raise HTTPException(status_code=400, detail="El documento de identidad ya está registrado por otro usuario.")
             user.document_id = doc_id
 
-        if "name" in profile_data and profile_data["name"]:
+        from src.core.person_name import apply_name_parts
+        if any(profile_data.get(k) for k in ("first_name", "last_name")):
+            apply_name_parts(user, profile_data)
+        elif "name" in profile_data and profile_data["name"]:
             user.name = profile_data["name"].strip()
 
         if "phone_number" in profile_data:

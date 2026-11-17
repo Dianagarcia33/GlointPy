@@ -4,9 +4,36 @@ from datetime import datetime
 from src.schemas.security import RoleResponse
 from src.schemas.user_bank_account import UserBankAccountResponse
 from src.schemas.wallet import WalletResponse
+from src.core.person_name import compose_full_name, clean_part
 
-class UserBase(BaseModel):
-    name: str
+
+class NamePartsMixin(BaseModel):
+    """Primer nombre y primer apellido obligatorios; segundo nombre y segundo apellido opcionales.
+    `name` (nombre completo) se calcula; si un cliente antiguo solo manda `name`, se acepta tal cual."""
+    name: Optional[str] = None
+    first_name: Optional[str] = Field(None, max_length=100)
+    middle_name: Optional[str] = Field(None, max_length=100)
+    last_name: Optional[str] = Field(None, max_length=100)
+    second_last_name: Optional[str] = Field(None, max_length=100)
+
+    @model_validator(mode='after')
+    def _compose_name(self):
+        if clean_part(self.first_name) or clean_part(self.last_name):
+            if not clean_part(self.first_name):
+                raise ValueError("El primer nombre es obligatorio.")
+            if not clean_part(self.last_name):
+                raise ValueError("El primer apellido es obligatorio.")
+            self.first_name = clean_part(self.first_name)
+            self.middle_name = clean_part(self.middle_name)
+            self.last_name = clean_part(self.last_name)
+            self.second_last_name = clean_part(self.second_last_name)
+            self.name = compose_full_name(self.first_name, self.middle_name, self.last_name, self.second_last_name)
+        elif not clean_part(self.name):
+            raise ValueError("El primer nombre y el primer apellido son obligatorios.")
+        return self
+
+
+class UserBase(NamePartsMixin):
     email: EmailStr
     document_id: Optional[str] = None
     phone_number: Optional[str] = None
@@ -59,6 +86,10 @@ class UserCreateAdmin(UserBase):
 class UserUpdate(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: Optional[str] = None
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    middle_name: Optional[str] = Field(None, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    second_last_name: Optional[str] = Field(None, max_length=100)
     email: Optional[EmailStr] = None
     document_id: Optional[str] = None
     phone_number: Optional[str] = None
@@ -78,6 +109,10 @@ class UserUpdate(BaseModel):
 class UserUpdateAdmin(BaseModel):
     model_config = ConfigDict(extra="ignore")
     name: Optional[str] = None
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    middle_name: Optional[str] = Field(None, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    second_last_name: Optional[str] = Field(None, max_length=100)
     email: Optional[EmailStr] = None
     document_id: Optional[str] = None
     phone_number: Optional[str] = None
@@ -99,9 +134,8 @@ class UserUpdateAdmin(BaseModel):
             raise ValueError("El usuario debe tener al menos un rol asignado")
         return v
 
-class UserProfileUpdate(BaseModel):
+class UserProfileUpdate(NamePartsMixin):
     model_config = ConfigDict(extra="ignore")
-    name: str = Field(..., min_length=2, max_length=255)
     email: EmailStr
     document_id: Optional[str] = Field(None, max_length=50)
     phone_number: Optional[str] = Field(None, max_length=50)
@@ -123,6 +157,10 @@ class ForceProfileUpdateRequest(BaseModel):
 class UserSummaryOut(BaseModel):
     id: int
     name: str
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    second_last_name: Optional[str] = None
     email: str
     document_id: Optional[str] = None
     date_of_birth: Optional[Any] = None
@@ -132,6 +170,10 @@ class UserSummaryOut(BaseModel):
 class UserResponse(BaseModel):
     id: int
     name: str
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
+    second_last_name: Optional[str] = None
     email: str
     document_id: Optional[str] = None
     phone_number: Optional[str] = None
