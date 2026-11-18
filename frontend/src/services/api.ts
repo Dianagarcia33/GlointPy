@@ -5,11 +5,16 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/ap
 export function getMediaUrl(path: string | null | undefined): string {
   if (!path) return '';
   
-  // Proxy external HTTP ticket images when running on HTTPS
-  if (path.startsWith('http://161.35.107.122') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
+  // Imágenes de la app externa de tickets: pasan por el proxy del backend (la web es HTTPS y el origen es HTTP).
+  // También repara URLs guardadas con el servidor duplicado ("http://IPhttp://dominio/...").
+  const lastScheme = Math.max(path.lastIndexOf('http://'), path.lastIndexOf('https://'));
+  const ticketUrl = lastScheme > 0 ? path.slice(lastScheme) : path;
+  const isTicketMedia = /^https?:\/\/(161\.35\.107\.122|tickeds\.glointech\.com\.co)(\/|$)/.test(ticketUrl);
+  if (isTicketMedia && typeof window !== 'undefined' && window.location.protocol === 'https:') {
     const baseUrl = API_URL.replace(/\/api\/v1\/?$/, '');
-    return `${baseUrl}/api/v1/tickets/image-proxy?url=${encodeURIComponent(path)}`;
+    return `${baseUrl}/api/v1/tickets/image-proxy?url=${encodeURIComponent(ticketUrl)}`;
   }
+  if (isTicketMedia) return ticketUrl;
 
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;

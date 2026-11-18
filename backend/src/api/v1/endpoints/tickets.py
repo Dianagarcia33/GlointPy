@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException, Body
 from typing import Any, Optional
 import httpx
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
+from urllib.parse import urlparse
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db
 from src.api.deps import get_current_user
@@ -74,19 +75,44 @@ async def get_my_tickets(current_user: User = Depends(get_current_user)) -> Any:
     """
     return await TicketService.get_user_tickets(user_id=str(current_user.id))
 
+# Servidores desde los que la app de tickets entrega las imágenes (el proxy solo atiende estos)
+TICKET_IMAGE_HOSTS = {"161.35.107.122", "tickeds.glointech.com.co"}
+TICKET_IMAGE_PATHS = ("/uploads/", "/api/v1/uploads/")
+
+
+def _clean_ticket_image_url(url: str) -> str:
+    """Repara URLs guardadas con el servidor duplicado ("http://IPhttp://dominio/...") quedándose con la última."""
+    last = url.rfind("http://")
+    last_https = url.rfind("https://")
+    start = max(last, last_https)
+    return url[start:] if start > 0 else url
+
+
 @router.get("/image-proxy")
-async def proxy_ticket_image(url: str):
+async def proxy_ticket_image(url: str, current_user: User = Depends(get_current_user)):
     """
     Proxy interno para evitar errores de Mixed Content (HTTPS -> HTTP) en el frontend
     al cargar imágenes desde el sistema externo de tickets.
     """
-    if not url.startswith("http://161.35.107.122"):
+    url = _clean_ticket_image_url(url)
+    parsed = urlparse(url)
+    # Se valida el host exacto (startswith dejaría pasar "161.35.107.122.otro.com")
+    if parsed.scheme not in ("http", "https") or parsed.hostname not in TICKET_IMAGE_HOSTS:
         raise HTTPException(status_code=403, detail="No autorizado para hacer proxy de esta URL")
-        
-    client = httpx.AsyncClient()
-    req = client.build_request("GET", url)
-    r = await client.send(req, stream=True)
-    return StreamingResponse(r.aiter_raw(), media_type=r.headers.get("Content-Type", "image/jpeg"))
+    # Solo la carpeta de archivos: con la llave, cualquier otra ruta del host (p. ej. el listado de tickets)
+    # quedaría expuesta. ".." se rechaza para no salir de esa carpeta.
+    if not parsed.path.startswith(TICKET_IMAGE_PATHS) or ".." in parsed.path:
+        raise HTTPException(status_code=403, detail="No autorizado para hacer proxy de esta URL")
+
+    # Los archivos se descargan sin llave: no se envía X-API-KEY (así el proxy no expone nada más del host)
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            r = await client.get(url)
+        except httpx.HTTPError:
+            raise HTTPException(status_code=502, detail="No se pudo obtener la imagen del sistema de tickets.")
+    if r.status_code != 200:
+        raise HTTPException(status_code=404 if r.status_code == 404 else 502, detail="Imagen no disponible.")
+    return Response(content=r.content, media_type=r.headers.get("Content-Type", "image/jpeg"))
 
 @router.get("/{ticket_number}")
 async def get_ticket(ticket_number: str, current_user: User = Depends(get_current_user)) -> Any:

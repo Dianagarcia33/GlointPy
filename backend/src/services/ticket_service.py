@@ -32,8 +32,12 @@ class TicketService:
                 response = await client.post(url, files=files, headers=headers)
                 response.raise_for_status()
                 data = response.json()
-                # Construir la URL completa
-                return "http://161.35.107.122" + data["url"]
+                # La app de tickets puede devolver la ruta ("/uploads/x.jpg") o la URL completa: solo se antepone
+                # el servidor cuando viene la ruta (antes se concatenaba siempre y la URL quedaba duplicada).
+                raw_url = data["url"]
+                if raw_url.startswith(("http://", "https://")):
+                    return raw_url
+                return "http://161.35.107.122" + raw_url
             except httpx.HTTPStatusError as exc:
                 logger.error(f"HTTPStatusError al subir archivo: {exc.response.text}")
                 raise HTTPException(
