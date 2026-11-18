@@ -23,10 +23,13 @@ class TicketService:
         url = settings.TICKEDS_API_UPLOAD_URL
         content = await file.read()
         files = {"file": (file.filename, content, file.content_type)}
-        
+        # La app de tickets exige autenticación para subir archivos (RF-032 / RNF-005): sin la llave responde 401.
+        # No se fija Content-Type: httpx lo arma con el boundary del multipart.
+        headers = {"X-API-KEY": settings.TICKEDS_API_KEY}
+
         async with httpx.AsyncClient(timeout=60.0) as client:
             try:
-                response = await client.post(url, files=files)
+                response = await client.post(url, files=files, headers=headers)
                 response.raise_for_status()
                 data = response.json()
                 # Construir la URL completa
