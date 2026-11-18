@@ -7,6 +7,15 @@ from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+def upstream_status(code: int) -> int:
+    """
+    Código HTTP que Gloint devuelve cuando falla la app externa de tickets.
+    Un 401/403 de la app externa (llave rechazada, etc.) NO debe llegar tal cual al navegador: el frontend
+    interpreta todo 401 como sesión vencida y cierra la sesión del usuario, aunque la suya esté bien.
+    """
+    return 502 if code in (401, 403) else code
+
 class TicketService:
     @classmethod
     async def upload_attachment(cls, file: UploadFile) -> str:
@@ -25,7 +34,7 @@ class TicketService:
             except httpx.HTTPStatusError as exc:
                 logger.error(f"HTTPStatusError al subir archivo: {exc.response.text}")
                 raise HTTPException(
-                    status_code=exc.response.status_code, 
+                    status_code=upstream_status(exc.response.status_code), 
                     detail=f"Error subiendo el archivo al sistema de tickets: {exc.response.text}"
                 )
             except Exception as e:
@@ -78,7 +87,7 @@ class TicketService:
                 error_detail = exc.response.text
                 logger.error(f"HTTPStatusError al crear ticket: {error_detail}")
                 raise HTTPException(
-                    status_code=exc.response.status_code, 
+                    status_code=upstream_status(exc.response.status_code), 
                     detail=f"Error desde API externa de tickets: {error_detail}"
                 )
             except Exception as e:
@@ -104,7 +113,7 @@ class TicketService:
             except httpx.HTTPStatusError as exc:
                 logger.error(f"HTTPStatusError al obtener tickets: {exc.response.text}")
                 raise HTTPException(
-                    status_code=exc.response.status_code, 
+                    status_code=upstream_status(exc.response.status_code), 
                     detail=f"Error obteniendo tickets: {exc.response.text}"
                 )
             except Exception as e:
@@ -127,7 +136,7 @@ class TicketService:
             except httpx.HTTPStatusError as exc:
                 logger.error(f"HTTPStatusError al obtener ticket {ticket_number}: {exc.response.text}")
                 raise HTTPException(
-                    status_code=exc.response.status_code, 
+                    status_code=upstream_status(exc.response.status_code), 
                     detail=f"Error obteniendo el ticket: {exc.response.text}"
                 )
             except Exception as e:
@@ -165,7 +174,7 @@ class TicketService:
             except httpx.HTTPStatusError as exc:
                 logger.error(f"HTTPStatusError al responder ticket {ticket_number}: {exc.response.text}")
                 raise HTTPException(
-                    status_code=exc.response.status_code, 
+                    status_code=upstream_status(exc.response.status_code), 
                     detail=f"Error respondiendo el ticket: {exc.response.text}"
                 )
             except Exception as e:
